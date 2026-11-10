@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+        />
+        <title>smart-text2command</title>
+        <script>
+            window.registerSocketOnLoad = function (callback) {
+                window.socketLoadedHandler = callback;
+            };
+            const script = document.createElement('script');
+            script.onload = function () {
+                if (typeof window.socketLoadedHandler === 'function') window.socketLoadedHandler();
+            };
+            const query = new URLSearchParams(window.location.search);
+            script.src =
+                window.location.port === '3000'
+                    ? `${window.location.protocol}//${query.get('host') || window.location.hostname}:${query.get('port') || '8081'}/lib/js/socket.io.js`
+                    : '../../lib/js/socket.io.js';
+            document.head.appendChild(script);
+        </script>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script
+            type="module"
+            src="/src/main.tsx"
+        ></script>
+    </body>
+</html>

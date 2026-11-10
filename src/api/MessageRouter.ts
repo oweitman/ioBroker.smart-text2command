@@ -69,15 +69,20 @@ export class MessageRouter {
                 const limit = this.int(payload.limit, 1, 100, 50);
                 const filter =
                     typeof payload.filter === 'string' ? payload.filter.toLocaleLowerCase().slice(0, 100) : '';
+                const room = typeof payload.room === 'string' ? payload.room.slice(0, 200) : '';
+                const capability = typeof payload.capability === 'string' ? payload.capability.slice(0, 100) : '';
                 const devices = this.options.catalog
                     .list()
                     .filter(
                         device =>
-                            !filter ||
-                            device.displayName.toLocaleLowerCase().includes(filter) ||
-                            device.id.toLocaleLowerCase().includes(filter),
+                            (!filter ||
+                                device.displayName.toLocaleLowerCase().includes(filter) ||
+                                device.id.toLocaleLowerCase().includes(filter)) &&
+                            (!room || device.roomIds.includes(room)) &&
+                            (!capability || device.discoveredCapabilities.some(item => item.kind === capability)),
                     );
-                return { total: devices.length, devices: devices.slice(offset, offset + limit) };
+                const rooms = [...new Set(this.options.catalog.list().flatMap(device => device.roomIds))].sort();
+                return { total: devices.length, devices: devices.slice(offset, offset + limit), rooms };
             }
             if (command === 'getDiagnostics') {
                 return this.options.diagnostics();
@@ -105,6 +110,18 @@ export class MessageRouter {
             }
             if (command === 'deleteIntent') {
                 return this.deleteIntent(payload);
+            }
+            if (command === 'exportIntents') {
+                return { schemaVersion: 1, intents: this.options.getUserIntents() };
+            }
+            if (command === 'importIntents') {
+                if (payload.schemaVersion !== 1 || !Array.isArray(payload.intents)) {
+                    throw new Error('Invalid intent import');
+                }
+                const intents = payload.intents as IntentDefinition[];
+                await this.options.intentRepository.save(intents);
+                this.options.setUserIntents(intents);
+                return { status: 'imported', count: intents.length };
             }
             if (command === 'trainModel') {
                 if (!this.options.modelReady()) {

@@ -86,6 +86,8 @@ describe('command pipeline', () => {
             'admin.0',
         );
         expect(analysis.actions?.[0].status).to.equal('planned');
+        expect(analysis.analysis?.policyDecision).to.equal('allowed');
+        expect(analysis.analysis?.plan?.stateId).to.equal('plug.0.lamp.POWER');
         expect(writes).to.be.empty;
         const request = { requestId: 'a2', text: 'Schalte Lampe ein', mode: 'execute' } as const;
         const executed = await controller.process(request, 'admin.0');

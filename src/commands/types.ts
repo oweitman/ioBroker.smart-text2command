@@ -31,6 +31,13 @@ export interface CommandResult {
     clarification?: { id: string; key: 'device' | 'value'; options?: Array<{ id: string; label: string }> };
     modelVersion?: string;
     durationMs?: number;
+    analysis?: {
+        alternatives?: Array<{ intent: string; confidence: number }>;
+        entities?: Array<{ type: string; value: string | number; start: number; end: number }>;
+        candidates?: Array<{ deviceId: string; score: number; reasons: string[] }>;
+        policyDecision?: string;
+        plan?: { action: ActionKind; operation: 'read' | 'write'; stateId: string; value?: boolean | number | string };
+    };
 }
 
 export interface DeviceIO {

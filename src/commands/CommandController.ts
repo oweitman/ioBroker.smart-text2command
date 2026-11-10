@@ -69,8 +69,9 @@ export class CommandController {
         const started = Date.now();
         let language = request.language ?? this.defaultLanguage;
         let result: CommandResult;
+        const details: NonNullable<CommandResult['analysis']> = {};
         try {
-            result = await this.resolve(request, clientKey, language);
+            result = await this.resolve(request, clientKey, language, details);
             language = result.language;
         } catch {
             result = {
@@ -80,6 +81,9 @@ export class CommandController {
                 response: 'Processing failed',
                 errorCode: 'PROCESSING_ERROR',
             };
+        }
+        if (request.mode === 'analyze') {
+            result.analysis = details;
         }
         result.durationMs = Date.now() - started;
         try {
@@ -98,7 +102,12 @@ export class CommandController {
         return result;
     }
 
-    private async resolve(request: CommandRequest, clientKey: string, language: Language): Promise<CommandResult> {
+    private async resolve(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        details: NonNullable<CommandResult['analysis']>,
+    ): Promise<CommandResult> {
         const model = this.getModel();
         if (!model) {
             return this.reject(request, language, 'MODEL_UNAVAILABLE');
@@ -128,10 +137,12 @@ export class CommandController {
             }
         } else {
             const parsed = parseEntities(text, language);
+            details.entities = parsed.entities;
             if (parsed.negated || parsed.unsupported.length) {
                 return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
             }
             const analysis = await model.engine.analyze(text, language);
+            details.alternatives = analysis.alternatives;
             intent = analysis.intent ?? '';
             confidence = analysis.confidence;
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
@@ -160,6 +171,7 @@ export class CommandController {
             }
         }
         const parsed = parseEntities(text, language);
+        details.entities = parsed.entities;
         if (parsed.negated || parsed.unsupported.length) {
             return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
         }
@@ -168,6 +180,7 @@ export class CommandController {
         if (!deviceId) {
             const resolution = new DeviceResolver(this.catalog).resolve(text, language, action);
             candidates = resolution.candidates;
+            details.candidates = resolution.candidates;
             if (!resolution.candidates.length) {
                 return this.reject(request, language, 'DEVICE_NOT_FOUND_OR_NOT_APPROVED', intent, confidence);
             }
@@ -235,8 +248,10 @@ export class CommandController {
             };
         }
         const plan = outcome.plan;
+        details.plan = { action: plan.action, operation: plan.operation, stateId: plan.stateId, value: plan.value };
         const policy = new PolicyEngine(this.catalog, this.io);
         const decision = await policy.validate(plan);
+        details.policyDecision = decision.allowed ? 'allowed' : decision.code;
         if (!decision.allowed) {
             return this.reject(request, language, decision.code, intent, confidence);
         }

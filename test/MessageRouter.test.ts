@@ -8,6 +8,7 @@ import { DeviceCatalog } from '../src/devices/DeviceCatalog';
 import { discoverDevices } from '../src/devices/DeviceDiscovery';
 import { IntentRepository } from '../src/nlp/IntentRepository';
 import { ModelRepository } from '../src/nlp/ModelRepository';
+import type { IntentDefinition } from '../src/nlp/types';
 import { AuditRepository } from '../src/storage/AuditRepository';
 import { DeviceRepository } from '../src/storage/DeviceRepository';
 
@@ -43,13 +44,16 @@ describe('message API', () => {
             () => [],
             new AuditRepository(join(directory, 'audit.json')),
         );
+        let userIntents: IntentDefinition[] = [];
         const router = new MessageRouter({
             controller,
             catalog,
             intentRepository: new IntentRepository(join(directory, 'intents.json')),
             modelRepository: new ModelRepository(join(directory, 'models')),
-            getUserIntents: () => [],
-            setUserIntents: () => undefined,
+            getUserIntents: () => userIntents,
+            setUserIntents: intents => {
+                userIntents = intents;
+            },
             setModel: () => undefined,
             modelReady: () => true,
             isAdmin: context =>
@@ -78,5 +82,23 @@ describe('message API', () => {
         const listed = (await router.handle('listDevices', { limit: 1 }, admin)) as { total: number };
         expect(listed.total).to.equal(1);
         expect(await router.handle('getDiagnostics', {}, admin)).to.deep.equal({ status: 'ready' });
+        const imported: IntentDefinition[] = [
+            {
+                id: 'user.greeting',
+                source: 'user',
+                enabled: true,
+                utterances: { de: ['Hallo'], en: ['Hello'] },
+                action: { kind: 'response', response: { de: 'Hallo' } },
+            },
+        ];
+        expect(await router.handle('importIntents', { schemaVersion: 1, intents: imported }, untrusted)).to.deep.equal({
+            error: 'ADMIN_REQUIRED',
+        });
+        expect(await router.handle('importIntents', { schemaVersion: 1, intents: imported }, admin)).to.deep.equal({
+            status: 'imported',
+            count: 1,
+        });
+        expect(await new IntentRepository(join(directory, 'intents.json')).load()).to.deep.equal(imported);
+        expect(await router.handle('exportIntents', {}, admin)).to.deep.equal({ schemaVersion: 1, intents: imported });
     });
 });

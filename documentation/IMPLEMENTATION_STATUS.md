@@ -1,10 +1,16 @@
 # Implementation status
 
+## Phase 4
+
+The Admin configuration page is a React 19/MUI 9 application built with `@iobroker/gui-components` 10. It requires Admin 8. Device cards show concrete state targets, data types, ranges and mappings before an admin approves an action. The page also manages aliases, enabled devices, bilingual custom intents, background training and rollback, an analysis-first test lab, default language, and diagnostics. Custom intents have JSON export/import; approvals are deliberately excluded from imports. The backend API now returns intent alternatives, extracted entities, device candidates, policy decision and planned access for analysis requests.
+
+Frontend code is in `src-admin/`; the built `admin/index_m.html` and assets are included in the npm package. `npm run build:admin` type-checks and builds the UI. All tests remain under `/test`. A live browser session against an Admin 8 instance and a populated device controller still need verification before release.
+
 ## Phase 3
 
 The command pipeline now supports the six MVP actions through `processText`, including analysis, execution, clarification, idempotency, approval and live-object rechecks, bounded audit metadata, and structured results. The adapter messagebox exposes device management, typed user intents, background training, rollback and diagnostics. Management commands require an authenticated Admin sender and an administrator-group user. `input.text` provides analysis only; its global output is serialized through `output.*` states. No OS-level `exec` is used.
 
-The React/MUI Admin interface and manual device approval workflow are Phase 4. Until then, approvals are available only through the protected message API. Device I/O waits at most 15 seconds; after a write timeout, the target adapter may still apply the write later, so the result is an error with uncertain target state. Runtime testing against a populated controller and execution through a real device adapter remain open.
+Device I/O waits at most 15 seconds; after a write timeout, the target adapter may still apply the write later, so the result is an error with uncertain target state. Runtime testing against a populated controller and execution through a real device adapter remain open.
 
 ## Phase 2
 
@@ -33,15 +39,16 @@ The existing adapter template supplies TypeScript, package tests, and CI. No NLP
 - Device IDs use the nearest parent device object, then channel object, then state ID. If parent structure changes, a device appears as new and requires approval again.
 - Object changes update an in-memory snapshot and trigger a debounced reconciliation. Initial startup reads the object database once. The 100,000-object limit stops discovery instead of silently truncating it.
 - Registry writes are serialized and replace a temporary file. A failed write leaves the previous in-memory registry active. Corrupt persisted data stops discovery, keeping execution unavailable.
-- The admin approval UI belongs to Phase 4. Device execution uses only the approved `sendTo` path; there is no OS-level `exec`.
+- The Admin approval UI is implemented in Phase 4. Device execution uses only the approved `sendTo` path; there is no OS-level `exec`.
 
 ## Validation
 
 - `npm run check`: passed.
 - `npm run lint`: passed.
 - `npm run format:check`: passed.
-- `npm test`: 20 TypeScript tests and 61 package tests passed.
+- `npm test`: 23 TypeScript tests and 58 package tests passed.
+- `npm run build:admin`: React 19/MUI 9 type check and Vite build passed; npm package dry-run includes `admin/index_m.html` and all generated assets.
 - `npm run test:integration`: two tests passed against the ioBroker test controller, including `info.modelStatus = ready` after baseline training and the `input.text` analysis path.
 - `npm audit --omit=dev`: zero runtime dependency findings after using modular NLP.js packages.
 
-The actual discovery event path against a populated controller remains to be verified. The Admin approval workflow belongs to Phase 4. The release acceptance target of at least 20 validated positive examples per language and core intent remains open for Phase 5.
+The actual discovery event path against a populated controller and the Admin workflow in a live browser remain to be verified. The release acceptance target of at least 20 validated positive examples per language and core intent remains open for Phase 5.

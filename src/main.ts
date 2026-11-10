@@ -167,6 +167,11 @@ class SmartText2command extends utils.Adapter {
                 modelStatus: this.model ? 'ready' : 'unavailable',
                 modelVersion: this.modelVersion,
                 deviceCount: this.catalog?.list().length ?? 0,
+                approvedDevices:
+                    this.catalog
+                        ?.list()
+                        .filter(device => device.enabled && Object.keys(device.approvedCapabilities).length > 0)
+                        .length ?? 0,
                 lastError: this.lastError,
             }),
         });

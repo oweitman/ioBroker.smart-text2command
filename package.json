@@ -49,8 +49,7 @@
   },
   "main": "src/main.ts",
   "files": [
-    "admin{,/!(src)/**}/!(tsconfig|tsconfig.*|.eslintrc).{json,json5}",
-    "admin{,/!(src)/**}/*.{html,css,png,svg,jpg,js}",
+    "admin/",
     "src/",
     "documentation/",
     "resources/",
@@ -60,9 +59,13 @@
   ],
   "scripts": {
     "check": "tsc --noEmit",
+    "check:admin": "npm run check --prefix src-admin",
+    "build:admin": "npm run build --prefix src-admin",
     "lint": "eslint -c eslint.config.mjs src test/*.test.ts",
     "format:check": "prettier --check src test/*.test.ts eslint.config.mjs prettier.config.mjs",
+    "format:check:admin": "prettier --check src-admin/src src-admin/vite.config.ts src-admin/index_m.html src-admin/scripts",
     "format": "prettier --write src test/*.test.ts eslint.config.mjs prettier.config.mjs",
+    "format:admin": "prettier --write src-admin/src src-admin/vite.config.ts src-admin/index_m.html src-admin/scripts",
     "test:ts": "mocha --config test/mocharc.custom.json test/**/*.test.ts",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
