@@ -3,6 +3,7 @@ import {
     Alert,
     Box,
     Button,
+    Checkbox,
     Card,
     CardContent,
     Chip,
@@ -22,8 +23,19 @@ import {
     Tab,
     Tabs,
     TextField,
+    Tooltip,
     Typography,
 } from '@mui/material';
+import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
+import CategoryIcon from '@mui/icons-material/Category';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeviceHubIcon from '@mui/icons-material/DeviceHub';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SensorsIcon from '@mui/icons-material/Sensors';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
 import type { AdminApi } from '../../src/shared/AdminApi';
 import { parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
@@ -48,7 +60,8 @@ type Training = {
     regressionTotal?: number;
     error?: string;
 };
-type DeviceList = { total: number; devices: DeviceRecord[]; rooms?: string[] };
+type EnumOption = { id: string; name: string | Record<string, string> };
+type DeviceList = { total: number; devices: DeviceRecord[]; rooms?: EnumOption[]; functions?: EnumOption[] };
 
 const pages: Array<{ id: Page; de: string; en: string }> = [
     { id: 'dashboard', de: 'Übersicht', en: 'Overview' },
@@ -66,6 +79,53 @@ const actions: Record<Capability['kind'], ActionKind[]> = {
     position: [],
 };
 const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue'];
+const aliasLanguages: Language[] = ['de', 'en'];
+
+function languageName(language: Language): string {
+    return language === 'de' ? 'Deutsch' : 'English';
+}
+
+function actionName(action: ActionKind, language: Language): string {
+    const names: Record<ActionKind, [string, string]> = {
+        turnOn: ['Einschalten', 'Turn on'],
+        turnOff: ['Ausschalten', 'Turn off'],
+        setLevel: ['Helligkeit setzen', 'Set brightness'],
+        setTemperature: ['Solltemperatur setzen', 'Set target temperature'],
+        getState: ['Schaltzustand lesen', 'Read switch state'],
+        getValue: ['Wert lesen', 'Read value'],
+    };
+    return names[action][language === 'de' ? 0 : 1];
+}
+
+function capabilityName(kind: Capability['kind'], language: Language): string {
+    const names: Record<Capability['kind'], [string, string]> = {
+        onOff: ['Schalten', 'Switch'],
+        brightness: ['Helligkeit', 'Brightness'],
+        temperatureSetpoint: ['Solltemperatur', 'Target temperature'],
+        readTemperature: ['Temperaturmesswert', 'Measured temperature'],
+        position: ['Position', 'Position'],
+    };
+    return names[kind][language === 'de' ? 0 : 1];
+}
+
+function capabilityIcon(kind: Capability['kind']): React.JSX.Element {
+    switch (kind) {
+        case 'onOff':
+            return <PowerSettingsNewIcon fontSize="small" />;
+        case 'brightness':
+            return <LightModeIcon fontSize="small" />;
+        case 'temperatureSetpoint':
+            return <ThermostatIcon fontSize="small" />;
+        case 'readTemperature':
+            return <SensorsIcon fontSize="small" />;
+        default:
+            return <DeviceHubIcon fontSize="small" />;
+    }
+}
+
+function isReadAction(action: ActionKind): boolean {
+    return action === 'getState' || action === 'getValue';
+}
 
 interface Props {
     api: AdminApi;
@@ -85,6 +145,11 @@ function approvalKey(action: ActionKind, capability: Capability): string {
     return `${action}:${capability.stateId}`;
 }
 
+function enumLabel(name: string | Record<string, string> | undefined, id: string, language: Language): string {
+    if (typeof name === 'string') return name;
+    return name?.[language] ?? name?.de ?? name?.en ?? id;
+}
+
 function DeviceCard({
     device,
     language,
@@ -97,19 +162,57 @@ function DeviceCard({
     onError: (message: string) => void;
 }): React.JSX.Element {
     const t = labels(language);
-    const [aliasDe, setAliasDe] = useState((device.aliases.de ?? []).join(', '));
-    const [aliasEn, setAliasEn] = useState((device.aliases.en ?? []).join(', '));
+    const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({
+        de: (device.aliases.de ?? []).join(', '),
+        en: (device.aliases.en ?? []).join(', '),
+    });
+    const [extraAliasLanguages, setExtraAliasLanguages] = useState<Language[]>(
+        aliasLanguages.filter(item => item !== language && (device.aliases[item] ?? []).length > 0),
+    );
     const [pending, setPending] = useState<{ capability: Capability; action: ActionKind }>();
+    const [batchScope, setBatchScope] = useState<'read' | 'write' | 'all'>();
+    const [batchSelected, setBatchSelected] = useState<string[]>([]);
+    const eligibleApprovals = device.discoveredCapabilities.flatMap(capability =>
+        actions[capability.kind]
+            .filter(action => (action.startsWith('get') ? capability.readable : capability.writable))
+            .map(action => ({ capability, action, key: approvalKey(action, capability) })),
+    );
+    const availableApprovals = eligibleApprovals.filter(
+        item => device.approvedCapabilities[item.key] !== item.capability.fingerprint || item.capability.needsReview,
+    );
+    const batchApprovals = availableApprovals.filter(item =>
+        batchScope === 'all' ? true : batchScope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
+    );
+    const readApprovals = availableApprovals.filter(item => isReadAction(item.action));
+    const writeApprovals = availableApprovals.filter(item => !isReadAction(item.action));
+    const hasReadActions = eligibleApprovals.some(item => isReadAction(item.action));
+    const hasWriteActions = eligibleApprovals.some(item => !isReadAction(item.action));
     useEffect(() => {
-        setAliasDe((device.aliases.de ?? []).join(', '));
-        setAliasEn((device.aliases.en ?? []).join(', '));
-    }, [device.aliases]);
+        setAliasDrafts({ de: (device.aliases.de ?? []).join(', '), en: (device.aliases.en ?? []).join(', ') });
+        setExtraAliasLanguages(
+            aliasLanguages.filter(item => item !== language && (device.aliases[item] ?? []).length > 0),
+        );
+    }, [device.aliases, language]);
     const saveAliases = (): void => {
         try {
-            void update({ deviceId: device.id, aliases: { de: parseAliases(aliasDe), en: parseAliases(aliasEn) } });
+            const aliases: DeviceRecord['aliases'] = { ...device.aliases };
+            for (const item of aliasLanguages) {
+                aliases[item] =
+                    item === language || extraAliasLanguages.includes(item)
+                        ? parseAliases(aliasDrafts[item] ?? '')
+                        : [];
+            }
+            void update({ deviceId: device.id, aliases });
         } catch (error) {
             onError(displayError(error));
         }
+    };
+    const openBatch = (scope: 'read' | 'write' | 'all'): void => {
+        const selected = availableApprovals.filter(item =>
+            scope === 'all' ? true : scope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
+        );
+        setBatchScope(scope);
+        setBatchSelected(selected.map(item => item.key));
     };
     const approve = (): void => {
         if (!pending) return;
@@ -120,6 +223,20 @@ function DeviceCard({
                 approval: { stateId: pending.capability.stateId, action: pending.action, approved: true },
             });
             setPending(undefined);
+        } catch (error) {
+            onError(displayError(error));
+        }
+    };
+    const approveBatch = (): void => {
+        try {
+            const selected = batchApprovals.filter(item => batchSelected.includes(item.key));
+            for (const item of selected) validateApproval(device, item.capability.stateId, item.action);
+            void update({
+                deviceId: device.id,
+                approvals: selected.map(item => ({ stateId: item.capability.stateId, action: item.action })),
+            });
+            setBatchScope(undefined);
+            setBatchSelected([]);
         } catch (error) {
             onError(displayError(error));
         }
@@ -136,7 +253,18 @@ function DeviceCard({
                     sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
                 >
                     <Box>
-                        <Typography variant="h6">{device.displayName}</Typography>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ alignItems: 'center' }}
+                        >
+                            {device.discoveredCapabilities[0] ? (
+                                capabilityIcon(device.discoveredCapabilities[0].kind)
+                            ) : (
+                                <DeviceHubIcon fontSize="small" />
+                            )}
+                            <Typography variant="h6">{device.displayName}</Typography>
+                        </Stack>
                         <Typography
                             variant="body2"
                             color="text.secondary"
@@ -151,7 +279,13 @@ function DeviceCard({
                     >
                         <Chip
                             size="small"
-                            label={device.status}
+                            label={
+                                device.status === 'needsReview'
+                                    ? t('Prüfung nötig', 'Review needed')
+                                    : device.status === 'missing'
+                                      ? t('Fehlt', 'Missing')
+                                      : t('Verfügbar', 'Available')
+                            }
                             color={
                                 device.status === 'needsReview'
                                     ? 'warning'
@@ -173,12 +307,39 @@ function DeviceCard({
                         />
                     </Stack>
                 </Stack>
-                <Typography
-                    variant="body2"
-                    sx={{ mt: 1 }}
+                <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
                 >
-                    {t('Räume', 'Rooms')}: {device.roomIds.join(', ') || '—'}
-                </Typography>
+                    {device.roomIds.map(id => (
+                        <Chip
+                            key={id}
+                            size="small"
+                            icon={<MeetingRoomIcon />}
+                            label={enumLabel(device.enumNames?.[id], id, language)}
+                        />
+                    ))}
+                    {device.functionIds.map(id => (
+                        <Chip
+                            key={id}
+                            size="small"
+                            icon={<CategoryIcon />}
+                            label={enumLabel(device.enumNames?.[id], id, language)}
+                        />
+                    ))}
+                </Stack>
+                {device.discoveredCapabilities.length === 0 && (
+                    <Alert
+                        severity="info"
+                        sx={{ mt: 1 }}
+                    >
+                        {t(
+                            'Für dieses ioBroker-Objekt wurde kein unterstützter Datenpunkt gefunden. Wenn es nicht mehr gebraucht wird, lösche das Quellobjekt unter Objekte und lies die Geräte erneut ein.',
+                            'No supported state was found for this ioBroker object. If it is no longer needed, delete the source object in Objects and rescan devices.',
+                        )}
+                    </Alert>
+                )}
                 {!device.enabled && Object.keys(device.approvedCapabilities).length > 0 && (
                     <Alert
                         severity="info"
@@ -190,7 +351,7 @@ function DeviceCard({
                         )}
                     </Alert>
                 )}
-                {device.status === 'needsReview' && (
+                {device.status === 'needsReview' && device.discoveredCapabilities.length > 0 && (
                     <Alert
                         severity="warning"
                         sx={{ mt: 1 }}
@@ -201,44 +362,151 @@ function DeviceCard({
                         )}
                     </Alert>
                 )}
-                <Stack
-                    direction={{ xs: 'column', md: 'row' }}
-                    spacing={1}
-                    sx={{ mt: 2, alignItems: { md: 'center' } }}
-                >
-                    <TextField
-                        size="small"
-                        fullWidth
-                        label={t('Aliase Deutsch', 'German aliases')}
-                        value={aliasDe}
-                        onChange={event => setAliasDe(event.target.value)}
-                    />
-                    <TextField
-                        size="small"
-                        fullWidth
-                        label={t('Aliase Englisch', 'English aliases')}
-                        value={aliasEn}
-                        onChange={event => setAliasEn(event.target.value)}
-                    />
-                    <Button
-                        variant="outlined"
-                        onClick={saveAliases}
+                <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <Typography variant="subtitle1">
+                        {t('Gerätenamen und Aliase', 'Device names and aliases')}
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
                     >
-                        {t('Aliase speichern', 'Save aliases')}
-                    </Button>
-                </Stack>
-                <Divider sx={{ my: 2 }} />
+                        {t(
+                            'Zum Beispiel „Leuchte“ für eine Lampe. Mehrere Aliase mit Komma trennen; der Raum unterscheidet gleich benannte Geräte.',
+                            'For example, add “light” as an alias for a lamp. Separate aliases with commas; the room distinguishes devices with the same alias.',
+                        )}
+                    </Typography>
+                    <Stack spacing={1}>
+                        <TextField
+                            size="small"
+                            fullWidth
+                            label={`${t('Aliase der Hauptsprache', 'Primary language aliases')} (${languageName(language)})`}
+                            value={aliasDrafts[language] ?? ''}
+                            onChange={event =>
+                                setAliasDrafts(current => ({ ...current, [language]: event.target.value }))
+                            }
+                        />
+                        {extraAliasLanguages.map(item => (
+                            <Stack
+                                key={item}
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={1}
+                            >
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    label={`${t('Weitere Sprache', 'Additional language')}: ${languageName(item)}`}
+                                    value={aliasDrafts[item] ?? ''}
+                                    onChange={event =>
+                                        setAliasDrafts(current => ({ ...current, [item]: event.target.value }))
+                                    }
+                                />
+                                <Button
+                                    onClick={() =>
+                                        setExtraAliasLanguages(current => current.filter(value => value !== item))
+                                    }
+                                >
+                                    {t('Entfernen', 'Remove')}
+                                </Button>
+                            </Stack>
+                        ))}
+                        {aliasLanguages.some(item => item !== language && !extraAliasLanguages.includes(item)) && (
+                            <TextField
+                                select
+                                size="small"
+                                label={t('Alias in weiterer Sprache hinzufügen', 'Add aliases in another language')}
+                                value=""
+                                onChange={event =>
+                                    setExtraAliasLanguages(current => [...current, event.target.value as Language])
+                                }
+                                sx={{ maxWidth: 340 }}
+                            >
+                                <MenuItem
+                                    value=""
+                                    disabled
+                                >
+                                    {t('Sprache wählen', 'Choose language')}
+                                </MenuItem>
+                                {aliasLanguages
+                                    .filter(item => item !== language && !extraAliasLanguages.includes(item))
+                                    .map(item => (
+                                        <MenuItem
+                                            key={item}
+                                            value={item}
+                                        >
+                                            {languageName(item)}
+                                        </MenuItem>
+                                    ))}
+                            </TextField>
+                        )}
+                        <Button
+                            variant="outlined"
+                            onClick={saveAliases}
+                            sx={{ alignSelf: 'flex-start' }}
+                        >
+                            {t('Aliase speichern', 'Save aliases')}
+                        </Button>
+                    </Stack>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle1">{t('Aktionsfreigaben', 'Action approvals')}</Typography>
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                    >
+                        {t(
+                            'Jede Sammelfreigabe zeigt vor dem Bestätigen alle betroffenen Aktionen und Datenpunkte.',
+                            'Each bulk approval shows all affected actions and states before confirmation.',
+                        )}
+                    </Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ mb: 2 }}
+                    >
+                        {hasReadActions && (
+                            <Button
+                                variant="outlined"
+                                disabled={readApprovals.length === 0}
+                                onClick={() => openBatch('read')}
+                            >
+                                {t('Lesen gesammelt freigeben', 'Approve reads together')} ({readApprovals.length})
+                            </Button>
+                        )}
+                        {hasWriteActions && (
+                            <Button
+                                variant="outlined"
+                                disabled={writeApprovals.length === 0}
+                                onClick={() => openBatch('write')}
+                            >
+                                {t('Schreiben gesammelt freigeben', 'Approve writes together')} ({writeApprovals.length}
+                                )
+                            </Button>
+                        )}
+                        {hasReadActions && hasWriteActions && (
+                            <Button
+                                variant="outlined"
+                                disabled={availableApprovals.length === 0}
+                                onClick={() => openBatch('all')}
+                            >
+                                {t('Alle Aktionen prüfen', 'Review all actions')} ({availableApprovals.length})
+                            </Button>
+                        )}
+                    </Stack>
+                </Box>
                 {device.discoveredCapabilities.map(capability => (
                     <Box
                         key={capability.stateId}
-                        sx={{ mb: 2 }}
+                        sx={{ mb: 1, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
                     >
                         <Stack
                             direction="row"
                             spacing={1}
                             sx={{ alignItems: 'center', flexWrap: 'wrap' }}
                         >
-                            <Typography variant="subtitle2">{capability.kind}</Typography>
+                            {capabilityIcon(capability.kind)}
+                            <Typography variant="subtitle2">{capabilityName(capability.kind, language)}</Typography>
                             {capability.needsReview && (
                                 <Chip
                                     size="small"
@@ -278,28 +546,35 @@ function DeviceCard({
                                         device.approvedCapabilities[approvalKey(action, capability)] ===
                                             capability.fingerprint && !capability.needsReview;
                                     return (
-                                        <Button
+                                        <Tooltip
                                             key={action}
-                                            size="small"
-                                            variant={approved ? 'contained' : 'outlined'}
-                                            color={approved ? 'success' : 'primary'}
-                                            disabled={device.status === 'missing'}
-                                            onClick={() =>
+                                            title={
                                                 approved
-                                                    ? void update({
-                                                          deviceId: device.id,
-                                                          approval: {
-                                                              stateId: capability.stateId,
-                                                              action,
-                                                              approved: false,
-                                                          },
-                                                      })
-                                                    : setPending({ capability, action })
+                                                    ? t('Freigabe widerrufen', 'Revoke approval')
+                                                    : t('Aktion prüfen und freigeben', 'Review and approve action')
                                             }
                                         >
-                                            {action}:{' '}
-                                            {approved ? t('freigegeben', 'approved') : t('freigeben', 'approve')}
-                                        </Button>
+                                            <Chip
+                                                size="small"
+                                                icon={approved ? <CheckCircleIcon /> : <AddCircleOutlinedIcon />}
+                                                label={actionName(action, language)}
+                                                variant={approved ? 'filled' : 'outlined'}
+                                                color={approved ? 'success' : 'default'}
+                                                disabled={device.status === 'missing'}
+                                                onClick={() =>
+                                                    approved
+                                                        ? void update({
+                                                              deviceId: device.id,
+                                                              approval: {
+                                                                  stateId: capability.stateId,
+                                                                  action,
+                                                                  approved: false,
+                                                              },
+                                                          })
+                                                        : setPending({ capability, action })
+                                                }
+                                            />
+                                        </Tooltip>
                                     );
                                 })}
                         </Stack>
@@ -314,7 +589,7 @@ function DeviceCard({
                     <DialogTitle>{t('Aktion freigeben', 'Approve action')}</DialogTitle>
                     <DialogContent>
                         <Typography>
-                            {pending?.action} · {device.displayName}
+                            {pending ? actionName(pending.action, language) : ''} · {device.displayName}
                         </Typography>
                         <Typography sx={{ wordBreak: 'break-all' }}>{pending?.capability.stateId}</Typography>
                         <Typography
@@ -345,6 +620,99 @@ function DeviceCard({
                         </Button>
                     </DialogActions>
                 </Dialog>
+                <Dialog
+                    open={!!batchScope}
+                    onClose={() => setBatchScope(undefined)}
+                    maxWidth="md"
+                    fullWidth
+                >
+                    <DialogTitle>
+                        {batchScope === 'read'
+                            ? t('Leseaktionen gemeinsam freigeben', 'Approve read actions together')
+                            : batchScope === 'write'
+                              ? t('Schreibaktionen gemeinsam freigeben', 'Approve write actions together')
+                              : t('Alle Aktionen gemeinsam freigeben', 'Approve all actions together')}
+                    </DialogTitle>
+                    <DialogContent>
+                        <Typography sx={{ mb: 1 }}>{device.displayName}</Typography>
+                        <Button
+                            size="small"
+                            onClick={() => setBatchSelected(batchApprovals.map(item => item.key))}
+                        >
+                            {t('Alle auswählen', 'Select all')}
+                        </Button>
+                        <Stack sx={{ mt: 1 }}>
+                            {batchApprovals.map(item => (
+                                <FormControlLabel
+                                    key={item.key}
+                                    sx={{ alignItems: 'flex-start', mb: 1 }}
+                                    control={
+                                        <Checkbox
+                                            checked={batchSelected.includes(item.key)}
+                                            onChange={event =>
+                                                setBatchSelected(current =>
+                                                    event.target.checked
+                                                        ? [...current, item.key]
+                                                        : current.filter(key => key !== item.key),
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label={
+                                        <Box sx={{ pt: 1 }}>
+                                            <Typography variant="subtitle2">
+                                                {actionName(item.action, language)} ·{' '}
+                                                {capabilityName(item.capability.kind, language)}
+                                            </Typography>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{ wordBreak: 'break-all' }}
+                                            >
+                                                {item.capability.stateId}
+                                            </Typography>
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                {item.capability.valueKind} · {item.capability.readable ? 'read' : ''}
+                                                {item.capability.writable ? ' / write' : ''}
+                                                {item.capability.min !== undefined
+                                                    ? ` · min ${item.capability.min}`
+                                                    : ''}
+                                                {item.capability.max !== undefined
+                                                    ? ` · max ${item.capability.max}`
+                                                    : ''}
+                                                {item.capability.unit ? ` · ${item.capability.unit}` : ''}
+                                                {item.capability.mapping
+                                                    ? ` · ${JSON.stringify(item.capability.mapping)}`
+                                                    : ''}
+                                            </Typography>
+                                        </Box>
+                                    }
+                                />
+                            ))}
+                        </Stack>
+                        <Alert
+                            severity="warning"
+                            sx={{ mt: 1 }}
+                        >
+                            {t(
+                                'Nur ausgewählte Aktionen werden dauerhaft freigegeben. Prüfe die Ziel-States und Wertebereiche vor dem Bestätigen.',
+                                'Only selected actions are approved permanently. Review target states and ranges before confirming.',
+                            )}
+                        </Alert>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setBatchScope(undefined)}>{t('Abbrechen', 'Cancel')}</Button>
+                        <Button
+                            variant="contained"
+                            disabled={batchSelected.length === 0}
+                            onClick={approveBatch}
+                        >
+                            {t('Ausgewählte freigeben', 'Approve selected')}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </CardContent>
         </Card>
     );
@@ -359,6 +727,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const [intents, setIntents] = useState<IntentDefinition[]>([]);
     const [filter, setFilter] = useState('');
     const [room, setRoom] = useState('');
+    const [functionId, setFunctionId] = useState('');
     const [capability, setCapability] = useState('');
     const [devicePage, setDevicePage] = useState(1);
     const [busy, setBusy] = useState(false);
@@ -369,7 +738,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const refresh = useCallback(
         async (offset = 0): Promise<void> => {
             const [devices, status, model, listed] = await Promise.all([
-                api.call<DeviceList>('listDevices', { offset, limit: 50, filter, room, capability }),
+                api.call<DeviceList>('listDevices', { offset, limit: 50, filter, room, functionId, capability }),
                 api.call<Diagnostics>('getDiagnostics'),
                 api.call<Training>('getTrainingStatus'),
                 api.call<{ intents: IntentDefinition[] }>('listIntents'),
@@ -379,7 +748,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
             setTraining(model);
             setIntents(listed.intents);
         },
-        [api, filter, room, capability],
+        [api, filter, room, functionId, capability],
     );
 
     useEffect(() => {
@@ -447,6 +816,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     }
 
     const roomOptions = useMemo(() => deviceList.rooms ?? [], [deviceList.rooms]);
+    const functionOptions = useMemo(() => deviceList.functions ?? [], [deviceList.functions]);
 
     return (
         <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 3 } }}>
@@ -550,12 +920,35 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             sx={{ minWidth: 160 }}
                         >
                             <MenuItem value="">{t('Alle Räume', 'All rooms')}</MenuItem>
+                            <MenuItem value="__none__">{t('Ohne Raum', 'Without room')}</MenuItem>
                             {roomOptions.map(item => (
                                 <MenuItem
-                                    key={item}
-                                    value={item}
+                                    key={item.id}
+                                    value={item.id}
                                 >
-                                    {item}
+                                    {enumLabel(item.name, item.id, defaultLanguage)}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            size="small"
+                            select
+                            label={t('Funktion', 'Function')}
+                            value={functionId}
+                            onChange={event => {
+                                setFunctionId(event.target.value);
+                                setDevicePage(1);
+                            }}
+                            sx={{ minWidth: 160 }}
+                        >
+                            <MenuItem value="">{t('Alle Funktionen', 'All functions')}</MenuItem>
+                            <MenuItem value="__none__">{t('Ohne Funktion', 'Without function')}</MenuItem>
+                            {functionOptions.map(item => (
+                                <MenuItem
+                                    key={item.id}
+                                    value={item.id}
+                                >
+                                    {enumLabel(item.name, item.id, defaultLanguage)}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -571,19 +964,34 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             sx={{ minWidth: 170 }}
                         >
                             <MenuItem value="">{t('Alle', 'All')}</MenuItem>
+                            <MenuItem value="__none__">{t('Ohne Capability', 'Without capability')}</MenuItem>
                             {Object.keys(actions).map(item => (
                                 <MenuItem
                                     key={item}
                                     value={item}
                                 >
-                                    {item}
+                                    {capabilityName(item as Capability['kind'], defaultLanguage)}
                                 </MenuItem>
                             ))}
                         </TextField>
                     </Stack>
-                    <Typography sx={{ mb: 2 }}>
-                        {deviceList.total} {t('Geräte', 'devices')}
-                    </Typography>
+                    <Stack
+                        direction="row"
+                        spacing={2}
+                        sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}
+                    >
+                        <Typography>
+                            {deviceList.total} {t('Geräte', 'devices')}
+                        </Typography>
+                        <Button
+                            startIcon={<RefreshIcon />}
+                            onClick={() =>
+                                void mutate('rescanDevices', {}, t('Geräte neu eingelesen', 'Devices rescanned'))
+                            }
+                        >
+                            {t('Geräte neu einlesen', 'Rescan devices')}
+                        </Button>
+                    </Stack>
                     {deviceList.devices.map(device => (
                         <DeviceCard
                             key={device.id}

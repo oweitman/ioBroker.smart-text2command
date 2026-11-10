@@ -51,6 +51,14 @@ Die zwei Kanäle mit dem Namen **Lampe** sind absichtlich gleich benannt. Damit 
 
 Vor der Freigabe im Dialog Ziel-State, Rolle, Datentyp, Wertebereich und Lese-/Schreibbarkeit prüfen. Falls ein State nach einer Metadatenänderung `needsReview` zeigt, die betroffene Aktion erneut prüfen und freigeben.
 
+Im Geräte-Tab zeigen die Raum- und Funktionsfilter die Namen der ioBroker-Aufzählungen an. Jede Gerätekarte trennt Aliase von Aktionsfreigaben. Sichtbar ist zunächst nur das Aliasfeld der eingestellten Hauptsprache; eine weitere derzeit unterstützte Sprache lässt sich gezielt hinzufügen. Bestehende Aliase der zweiten Sprache erscheinen automatisch.
+
+Für die Formulierung **„könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren“** bei beiden Lampen den deutschen Alias `Leuchte` eintragen und speichern. Der Raum unterscheidet die Geräte. Ohne Raum fragt der Adapter nach dem gemeinten Gerät. Die Aktion `turnOff` muss für die jeweilige Lampe freigegeben und das Gerät aktiv sein.
+
+**Lesen gesammelt freigeben**, **Schreiben gesammelt freigeben** und **Alle Aktionen prüfen** öffnen je Gerät eine Prüfliste der betroffenen Aktionen und Ziel-States. Alle Einträge der gewählten Gruppe sind vorausgewählt, können aber einzeln abgewählt werden. Erst **Ausgewählte freigeben** speichert die Freigaben. Der Schalter **Aktiv** bleibt eine eigene Entscheidung.
+
+Die Filter für Raum, Funktion und Capability enthalten **Ohne** für Geräte ohne entsprechende Zuordnung. **Geräte neu einlesen** fragt die aktuellen ioBroker-Objekte erneut ab. Bereits gelöschte Objekte verschwinden danach aus der Ansicht; alte gespeicherte Freigaben für fehlende Geräte bleiben gesperrt und werden nicht angezeigt. Wenn ein Gerät ohne unterstützte Capability weiter erscheint, existiert sein Quellobjekt noch in ioBroker. Dieses bei Bedarf unter **Objekte** löschen und anschließend erneut einlesen. Die kompakten Aktionschips zeigen mit einem Plus eine offene Freigabe und mit einem Haken eine freigegebene Aktion; Anklicken öffnet die Prüfung beziehungsweise widerruft die Freigabe.
+
 ## 5. Im Testlabor prüfen
 
 Warten, bis `smart-text2command.0.info.modelStatus` **ready** meldet. Im **Testlabor** zuerst **Analysieren** verwenden; **Ausführen** schreibt bei freigegebener Aktion tatsächlich in den virtuellen State.
@@ -61,9 +69,12 @@ Warten, bis `smart-text2command.0.info.modelStatus` **ready** meldet. Im **Testl
 | `Schalte die Lampe aus`                        | Rückfrage zur Auswahl zwischen zwei Lampen                                      |
 | `Dimme die Lampe im Wohnzimmer auf 40 Prozent` | `HELLIGKEIT` wird `40`                                                          |
 | `Stelle die Heizung im Wohnzimmer auf 22 Grad` | `SOLL` wird `22`                                                                |
+| `Schreibe im Wohnzimmer die Solltemperatur`    | Rückfrage nach dem fehlenden Wert; nach `21 Grad` wird nur `SOLL` geschrieben.  |
 | `Wie warm ist es im Wohnzimmer`                | Analyse plant das Lesen von `IST` der Heizung; die Helligkeit der Lampe zählt nicht als Temperaturwert. |
 | `Wie warm ist es im Schlafzimmer`              | Analyse plant das Lesen von `IST`; Ausführen liefert den Messwert. Bei mehreren passenden Lesegeräten folgt eine Rückfrage. |
 
 Die NLP-Erkennung und die Geräteauflösung können bei einzelnen Formulierungen Rückfragen auslösen. Im Testlabor die erkannten Intents, Gerätekandidaten und den geplanten State-Zugriff prüfen. Für einen eindeutigen Lesetest kann auch `Welchen Wert hat der Temperatursensor` verwendet werden.
+
+Die mitgelieferten Trainingssätze enthalten Schreibbefehle für Solltemperaturen auf Deutsch und Englisch, auch ohne Zahlenwert. Nach einem Adapter-Neustart wird ein vorhandenes Modell neu trainiert, wenn sich die Trainingssätze geändert haben. Erst bei `info.modelStatus = ready` erneut testen.
 
 Ein `0_userdata.0`-State simuliert nur den ioBroker-Datenpunkt. Dieser Test bestätigt Erkennung, Freigabe und State-Zugriff; ein echter Geräteadapter muss später separat getestet werden.

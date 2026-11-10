@@ -31,6 +31,12 @@ describe('message API', () => {
                     type: 'state',
                     common: { role: 'switch', type: 'boolean', read: true, write: true },
                 },
+                { id: 'enum.rooms.living', type: 'enum', common: { name: 'Wohnzimmer', members: ['plug.0.lamp'] } },
+                {
+                    id: 'enum.functions.light',
+                    type: 'enum',
+                    common: { name: { de: 'Licht', en: 'Light' }, members: ['plug.0.lamp'] },
+                },
             ]),
         );
         const controller = new CommandController(
@@ -45,6 +51,7 @@ describe('message API', () => {
             new AuditRepository(join(directory, 'audit.json')),
         );
         let userIntents: IntentDefinition[] = [];
+        let rescanCount = 0;
         const router = new MessageRouter({
             controller,
             catalog,
@@ -56,6 +63,10 @@ describe('message API', () => {
             },
             setModel: () => undefined,
             modelReady: () => true,
+            rescanDevices: () => {
+                rescanCount++;
+                return Promise.resolve();
+            },
             isAdmin: context =>
                 Promise.resolve(context.from === 'system.adapter.admin.0' && context.user === 'system.user.admin'),
             diagnostics: () => ({ status: 'ready' }),
@@ -63,6 +74,9 @@ describe('message API', () => {
         const untrusted = { from: 'system.adapter.web.0', user: 'system.user.admin' };
         const admin = { from: 'system.adapter.admin.0', user: 'system.user.admin' };
         expect(await router.handle('listDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(await router.handle('rescanDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(await router.handle('rescanDevices', {}, admin)).to.deep.equal({ status: 'updated' });
+        expect(rescanCount).to.equal(1);
         expect(
             await router.handle('updateDevice', { deviceId: 'plug.0.lamp', enabled: true }, untrusted),
         ).to.deep.equal({ error: 'ADMIN_REQUIRED' });
@@ -81,12 +95,66 @@ describe('message API', () => {
         expect(Object.keys(device.approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
         const listed = (await router.handle('listDevices', { limit: 1 }, admin)) as { total: number };
         expect(listed.total).to.equal(1);
+        expect(await router.handle('listDevices', { functionId: 'enum.functions.light' }, admin)).to.include({
+            total: 1,
+        });
+        expect(await router.handle('listDevices', { functionId: 'enum.functions.heating' }, admin)).to.include({
+            total: 0,
+        });
+        const options = (await router.handle('listDevices', {}, admin)) as {
+            rooms: unknown[];
+            functions: unknown[];
+            devices: Array<{ enumNames: Record<string, unknown> }>;
+        };
+        expect(options.rooms).to.deep.equal([{ id: 'enum.rooms.living', name: 'Wohnzimmer' }]);
+        expect(options.functions).to.deep.equal([{ id: 'enum.functions.light', name: { de: 'Licht', en: 'Light' } }]);
+        expect(options.devices[0].enumNames['enum.rooms.living']).to.equal('Wohnzimmer');
+
+        expect(
+            await router.handle(
+                'updateDevice',
+                {
+                    deviceId: 'plug.0.lamp',
+                    approvals: [
+                        { stateId: 'plug.0.lamp.POWER', action: 'turnOff' },
+                        { stateId: 'plug.0.lamp.POWER', action: 'setLevel' },
+                    ],
+                },
+                admin,
+            ),
+        ).to.have.property('error');
+        expect(Object.keys(catalog.list()[0].approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
+        await router.handle(
+            'updateDevice',
+            {
+                deviceId: 'plug.0.lamp',
+                approvals: [
+                    { stateId: 'plug.0.lamp.POWER', action: 'turnOff' },
+                    { stateId: 'plug.0.lamp.POWER', action: 'getState' },
+                ],
+            },
+            admin,
+        );
+        expect(Object.keys(catalog.list()[0].approvedCapabilities)).to.deep.equal([
+            'turnOn:plug.0.lamp.POWER',
+            'turnOff:plug.0.lamp.POWER',
+            'getState:plug.0.lamp.POWER',
+        ]);
+        await catalog.reconcile([
+            ...catalog.list(),
+            ...discoverDevices([{ id: 'plug.0.empty', type: 'device', common: { name: 'Ohne Datenpunkt' } }]),
+        ]);
+        for (const key of ['room', 'functionId', 'capability']) {
+            expect(await router.handle('listDevices', { [key]: '__none__' }, admin)).to.include({ total: 1 });
+        }
+        expect(await router.handle('listDevices', { capability: 'onOff' }, admin)).to.include({ total: 1 });
         await catalog.reconcile([]);
-        expect(catalog.list()[0].status).to.equal('missing');
+        expect(catalog.list().every(item => item.status === 'missing')).to.equal(true);
         expect(await router.handle('listDevices', { limit: 1 }, admin)).to.deep.equal({
             total: 0,
             devices: [],
             rooms: [],
+            functions: [],
         });
         expect(await router.handle('getDiagnostics', {}, admin)).to.deep.equal({ status: 'ready' });
         const imported: IntentDefinition[] = [

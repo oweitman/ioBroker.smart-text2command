@@ -126,6 +126,11 @@ export class DeviceRegistry {
             device.status = 'available';
         }
     }
+    public approveMany(deviceId: string, approvals: Array<{ stateId: string; action: ActionKind }>): void {
+        for (const approval of approvals) {
+            this.approve(deviceId, approval.stateId, approval.action);
+        }
+    }
     public revoke(deviceId: string, stateId: string, action: ActionKind): void {
         const device = this.requireDevice(deviceId);
         delete device.approvedCapabilities[approvalKey(action, stateId)];

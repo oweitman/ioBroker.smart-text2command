@@ -232,6 +232,84 @@ describe('command pipeline', () => {
         expect(writes).to.be.empty;
     });
 
+    it('asks for the missing value when a room-only command explicitly writes the setpoint', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.heating', type: 'channel', common: { name: 'Heizung' } },
+            {
+                id: 'test.0.heating.SOLL',
+                type: 'state',
+                common: { role: 'level.temperature', type: 'number', read: true, write: true, min: 16, max: 28 },
+            },
+            {
+                id: 'test.0.heating.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.heating'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.getValue');
+        registry.setEnabled('test.0.heating', true);
+        registry.approve('test.0.heating', 'test.0.heating.SOLL', 'setTemperature');
+        registry.approve('test.0.heating', 'test.0.heating.IST', 'getValue');
+
+        const first = await controller.process(
+            { requestId: 'setpoint-1', text: 'schreibe im wohnzimmer die soll temperatur', mode: 'execute' },
+            'admin.0',
+        );
+        expect(first.intent).to.equal('device.setTemperature');
+        expect(first.status).to.equal('clarification');
+        expect(first.clarification?.key).to.equal('value');
+        expect(writes).to.be.empty;
+
+        const second = await controller.process(
+            {
+                requestId: 'setpoint-2',
+                text: '21 Grad',
+                mode: 'execute',
+                clarificationId: first.clarification!.id,
+                selection: '21 Grad',
+            },
+            'admin.0',
+        );
+        expect(second.actions?.[0].stateId).to.equal('test.0.heating.SOLL');
+        expect(writes).to.deep.equal([{ id: 'test.0.heating.SOLL', value: 21 }]);
+    });
+
+    it('handles an English room-only setpoint command without reading the current temperature', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.thermostat', type: 'channel', common: { name: 'Thermostat' } },
+            {
+                id: 'test.0.thermostat.SETPOINT',
+                type: 'state',
+                common: { role: 'level.temperature', type: 'number', read: true, write: true, min: 16, max: 28 },
+            },
+            {
+                id: 'test.0.thermostat.CURRENT',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
+            },
+            { id: 'enum.rooms.living_room', type: 'enum', common: { members: ['test.0.thermostat'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.getValue');
+        registry.setEnabled('test.0.thermostat', true);
+        registry.approve('test.0.thermostat', 'test.0.thermostat.SETPOINT', 'setTemperature');
+        registry.approve('test.0.thermostat', 'test.0.thermostat.CURRENT', 'getValue');
+
+        const result = await controller.process(
+            {
+                requestId: 'setpoint-en',
+                text: 'Write the target temperature in the living room',
+                mode: 'execute',
+                language: 'en',
+            },
+            'admin.0',
+        );
+        expect(result.intent).to.equal('device.setTemperature');
+        expect(result.status).to.equal('clarification');
+        expect(result.clarification?.key).to.equal('value');
+        expect(writes).to.be.empty;
+    });
+
     it('asks for a missing level and validates the selected value', async () => {
         const dimmer: ObjectSnapshot[] = [
             { id: 'dimmer.0.lamp', type: 'device', common: { name: 'Lampe' } },

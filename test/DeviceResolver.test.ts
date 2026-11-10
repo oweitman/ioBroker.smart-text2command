@@ -13,6 +13,37 @@ const objects: ObjectSnapshot[] = [
 ];
 
 describe('device resolver', () => {
+    it('uses configured device aliases with a room for a polite switch-off request', () => {
+        const source: ObjectSnapshot[] = [
+            { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.living.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'test.0.bedroom', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.bedroom.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.living'] } },
+            { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['test.0.bedroom'] } },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        for (const id of ['test.0.living', 'test.0.bedroom']) {
+            registry.setEnabled(id, true);
+            registry.setAliases(id, { de: ['Leuchte'] });
+            registry.approve(id, `${id}.POWER`, 'turnOff');
+        }
+        const resolver = new DeviceResolver(registry);
+        expect(
+            resolver.resolve('könntest du freundlicherweise die leuchte im Wohnzimmer deaktivieren', 'de', 'turnOff')
+                .selected?.deviceId,
+        ).to.equal('test.0.living');
+        expect(resolver.resolve('deaktiviere die Leuchte', 'de', 'turnOff').clarification).to.equal(true);
+    });
     it('uses a room-only phrase for a unique approved read target and asks when several qualify', () => {
         const source: ObjectSnapshot[] = [
             { id: 'test.0.lamp', type: 'channel', common: { name: 'Lampe' } },

@@ -17,19 +17,25 @@ function hash(value: string): string {
     return createHash('sha256').update(value).digest('hex');
 }
 
+export function trainingHash(intents: IntentDefinition[]): string {
+    return hash(JSON.stringify(intents));
+}
+
 export class TrainingManager {
     private running = false;
 
     public constructor(private readonly repository: ModelRepository) {}
 
-    public async loadOrTrain(): Promise<{ engine: NlpJsProvider; metadata: ModelMetadata }> {
+    public async loadOrTrain(
+        intents: IntentDefinition[] = systemIntents(),
+    ): Promise<{ engine: NlpJsProvider; metadata: ModelMetadata }> {
         const existing = await this.repository.loadActive();
-        if (existing) {
+        if (existing?.metadata.trainingHash === trainingHash(intents)) {
             const engine = new NlpJsProvider();
             await engine.load(existing.model);
             return { engine, metadata: existing.metadata };
         }
-        return this.train(systemIntents());
+        return this.train(intents);
     }
 
     public async train(
@@ -56,7 +62,7 @@ export class TrainingManager {
             await engine.load(result.model);
             const metadata: ModelMetadata = {
                 version: hash(result.model).slice(0, 16),
-                trainingHash: hash(JSON.stringify(intents)),
+                trainingHash: trainingHash(intents),
                 engineVersion: nlpPackage.version,
                 trainedAt: new Date().toISOString(),
                 regressionPassed: result.results.length,

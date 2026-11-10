@@ -140,5 +140,10 @@ export function discoverDevices(objects: ObjectSnapshot[], now = new Date().toIS
             status: 'needsReview',
         });
     }
+    for (const device of devices.values()) {
+        device.enumNames = Object.fromEntries(
+            [...new Set([...device.roomIds, ...device.functionIds])].map(id => [id, byId.get(id)?.common.name ?? id]),
+        );
+    }
     return [...devices.values()];
 }

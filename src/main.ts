@@ -10,8 +10,8 @@ import type { ObjectSnapshot } from './devices/types';
 import { DeviceRepository } from './storage/DeviceRepository';
 import { IntentRepository } from './nlp/IntentRepository';
 import { ModelRepository } from './nlp/ModelRepository';
-import { NlpJsProvider } from './nlp/NlpJsProvider';
-import { TrainingManager } from './nlp/TrainingManager';
+import type { NlpJsProvider } from './nlp/NlpJsProvider';
+import { TrainingManager, trainingHash } from './nlp/TrainingManager';
 import { systemIntents } from './nlp/TrainingData';
 import type { IntentDefinition } from './nlp/types';
 import { AuditRepository } from './storage/AuditRepository';
@@ -73,26 +73,7 @@ class SmartText2command extends utils.Adapter {
             return;
         }
         try {
-            const [states, channels, devices, enums] = await Promise.all([
-                this.getForeignObjectsAsync('*', 'state'),
-                this.getForeignObjectsAsync('*', 'channel'),
-                this.getForeignObjectsAsync('*', 'device'),
-                this.getForeignObjectsAsync('*', 'enum'),
-            ]);
-            const entries = [states, channels, devices, enums].flatMap(objects => Object.entries(objects));
-            if (entries.length > MAX_DISCOVERY_OBJECTS) {
-                throw new Error('Discovery object limit exceeded');
-            }
-            for (const [id, object] of entries) {
-                if (id.startsWith(`${this.namespace}.`)) {
-                    continue;
-                }
-                const value = snapshot(id, object);
-                if (value) {
-                    this.objects.set(id, value);
-                }
-            }
-            await this.reconcile();
+            await this.scanObjects();
             this.subscribeForeignObjects('*');
             this.subscribeStates('input.text');
             this.started = true;
@@ -110,18 +91,14 @@ class SmartText2command extends utils.Adapter {
             const intents = await new IntentRepository(join(dataDir, 'training', 'user-intents-v1.json')).load();
             this.userIntents = intents;
             const repository = new ModelRepository(join(dataDir, 'models'));
+            const trainingIntents = [...systemIntents(), ...intents];
             const existing = await repository.loadActive();
-            if (existing) {
-                const provider = new NlpJsProvider();
-                await provider.load(existing.model);
-                this.model = provider;
-                this.modelVersion = existing.metadata.version;
-            } else {
+            if (existing?.metadata.trainingHash !== trainingHash(trainingIntents)) {
                 await this.setState('info.modelStatus', 'training', true);
-                const result = await new TrainingManager(repository).train([...systemIntents(), ...intents]);
-                this.model = result.engine;
-                this.modelVersion = result.metadata.version;
             }
+            const result = await new TrainingManager(repository).loadOrTrain(trainingIntents);
+            this.model = result.engine;
+            this.modelVersion = result.metadata.version;
             await this.setState('info.modelStatus', 'ready', true);
         } catch (error) {
             this.log.error(`NLP model initialization failed: ${String(error)}`);
@@ -167,16 +144,25 @@ class SmartText2command extends utils.Adapter {
                 void this.setState('info.modelStatus', 'ready', true);
             },
             modelReady: () => !!this.model,
+            rescanDevices: async () => {
+                const operation = this.updateQueue.then(() => this.scanObjects());
+                this.updateQueue = operation.catch(() => undefined);
+                await operation;
+            },
             isAdmin: context => this.isAdmin(context),
             diagnostics: () => ({
                 modelStatus: this.model ? 'ready' : 'unavailable',
                 modelVersion: this.modelVersion,
-                deviceCount: this.catalog?.list().length ?? 0,
+                deviceCount: this.catalog?.list().filter(device => device.status !== 'missing').length ?? 0,
                 approvedDevices:
                     this.catalog
                         ?.list()
-                        .filter(device => device.enabled && Object.keys(device.approvedCapabilities).length > 0)
-                        .length ?? 0,
+                        .filter(
+                            device =>
+                                device.status !== 'missing' &&
+                                device.enabled &&
+                                Object.keys(device.approvedCapabilities).length > 0,
+                        ).length ?? 0,
                 lastError: this.lastError,
             }),
         });
@@ -283,6 +269,34 @@ class SmartText2command extends utils.Adapter {
             this.catalog!.list().filter(device => device.status !== 'missing').length,
             true,
         );
+    }
+
+    private async scanObjects(): Promise<void> {
+        const [states, channels, devices, enums] = await Promise.all([
+            this.getForeignObjectsAsync('*', 'state'),
+            this.getForeignObjectsAsync('*', 'channel'),
+            this.getForeignObjectsAsync('*', 'device'),
+            this.getForeignObjectsAsync('*', 'enum'),
+        ]);
+        const entries = [states, channels, devices, enums].flatMap(objects => Object.entries(objects));
+        if (entries.length > MAX_DISCOVERY_OBJECTS) {
+            throw new Error('Discovery object limit exceeded');
+        }
+        const current = new Map<string, ObjectSnapshot>();
+        for (const [id, object] of entries) {
+            if (id.startsWith(`${this.namespace}.`)) {
+                continue;
+            }
+            const value = snapshot(id, object);
+            if (value) {
+                current.set(id, value);
+            }
+        }
+        this.objects.clear();
+        for (const [id, value] of current) {
+            this.objects.set(id, value);
+        }
+        await this.reconcile();
     }
 
     private onUnload(callback: () => void): void {

@@ -22,6 +22,13 @@ const SYSTEM_ACTIONS: Record<string, ActionKind> = {
     'device.getValue': 'getValue',
 };
 
+function isExplicitSetpointWrite(text: string, language: Language): boolean {
+    return language === 'de'
+        ? /\b(?:schreibe|schreib|setze|setz|stelle|stell)\b/i.test(text) &&
+              /\bsoll\s*temperatur\b|\bsollwert\b/i.test(text)
+        : /\b(?:write|set|adjust)\b/i.test(text) && /\b(?:target\s+temperature|setpoint)\b/i.test(text);
+}
+
 interface CachedRequest {
     fingerprint: string;
     expiresAt: number;
@@ -153,11 +160,12 @@ export class CommandController {
                 return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
             }
             const analysis = await model.engine.analyze(text, language);
-            details.alternatives = analysis.alternatives;
-            intent = analysis.intent ?? '';
-            confidence = analysis.confidence;
+            const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
+            intent = explicitSetpointWrite ? 'device.setTemperature' : (analysis.intent ?? '');
+            confidence = explicitSetpointWrite ? 1 : analysis.confidence;
+            details.alternatives = explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
-            if (!intent || confidence < 0.65 || confidence - second < 0.12) {
+            if (!intent || (!explicitSetpointWrite && (confidence < 0.65 || confidence - second < 0.12))) {
                 return this.reject(request, language, 'UNCLEAR_INTENT');
             }
             const configured = this.getUserIntents().find(item => item.id === intent && item.enabled);

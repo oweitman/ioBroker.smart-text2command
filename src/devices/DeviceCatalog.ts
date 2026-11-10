@@ -29,6 +29,12 @@ export class DeviceCatalog {
     public async approve(deviceId: string, stateId: string, action: ActionKind): Promise<void> {
         await this.update(registry => registry.approve(deviceId, stateId, action));
     }
+    public async approveMany(
+        deviceId: string,
+        approvals: Array<{ stateId: string; action: ActionKind }>,
+    ): Promise<void> {
+        await this.update(registry => registry.approveMany(deviceId, approvals));
+    }
     public async revoke(deviceId: string, stateId: string, action: ActionKind): Promise<void> {
         await this.update(registry => registry.revoke(deviceId, stateId, action));
     }

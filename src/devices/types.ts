@@ -29,6 +29,7 @@ export interface DeviceRecord {
     displayName: string;
     roomIds: string[];
     functionIds: string[];
+    enumNames?: Record<string, string | Record<string, string>>;
     aliases: Partial<Record<'de' | 'en', string[]>>;
     discoveredCapabilities: Capability[];
     approvedCapabilities: Record<string, string>; // action:state ID -> approved fingerprint

@@ -18,8 +18,26 @@ describe('NLP model training and persistence', function () {
             expect(trained.metadata.regressionPassed).to.equal(trained.metadata.regressionTotal);
             expect((await trained.engine.analyze('Schalte die Lampe ein', 'de')).intent).to.equal('device.turnOn');
             expect((await trained.engine.analyze('Turn off the lamp', 'en')).intent).to.equal('device.turnOff');
+            for (const [text, language] of [
+                ['Könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren', 'de'],
+                ['Could you kindly deactivate the light in the living room', 'en'],
+            ] as const) {
+                const result = await trained.engine.analyze(text, language);
+                expect(result.intent).to.equal('device.turnOff');
+                expect(result.confidence).to.be.at.least(0.65);
+                expect(
+                    result.confidence -
+                        (result.alternatives.find(item => item.intent !== result.intent)?.confidence ?? 0),
+                ).to.be.at.least(0.12);
+            }
             const loaded = await manager.loadOrTrain();
             expect(loaded.metadata.version).to.equal(trained.metadata.version);
+            const updatedIntents = systemIntents();
+            updatedIntents
+                .find(intent => intent.id === 'device.setTemperature')!
+                .utterances.de!.push('Schreibe den Thermostat Sollwert auf 22 Grad');
+            const refreshed = await manager.loadOrTrain(updatedIntents);
+            expect(refreshed.metadata.version).not.to.equal(trained.metadata.version);
             try {
                 await manager.train(systemIntents(), [
                     { language: 'de', text: 'Schalte die Lampe ein', intent: 'device.turnOff' },
@@ -28,7 +46,7 @@ describe('NLP model training and persistence', function () {
             } catch (error) {
                 expect(String(error)).to.contain('Model regression failed');
             }
-            expect((await repository.loadActive())?.metadata.version).to.equal(trained.metadata.version);
+            expect((await repository.loadActive())?.metadata.version).to.equal(refreshed.metadata.version);
         } finally {
             await rm(dir, { recursive: true, force: true });
         }

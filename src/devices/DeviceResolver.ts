@@ -100,7 +100,12 @@ export class DeviceResolver {
                 }
             }
             if (!score) {
-                if (!roomMatched || (action !== 'getState' && action !== 'getValue')) {
+                const explicitSetpoint =
+                    action === 'setTemperature' &&
+                    (language === 'de'
+                        ? /\b(?:soll\s*temperatur|sollwert)\b/.test(normalized)
+                        : /\b(?:target\s+temperature|setpoint)\b/.test(normalized));
+                if (!roomMatched || (action !== 'getState' && action !== 'getValue' && !explicitSetpoint)) {
                     continue;
                 }
                 score = 65;

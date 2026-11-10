@@ -24,6 +24,7 @@ interface RouterOptions {
     setUserIntents: (intents: IntentDefinition[]) => void;
     setModel: (model: NlpJsProvider, version: string) => void;
     modelReady: () => boolean;
+    rescanDevices: () => Promise<void>;
     isAdmin: (context: MessageContext) => Promise<boolean>;
     diagnostics: () => Record<string, unknown>;
 }
@@ -70,30 +71,45 @@ export class MessageRouter {
                 const filter =
                     typeof payload.filter === 'string' ? payload.filter.toLocaleLowerCase().slice(0, 100) : '';
                 const room = typeof payload.room === 'string' ? payload.room.slice(0, 200) : '';
+                const functionId = typeof payload.functionId === 'string' ? payload.functionId.slice(0, 200) : '';
                 const capability = typeof payload.capability === 'string' ? payload.capability.slice(0, 100) : '';
-                const devices = this.options.catalog
-                    .list()
-                    .filter(
-                        device =>
-                            device.status !== 'missing' &&
-                            (!filter ||
-                                device.displayName.toLocaleLowerCase().includes(filter) ||
-                                device.id.toLocaleLowerCase().includes(filter)) &&
-                            (!room || device.roomIds.includes(room)) &&
-                            (!capability || device.discoveredCapabilities.some(item => item.kind === capability)),
-                    );
-                const rooms = [
-                    ...new Set(
-                        this.options.catalog
-                            .list()
-                            .filter(device => device.status !== 'missing')
-                            .flatMap(device => device.roomIds),
-                    ),
-                ].sort();
-                return { total: devices.length, devices: devices.slice(offset, offset + limit), rooms };
+                const current = this.options.catalog.list().filter(device => device.status !== 'missing');
+                const devices = current.filter(
+                    device =>
+                        (!filter ||
+                            device.displayName.toLocaleLowerCase().includes(filter) ||
+                            device.id.toLocaleLowerCase().includes(filter)) &&
+                        (!room ||
+                            (room === '__none__' ? device.roomIds.length === 0 : device.roomIds.includes(room))) &&
+                        (!functionId ||
+                            (functionId === '__none__'
+                                ? device.functionIds.length === 0
+                                : device.functionIds.includes(functionId))) &&
+                        (!capability ||
+                            (capability === '__none__'
+                                ? device.discoveredCapabilities.length === 0
+                                : device.discoveredCapabilities.some(item => item.kind === capability))),
+                );
+                const enumOptions = (
+                    kind: 'roomIds' | 'functionIds',
+                ): Array<{ id: string; name: string | Record<string, string> }> =>
+                    [...new Set(current.flatMap(device => device[kind]))].sort().map(id => ({
+                        id,
+                        name: current.find(device => device.enumNames?.[id])?.enumNames?.[id] ?? id,
+                    }));
+                return {
+                    total: devices.length,
+                    devices: devices.slice(offset, offset + limit),
+                    rooms: enumOptions('roomIds'),
+                    functions: enumOptions('functionIds'),
+                };
             }
             if (command === 'getDiagnostics') {
                 return this.options.diagnostics();
+            }
+            if (command === 'rescanDevices') {
+                await this.options.rescanDevices();
+                return { status: 'updated' };
             }
             if (command === 'getTrainingStatus') {
                 if (this.job) {
@@ -108,7 +124,7 @@ export class MessageRouter {
                 };
             }
             if (command === 'updateDevice') {
-                return this.updateDevice(payload);
+                return await this.updateDevice(payload);
             }
             if (command === 'listIntents') {
                 return { intents: [...systemIntents(), ...this.options.getUserIntents()] };
@@ -162,7 +178,12 @@ export class MessageRouter {
         if (!this.options.catalog.list().some(device => device.id === deviceId)) {
             throw new Error('Unknown device');
         }
-        if (payload.enabled === undefined && payload.aliases === undefined && payload.approval === undefined) {
+        if (
+            payload.enabled === undefined &&
+            payload.aliases === undefined &&
+            payload.approval === undefined &&
+            payload.approvals === undefined
+        ) {
             throw new Error('No device update');
         }
         if (payload.enabled !== undefined && typeof payload.enabled !== 'boolean') {
@@ -186,6 +207,29 @@ export class MessageRouter {
                 throw new Error('Invalid approval value');
             }
         }
+        let approvals: Array<{ stateId: string; action: ActionKind }> | undefined;
+        if (payload.approvals !== undefined) {
+            if (
+                payload.enabled !== undefined ||
+                payload.aliases !== undefined ||
+                payload.approval !== undefined ||
+                !Array.isArray(payload.approvals) ||
+                payload.approvals.length < 1 ||
+                payload.approvals.length > 50
+            ) {
+                throw new Error('Invalid approvals');
+            }
+            approvals = payload.approvals.map(item => {
+                if (!item || typeof item !== 'object' || Array.isArray(item)) {
+                    throw new Error('Invalid approvals');
+                }
+                const entry = item as Payload;
+                return { stateId: this.string(entry.stateId), action: this.string(entry.action) as ActionKind };
+            });
+            if (new Set(approvals.map(item => `${item.action}:${item.stateId}`)).size !== approvals.length) {
+                throw new Error('Duplicate approvals');
+            }
+        }
         if (payload.enabled !== undefined) {
             await this.options.catalog.setEnabled(deviceId, payload.enabled);
         }
@@ -202,6 +246,9 @@ export class MessageRouter {
             } else {
                 throw new Error('Invalid approval value');
             }
+        }
+        if (approvals) {
+            await this.options.catalog.approveMany(deviceId, approvals);
         }
         return { device: this.options.catalog.list().find(device => device.id === deviceId) };
     }
