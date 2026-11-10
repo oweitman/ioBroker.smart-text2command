@@ -2,9 +2,17 @@
     "i18n": true,
     "type": "panel",
     "items": {
+        "defaultLanguage": {
+            "type": "select",
+            "label": "Default language",
+            "options": [
+                {"label": "Deutsch", "value": "de"},
+                {"label": "English", "value": "en"}
+            ]
+        },
         "phaseNotice": {
             "type": "staticText",
-            "text": "Discovery is active. Device approvals and command execution will be available in a later phase."
+            "text": "Device approvals and command tests are available through the adapter message API; the Admin interface follows in Phase 4."
         }
     }
 }

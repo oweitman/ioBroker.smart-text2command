@@ -17,6 +17,7 @@ describe('entity parser', () => {
         expect(parsed.negated).to.equal(true);
         expect(parsed.unsupported).to.include.members(['group', 'exception', 'time', 'multipleActions']);
         expect(parsed.entities.find(item => item.type === 'room')?.value).to.equal('Küche');
+        expect(parseEntities('Set temperature to 70 Fahrenheit', 'en').unsupported).to.include('unit');
         expect(parseEntities('Schalte die Lampe ein, setze die Heizung auf 21 Grad', 'de').unsupported).to.include(
             'multipleActions',
         );

@@ -31,7 +31,13 @@ export function validateCommandRequest(input: unknown): CommandRequest {
     ) {
         throw new RequestError('INVALID_REQUEST', 'Invalid clarificationId');
     }
-    if (value.selection !== undefined && (typeof value.selection !== 'string' || !ID_PATTERN.test(value.selection))) {
+    if (
+        value.selection !== undefined &&
+        (typeof value.selection !== 'string' ||
+            !value.selection.trim() ||
+            value.selection.length > 100 ||
+            [...value.selection].some(character => character.charCodeAt(0) < 32))
+    ) {
         throw new RequestError('INVALID_REQUEST', 'Invalid selection');
     }
     if ((value.clarificationId === undefined) !== (value.selection === undefined)) {

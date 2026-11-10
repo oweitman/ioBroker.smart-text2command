@@ -1,0 +1,249 @@
+import { randomUUID } from 'node:crypto';
+import { validateCommandRequest } from './RequestValidator';
+import type { CommandController } from '../commands/CommandController';
+import type { DeviceCatalog } from '../devices/DeviceCatalog';
+import type { ActionKind } from '../devices/types';
+import type { IntentRepository } from '../nlp/IntentRepository';
+import type { ModelRepository } from '../nlp/ModelRepository';
+import { TrainingManager } from '../nlp/TrainingManager';
+import { systemIntents } from '../nlp/TrainingData';
+import { NlpJsProvider } from '../nlp/NlpJsProvider';
+import type { IntentDefinition } from '../nlp/types';
+
+interface MessageContext {
+    from: string;
+    user?: string;
+}
+
+interface RouterOptions {
+    controller: CommandController;
+    catalog: DeviceCatalog;
+    intentRepository: IntentRepository;
+    modelRepository: ModelRepository;
+    getUserIntents: () => IntentDefinition[];
+    setUserIntents: (intents: IntentDefinition[]) => void;
+    setModel: (model: NlpJsProvider, version: string) => void;
+    modelReady: () => boolean;
+    isAdmin: (context: MessageContext) => Promise<boolean>;
+    diagnostics: () => Record<string, unknown>;
+}
+
+type Payload = Record<string, unknown>;
+
+export class MessageRouter {
+    private readonly rate = new Map<string, { since: number; count: number }>();
+    private job:
+        | {
+              id: string;
+              status: 'running' | 'completed' | 'failed';
+              version?: string;
+              regressionPassed?: number;
+              regressionTotal?: number;
+              error?: string;
+          }
+        | undefined;
+
+    public constructor(private readonly options: RouterOptions) {}
+
+    public async handle(command: string, message: unknown, context: MessageContext): Promise<unknown> {
+        try {
+            if (JSON.stringify(message)?.length > 65_536) {
+                return { error: 'REQUEST_TOO_LARGE' };
+            }
+            const payload: Payload =
+                message && typeof message === 'object' && !Array.isArray(message) ? (message as Payload) : {};
+            if (command === 'processText') {
+                if (!this.permit(context.from)) {
+                    return { error: 'RATE_LIMITED' };
+                }
+                return this.options.controller.process(
+                    validateCommandRequest(message),
+                    `${context.from}:${context.user ?? ''}`,
+                );
+            }
+            if (!(await this.options.isAdmin(context))) {
+                return { error: 'ADMIN_REQUIRED' };
+            }
+            if (command === 'listDevices') {
+                const offset = this.int(payload.offset, 0, 100_000, 0);
+                const limit = this.int(payload.limit, 1, 100, 50);
+                const filter =
+                    typeof payload.filter === 'string' ? payload.filter.toLocaleLowerCase().slice(0, 100) : '';
+                const devices = this.options.catalog
+                    .list()
+                    .filter(
+                        device =>
+                            !filter ||
+                            device.displayName.toLocaleLowerCase().includes(filter) ||
+                            device.id.toLocaleLowerCase().includes(filter),
+                    );
+                return { total: devices.length, devices: devices.slice(offset, offset + limit) };
+            }
+            if (command === 'getDiagnostics') {
+                return this.options.diagnostics();
+            }
+            if (command === 'getTrainingStatus') {
+                if (this.job) {
+                    return this.job;
+                }
+                const active = await this.options.modelRepository.loadActive();
+                return {
+                    status: 'idle',
+                    modelVersion: active?.metadata.version,
+                    regressionPassed: active?.metadata.regressionPassed,
+                    regressionTotal: active?.metadata.regressionTotal,
+                };
+            }
+            if (command === 'updateDevice') {
+                return this.updateDevice(payload);
+            }
+            if (command === 'listIntents') {
+                return { intents: [...systemIntents(), ...this.options.getUserIntents()] };
+            }
+            if (command === 'saveIntent') {
+                return this.saveIntent(payload);
+            }
+            if (command === 'deleteIntent') {
+                return this.deleteIntent(payload);
+            }
+            if (command === 'trainModel') {
+                if (!this.options.modelReady()) {
+                    return { error: 'MODEL_INITIALIZING' };
+                }
+                return this.trainModel();
+            }
+            if (command === 'rollbackModel') {
+                if (!this.options.modelReady() || this.job?.status === 'running') {
+                    return { error: 'MODEL_BUSY' };
+                }
+                await this.options.modelRepository.rollback();
+                const loaded = await this.options.modelRepository.loadActive();
+                if (!loaded) {
+                    throw new Error('No model after rollback');
+                }
+                const provider = new NlpJsProvider();
+                await provider.load(loaded.model);
+                this.options.setModel(provider, loaded.metadata.version);
+                return { status: 'ready', modelVersion: loaded.metadata.version };
+            }
+            return { error: 'UNKNOWN_COMMAND' };
+        } catch (error) {
+            return { error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' };
+        }
+    }
+
+    private async updateDevice(payload: Payload): Promise<unknown> {
+        const deviceId = this.string(payload.deviceId);
+        if (!this.options.catalog.list().some(device => device.id === deviceId)) {
+            throw new Error('Unknown device');
+        }
+        if (payload.enabled === undefined && payload.aliases === undefined && payload.approval === undefined) {
+            throw new Error('No device update');
+        }
+        if (payload.enabled !== undefined && typeof payload.enabled !== 'boolean') {
+            throw new Error('Invalid enabled value');
+        }
+        if (
+            payload.aliases !== undefined &&
+            (!payload.aliases || typeof payload.aliases !== 'object' || Array.isArray(payload.aliases))
+        ) {
+            throw new Error('Invalid aliases');
+        }
+        let approval: Payload | undefined;
+        if (payload.approval !== undefined) {
+            if (!payload.approval || typeof payload.approval !== 'object' || Array.isArray(payload.approval)) {
+                throw new Error('Invalid approval');
+            }
+            approval = payload.approval as Payload;
+            this.string(approval.stateId);
+            this.string(approval.action);
+            if (typeof approval.approved !== 'boolean') {
+                throw new Error('Invalid approval value');
+            }
+        }
+        if (payload.enabled !== undefined) {
+            await this.options.catalog.setEnabled(deviceId, payload.enabled);
+        }
+        if (payload.aliases !== undefined) {
+            await this.options.catalog.setAliases(deviceId, payload.aliases);
+        }
+        if (approval) {
+            const stateId = this.string(approval.stateId);
+            const action = this.string(approval.action) as ActionKind;
+            if (approval.approved === true) {
+                await this.options.catalog.approve(deviceId, stateId, action);
+            } else if (approval.approved === false) {
+                await this.options.catalog.revoke(deviceId, stateId, action);
+            } else {
+                throw new Error('Invalid approval value');
+            }
+        }
+        return { device: this.options.catalog.list().find(device => device.id === deviceId) };
+    }
+
+    private async saveIntent(payload: Payload): Promise<unknown> {
+        const intent = payload.intent as IntentDefinition;
+        if (!intent || typeof intent !== 'object') {
+            throw new Error('Invalid intent');
+        }
+        const current = this.options.getUserIntents().filter(item => item.id !== intent.id);
+        const next = [...current, intent];
+        await this.options.intentRepository.save(next);
+        this.options.setUserIntents(next);
+        return { status: 'saved', intentId: intent.id };
+    }
+
+    private async deleteIntent(payload: Payload): Promise<unknown> {
+        const id = this.string(payload.id);
+        const next = this.options.getUserIntents().filter(item => item.id !== id);
+        await this.options.intentRepository.save(next);
+        this.options.setUserIntents(next);
+        return { status: 'deleted', intentId: id };
+    }
+
+    private trainModel(): unknown {
+        if (this.job?.status === 'running') {
+            return { error: 'TRAINING_ALREADY_RUNNING', jobId: this.job.id };
+        }
+        const job = { id: randomUUID(), status: 'running' as const };
+        this.job = job;
+        void new TrainingManager(this.options.modelRepository)
+            .train([...systemIntents(), ...this.options.getUserIntents()])
+            .then(result => {
+                this.options.setModel(result.engine, result.metadata.version);
+                this.job = {
+                    id: job.id,
+                    status: 'completed',
+                    version: result.metadata.version,
+                    regressionPassed: result.metadata.regressionPassed,
+                    regressionTotal: result.metadata.regressionTotal,
+                };
+            })
+            .catch(error => {
+                this.job = { id: job.id, status: 'failed', error: String(error) };
+            });
+        return { jobId: job.id, status: job.status };
+    }
+
+    private permit(client: string): boolean {
+        const now = Date.now();
+        const entry = this.rate.get(client);
+        if (!entry || now - entry.since >= 60_000) {
+            this.rate.set(client, { since: now, count: 1 });
+            return true;
+        }
+        entry.count++;
+        return entry.count <= 30;
+    }
+
+    private int(value: unknown, min: number, max: number, fallback: number): number {
+        return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : fallback;
+    }
+
+    private string(value: unknown): string {
+        if (typeof value !== 'string' || !value || value.length > 200) {
+            throw new Error('Invalid string');
+        }
+        return value;
+    }
+}

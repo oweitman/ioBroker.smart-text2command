@@ -1,6 +1,10 @@
 import type { Language } from '../types/api';
-import type { ActionKind, DeviceRecord } from './types';
-import type { DeviceRegistry } from './DeviceRegistry';
+import type { ActionKind, Capability, DeviceRecord } from './types';
+
+export interface DeviceCatalogView {
+    list(): DeviceRecord[];
+    isAllowed(deviceId: string, capability: Capability, action: ActionKind): boolean;
+}
 
 export interface Candidate {
     deviceId: string;
@@ -57,12 +61,12 @@ function matchScore(text: string, value: string): number {
     return best <= 2 ? 75 - best * 10 : 0;
 }
 
-function hasApprovedAction(device: DeviceRecord, action: ActionKind, registry: DeviceRegistry): boolean {
+function hasApprovedAction(device: DeviceRecord, action: ActionKind, registry: DeviceCatalogView): boolean {
     return device.discoveredCapabilities.some(capability => registry.isAllowed(device.id, capability, action));
 }
 
 export class DeviceResolver {
-    public constructor(private readonly registry: DeviceRegistry) {}
+    public constructor(private readonly registry: DeviceCatalogView) {}
 
     public resolve(text: string, language: Language, action: ActionKind): Resolution {
         const normalized = normalize(text);

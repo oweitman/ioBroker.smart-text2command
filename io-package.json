@@ -66,6 +66,7 @@
         "mode": "daemon",
         "type": "misc-data",
         "compact": true,
+        "messagebox": true,
         "connectionType": "local",
         "dataSource": "assumption",
         "adminUI": {
@@ -73,7 +74,7 @@
         },
         "dependencies": [
             {
-                "js-controller": ">=6.0.11"
+                "js-controller": ">=7.2.5"
             }
         ],
         "globalDependencies": [
@@ -82,7 +83,7 @@
             }
         ]
     },
-    "native": {},
+    "native": {"defaultLanguage": "de"},
     "objects": [],
     "instanceObjects": [
         {
@@ -118,6 +119,12 @@
                 "def": "loading"
             },
             "native": {}
-        }
+        },
+        {"_id":"input","type":"channel","common":{"name":"Input"},"native":{}},
+        {"_id":"input.text","type":"state","common":{"name":"Text for analysis","role":"text","type":"string","read":true,"write":true,"def":""},"native":{}},
+        {"_id":"output","type":"channel","common":{"name":"Output"},"native":{}},
+        {"_id":"output.response","type":"state","common":{"name":"Last response","role":"text","type":"string","read":true,"write":false,"def":""},"native":{}},
+        {"_id":"output.result","type":"state","common":{"name":"Last result JSON","role":"json","type":"string","read":true,"write":false,"def":""},"native":{}},
+        {"_id":"output.status","type":"state","common":{"name":"Processing status","role":"text","type":"string","read":true,"write":false,"def":"idle"},"native":{}}
     ]
 }

@@ -21,6 +21,19 @@ tests.integration(path.join(__dirname, ".."), {
                 try {
                     await harness.startAdapterAndWait();
                     await ready;
+                    const analyzed = new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => reject(new Error('Analysis state did not finish')), 10_000);
+                        harness.on('stateChange', (id, state) => {
+                            if (id === 'smart-text2command.0.output.status' && state?.val === 'done') {
+                                clearTimeout(timeout);
+                                resolve();
+                            }
+                        });
+                    });
+                    await harness.states.setState('smart-text2command.0.input.text', { val: 'Schalte Lampe ein', ack: false });
+                    await analyzed;
+                    const result = await harness.states.getState('smart-text2command.0.output.result');
+                    if (!result || JSON.parse(result.val).status !== 'rejected') throw new Error('State analysis returned no rejection for unapproved device');
                 } finally {
                     clearTimeout(timer);
                 }

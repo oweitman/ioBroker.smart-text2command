@@ -1,0 +1,82 @@
+import { expect } from 'chai';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { MessageRouter } from '../src/api/MessageRouter';
+import { CommandController } from '../src/commands/CommandController';
+import { DeviceCatalog } from '../src/devices/DeviceCatalog';
+import { discoverDevices } from '../src/devices/DeviceDiscovery';
+import { IntentRepository } from '../src/nlp/IntentRepository';
+import { ModelRepository } from '../src/nlp/ModelRepository';
+import { AuditRepository } from '../src/storage/AuditRepository';
+import { DeviceRepository } from '../src/storage/DeviceRepository';
+
+describe('message API', () => {
+    let directory: string;
+    beforeEach(async () => {
+        directory = await mkdtemp(join(tmpdir(), 'smart-text2command-api-'));
+    });
+    afterEach(async () => {
+        await rm(directory, { recursive: true, force: true });
+    });
+
+    it('blocks management from non-admin callers and applies explicit approval', async () => {
+        const catalog = await DeviceCatalog.load(new DeviceRepository(join(directory, 'devices.json')));
+        await catalog.reconcile(
+            discoverDevices([
+                { id: 'plug.0.lamp', type: 'device', common: { name: 'Lampe' } },
+                {
+                    id: 'plug.0.lamp.POWER',
+                    type: 'state',
+                    common: { role: 'switch', type: 'boolean', read: true, write: true },
+                },
+            ]),
+        );
+        const controller = new CommandController(
+            catalog,
+            {
+                getObject: () => Promise.resolve(undefined),
+                getState: () => Promise.resolve(undefined),
+                setState: () => Promise.reject(new Error('Unexpected write')),
+            },
+            () => undefined,
+            () => [],
+            new AuditRepository(join(directory, 'audit.json')),
+        );
+        const router = new MessageRouter({
+            controller,
+            catalog,
+            intentRepository: new IntentRepository(join(directory, 'intents.json')),
+            modelRepository: new ModelRepository(join(directory, 'models')),
+            getUserIntents: () => [],
+            setUserIntents: () => undefined,
+            setModel: () => undefined,
+            modelReady: () => true,
+            isAdmin: context =>
+                Promise.resolve(context.from === 'system.adapter.admin.0' && context.user === 'system.user.admin'),
+            diagnostics: () => ({ status: 'ready' }),
+        });
+        const untrusted = { from: 'system.adapter.web.0', user: 'system.user.admin' };
+        const admin = { from: 'system.adapter.admin.0', user: 'system.user.admin' };
+        expect(await router.handle('listDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(
+            await router.handle('updateDevice', { deviceId: 'plug.0.lamp', enabled: true }, untrusted),
+        ).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(catalog.list()[0].enabled).to.equal(false);
+        await router.handle(
+            'updateDevice',
+            {
+                deviceId: 'plug.0.lamp',
+                enabled: true,
+                approval: { stateId: 'plug.0.lamp.POWER', action: 'turnOn', approved: true },
+            },
+            admin,
+        );
+        const device = catalog.list()[0];
+        expect(device.enabled).to.equal(true);
+        expect(Object.keys(device.approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
+        const listed = (await router.handle('listDevices', { limit: 1 }, admin)) as { total: number };
+        expect(listed.total).to.equal(1);
+        expect(await router.handle('getDiagnostics', {}, admin)).to.deep.equal({ status: 'ready' });
+    });
+});

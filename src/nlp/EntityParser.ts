@@ -10,7 +10,7 @@ export interface ParsedEntity {
 export interface ParsedText {
     entities: ParsedEntity[];
     negated: boolean;
-    unsupported: Array<'group' | 'exception' | 'time' | 'multipleActions'>;
+    unsupported: Array<'group' | 'exception' | 'time' | 'multipleActions' | 'unit'>;
 }
 
 export function parseEntities(text: string, language: Language, rooms: string[] = []): ParsedText {
@@ -30,6 +30,7 @@ export function parseEntities(text: string, language: Language, rooms: string[] 
             : /\b(tomorrow|later|at\s+\d{1,2}(?::\d{2})?)\b/i,
     );
     addUnsupported('multipleActions', language === 'de' ? /\b(und|danach)\b/i : /\b(and|then)\b/i);
+    addUnsupported('unit', /\b(fahrenheit|kelvin)\b|°\s*[fFkK]\b/i);
     const actionVerbs =
         language === 'de'
             ? /\b(schalte|schalt|setze|setz|stelle|stell|dimme|dimm|aktiviere|deaktiviere)\b/gi

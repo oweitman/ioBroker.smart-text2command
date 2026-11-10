@@ -1,5 +1,5 @@
 import { DeviceRegistry } from './DeviceRegistry';
-import type { ActionKind, DeviceRecord } from './types';
+import type { ActionKind, Capability, DeviceRecord } from './types';
 import type { DeviceRepository } from '../storage/DeviceRepository';
 export class DeviceCatalog {
     private queue: Promise<void> = Promise.resolve();
@@ -12,6 +12,10 @@ export class DeviceCatalog {
     }
     public list(): DeviceRecord[] {
         return this.registry.list();
+    }
+
+    public isAllowed(deviceId: string, capability: Capability, action: ActionKind): boolean {
+        return this.registry.isAllowed(deviceId, capability, action);
     }
     public async reconcile(devices: DeviceRecord[]): Promise<void> {
         await this.update(registry => registry.reconcile(devices));
