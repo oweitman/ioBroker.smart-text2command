@@ -105,6 +105,19 @@
                 "def": 0
             },
             "native": {}
+        },
+        {
+            "_id": "info.modelStatus",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "NLP model status",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": "loading"
+            },
+            "native": {}
         }
     ]
 }

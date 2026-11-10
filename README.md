@@ -4,9 +4,11 @@ An ioBroker adapter for local natural-language device control. Development follo
 
 ## Current state
 
-Phase 0 and the discovery and approval foundation of Phase 1 are implemented. The adapter discovers ioBroker objects and room/function enums, maps conservative device capabilities, and stores a registry in the instance data directory. Every new device is disabled and every action requires a separate approval tied to the current capability fingerprint. A changed target, type, range, or mapping invalidates the affected approval. Critical and unknown roles are not executable.
+Phases 0–2 are implemented. The adapter discovers ioBroker objects and room/function enums, maps conservative device capabilities, and stores a registry in the instance data directory. Every new device is disabled and every action requires a separate approval tied to the current capability fingerprint. A changed target, type, range, or mapping invalidates the affected approval. Critical and unknown roles are not executable.
 
-The NLP engine, command execution, `sendTo` API, and React/MUI administration are later phases. No device commands are issued by the current adapter. The current Admin page is an informational placeholder; approval methods exist internally but have no UI yet.
+NLP.js classifies German and English requests using a versioned local model. Baseline training runs in a worker thread when no valid model exists. A new model is activated only after fixed regression cases pass. Device names and aliases are resolved from the current registry without retraining. User intents have separate persistent storage with typed action validation.
+
+Command execution, the `sendTo` API, and React/MUI administration are later phases. No device commands are issued by the current adapter. The current Admin page is an informational placeholder; approval methods exist internally but have no UI yet.
 
 ## Development
 
@@ -21,7 +23,7 @@ npm test
 npm run test:integration
 ```
 
-TypeScript tests live under `test/`. The persistent registry is `devices-v1.json` in the ioBroker instance data directory. If its checksum or schema is invalid, discovery does not start and no approval is used.
+TypeScript tests live under `test/`. The instance data directory contains `devices-v1.json`, `training/user-intents-v1.json`, and versioned files under `models/`. Corrupt registry or intent data stops the respective initialization. A damaged active NLP model falls back to the previous validated version when available.
 
 See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, validation and open work.
 

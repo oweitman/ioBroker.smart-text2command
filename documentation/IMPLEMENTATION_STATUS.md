@@ -1,5 +1,13 @@
 # Implementation status
 
+## Phase 2
+
+The NLP.js provider uses the stable modular `@nlpjs/nlp` 4.27.0 API with the German and English language packages. German and English baseline corpora are versioned in `resources/training/`; custom intents are stored separately. Training and regression run in `src/nlp/training-worker.js`, outside the adapter event loop. `ModelRepository` writes checksummed model versions and an active manifest, supports rollback, and falls back to the previous model if the active file is damaged. The adapter loads the last valid model or starts baseline training and reports `info.modelStatus`.
+
+`EntityParser` recognizes localized numbers, percentages, temperatures, room names, quoted device phrases, negations, and unsupported group, exception, time, and multiple-action syntax. `DeviceResolver` matches current approved device names and aliases and asks for clarification on tied candidates. Tests remain under `/test`.
+
+The Phase 3 command pipeline must enforce rejection for unsupported syntax and negation, recheck approvals before each state access, and expose only the controlled `sendTo` path for execution. There is still no device write path.
+
 ## Phase 0 and Phase 1 plan
 
 | Area | Files | Verification |
@@ -26,7 +34,8 @@ The existing adapter template supplies TypeScript, package tests, and CI. No NLP
 - `npm run check`: passed.
 - `npm run lint`: passed.
 - `npm run format:check`: passed.
-- `npm test`: unit and package tests passed.
-- `npm run test:integration`: adapter startup passed against the ioBroker test controller.
+- `npm test`: 15 TypeScript tests and 61 package tests passed.
+- `npm run test:integration`: two tests passed against the ioBroker test controller, including `info.modelStatus = ready` after baseline training.
+- `npm audit --omit=dev`: zero runtime dependency findings after using modular NLP.js packages.
 
-The actual discovery event path against a populated controller and the Admin approval workflow remain to be verified in the next phase. The current integration test verifies startup only.
+The actual discovery event path against a populated controller remains to be verified in Phase 3. The Admin approval workflow belongs to Phase 4. The release acceptance target of at least 20 validated positive examples per language and core intent remains open for Phase 5.

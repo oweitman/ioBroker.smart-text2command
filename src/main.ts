@@ -4,6 +4,11 @@ import { discoverDevices } from './devices/DeviceDiscovery';
 import { DeviceCatalog } from './devices/DeviceCatalog';
 import type { ObjectSnapshot } from './devices/types';
 import { DeviceRepository } from './storage/DeviceRepository';
+import { IntentRepository } from './nlp/IntentRepository';
+import { ModelRepository } from './nlp/ModelRepository';
+import { NlpJsProvider } from './nlp/NlpJsProvider';
+import { TrainingManager } from './nlp/TrainingManager';
+import { systemIntents } from './nlp/TrainingData';
 
 const MAX_DISCOVERY_OBJECTS = 100_000;
 
@@ -17,6 +22,7 @@ function snapshot(id: string, object: ioBroker.Object): ObjectSnapshot | undefin
 class SmartText2command extends utils.Adapter {
     private readonly objects = new Map<string, ObjectSnapshot>();
     private catalog?: DeviceCatalog;
+    private model?: NlpJsProvider;
     private discoveryTimer?: ReturnType<typeof setTimeout>;
     private updateQueue: Promise<void> = Promise.resolve();
     private started = false;
@@ -54,8 +60,32 @@ class SmartText2command extends utils.Adapter {
             await this.reconcile();
             this.subscribeForeignObjects('*');
             this.started = true;
+            void this.initializeModel().catch(error => this.log.error(`NLP status update failed: ${String(error)}`));
         } catch (error) {
             this.log.error(`Device discovery failed: ${String(error)}`);
+        }
+    }
+
+    private async initializeModel(): Promise<void> {
+        try {
+            await this.setState('info.modelStatus', 'loading', true);
+            const dataDir = utils.getAbsoluteInstanceDataDir(this);
+            const intents = await new IntentRepository(join(dataDir, 'training', 'user-intents-v1.json')).load();
+            const repository = new ModelRepository(join(dataDir, 'models'));
+            const existing = await repository.loadActive();
+            if (existing) {
+                const provider = new NlpJsProvider();
+                await provider.load(existing.model);
+                this.model = provider;
+            } else {
+                await this.setState('info.modelStatus', 'training', true);
+                const result = await new TrainingManager(repository).train([...systemIntents(), ...intents]);
+                this.model = result.engine;
+            }
+            await this.setState('info.modelStatus', 'ready', true);
+        } catch (error) {
+            this.log.error(`NLP model initialization failed: ${String(error)}`);
+            await this.setState('info.modelStatus', 'error', true);
         }
     }
 
