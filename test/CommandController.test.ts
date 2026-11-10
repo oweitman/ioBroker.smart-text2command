@@ -161,13 +161,84 @@ describe('command pipeline', () => {
         expect(writes).to.have.length(1);
     });
 
+    it('extracts the room and resolves an approved lamp in that room', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.wohnzimmer', type: 'channel', common: { name: 'Lampe' } },
+            { id: 'plug.0.schlafzimmer', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'plug.0.wohnzimmer.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: 'plug.0.schlafzimmer.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['plug.0.wohnzimmer'] } },
+            { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['plug.0.schlafzimmer'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects);
+        for (const id of ['plug.0.wohnzimmer', 'plug.0.schlafzimmer']) {
+            registry.setEnabled(id, true);
+            registry.approve(id, `${id}.POWER`, 'turnOn');
+        }
+        const result = await controller.process(
+            { requestId: 'room-1', text: 'Schalte die Lampe im Wohnzimmer ein', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(result.actions?.[0].deviceId).to.equal('plug.0.wohnzimmer');
+        expect(result.analysis?.entities).to.satisfy((entities: Array<{ type: string; value: unknown }>) =>
+            entities.some(entity => entity.type === 'room' && entity.value === 'wohnzimmer'),
+        );
+        expect(writes).to.be.empty;
+    });
+
+    it('plans a temperature read when only the room identifies the sensor', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.lamp', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lamp.HELLIGKEIT',
+                type: 'state',
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+            },
+            { id: 'test.0.sensor', type: 'channel', common: { name: 'Temperatursensor' } },
+            {
+                id: 'test.0.sensor.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false, unit: '°C' },
+            },
+            {
+                id: 'test.0.sensor.HELLIGKEIT',
+                type: 'state',
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+            },
+            { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['test.0.lamp', 'test.0.sensor'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.getValue');
+        registry.setEnabled('test.0.lamp', true);
+        registry.approve('test.0.lamp', 'test.0.lamp.HELLIGKEIT', 'getValue');
+        registry.setEnabled('test.0.sensor', true);
+        registry.approve('test.0.sensor', 'test.0.sensor.IST', 'getValue');
+        registry.approve('test.0.sensor', 'test.0.sensor.HELLIGKEIT', 'getValue');
+        const result = await controller.process(
+            { requestId: 'room-read', text: 'Wie warm ist es im Schlafzimmer', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(result.analysis?.candidates?.[0].deviceId).to.equal('test.0.sensor');
+        expect(result.analysis?.plan?.stateId).to.equal('test.0.sensor.IST');
+        expect(writes).to.be.empty;
+    });
+
     it('asks for a missing level and validates the selected value', async () => {
         const dimmer: ObjectSnapshot[] = [
             { id: 'dimmer.0.lamp', type: 'device', common: { name: 'Lampe' } },
             {
                 id: 'dimmer.0.lamp.LEVEL',
                 type: 'state',
-                common: { role: 'level.dimmer', type: 'number', read: true, write: true, min: 0, max: 100 },
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
             },
         ];
         const { registry, controller, writes } = fixture(dimmer, 'device.setLevel');

@@ -55,7 +55,7 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
     if (role === 'switch' && valueKind === 'boolean' && common.write === true) {
         kind = 'onOff';
     } else if (
-        role === 'level.dimmer' &&
+        (role === 'level.dimmer' || role === 'level.brightness') &&
         valueKind === 'number' &&
         common.write === true &&
         Number.isFinite(common.min) &&
@@ -64,14 +64,14 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
     ) {
         kind = 'brightness';
     } else if (
-        role === 'level.temperature' &&
+        (role === 'value.temperature' || role === 'level.temperature') &&
         valueKind === 'number' &&
         common.read === true &&
         common.write !== true
     ) {
         kind = 'readTemperature';
     } else if (
-        /^level\.temperature\.setpoint$/.test(role) &&
+        role === 'level.temperature' &&
         valueKind === 'number' &&
         common.write === true &&
         Number.isFinite(common.min) &&

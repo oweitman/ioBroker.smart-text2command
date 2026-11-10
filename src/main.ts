@@ -73,8 +73,13 @@ class SmartText2command extends utils.Adapter {
             return;
         }
         try {
-            const all = await this.getForeignObjectsAsync('*');
-            const entries = Object.entries(all);
+            const [states, channels, devices, enums] = await Promise.all([
+                this.getForeignObjectsAsync('*', 'state'),
+                this.getForeignObjectsAsync('*', 'channel'),
+                this.getForeignObjectsAsync('*', 'device'),
+                this.getForeignObjectsAsync('*', 'enum'),
+            ]);
+            const entries = [states, channels, devices, enums].flatMap(objects => Object.entries(objects));
             if (entries.length > MAX_DISCOVERY_OBJECTS) {
                 throw new Error('Discovery object limit exceeded');
             }

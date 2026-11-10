@@ -13,6 +13,66 @@ const objects: ObjectSnapshot[] = [
 ];
 
 describe('device resolver', () => {
+    it('uses a room-only phrase for a unique approved read target and asks when several qualify', () => {
+        const source: ObjectSnapshot[] = [
+            { id: 'test.0.lamp', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lamp.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: 'test.0.lamp.HELLIGKEIT',
+                type: 'state',
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+            },
+            { id: 'test.0.sensor', type: 'channel', common: { name: 'Temperatursensor' } },
+            {
+                id: 'test.0.sensor.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
+            },
+            {
+                id: 'enum.rooms.schlafzimmer',
+                type: 'enum',
+                common: { members: ['test.0.lamp', 'test.0.sensor'] },
+            },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        registry.setEnabled('test.0.lamp', true);
+        registry.approve('test.0.lamp', 'test.0.lamp.POWER', 'turnOn');
+        registry.approve('test.0.lamp', 'test.0.lamp.HELLIGKEIT', 'getValue');
+        registry.setEnabled('test.0.sensor', true);
+        registry.approve('test.0.sensor', 'test.0.sensor.IST', 'getValue');
+        const resolver = new DeviceResolver(registry);
+        expect(resolver.resolve('Wie warm ist es im Schlafzimmer', 'de', 'getValue').selected?.deviceId).to.equal(
+            'test.0.sensor',
+        );
+        expect(resolver.resolve('Wie hell ist es im Schlafzimmer', 'de', 'getValue').selected?.deviceId).to.equal(
+            'test.0.lamp',
+        );
+        expect(resolver.resolve('Schalte im Schlafzimmer ein', 'de', 'turnOn').candidates).to.be.empty;
+
+        const secondSensor: ObjectSnapshot[] = [
+            { id: 'test.0.sensor2', type: 'channel', common: { name: 'Zweiter Sensor' } },
+            {
+                id: 'test.0.sensor2.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
+            },
+        ];
+        const secondRoom = {
+            ...source.find(item => item.id === 'enum.rooms.schlafzimmer')!,
+            common: { members: ['test.0.lamp', 'test.0.sensor', 'test.0.sensor2'] },
+        };
+        registry.reconcile(
+            discoverDevices([...source.filter(item => item.type !== 'enum'), secondRoom, ...secondSensor]),
+        );
+        registry.setEnabled('test.0.sensor2', true);
+        registry.approve('test.0.sensor2', 'test.0.sensor2.IST', 'getValue');
+        expect(resolver.resolve('Wie warm ist es im Schlafzimmer', 'de', 'getValue').clarification).to.equal(true);
+    });
     it('asks when names tie and uses room or updated alias without retraining', () => {
         const registry = new DeviceRegistry();
         registry.reconcile(discoverDevices(objects));

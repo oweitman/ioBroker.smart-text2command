@@ -23,7 +23,7 @@ export default class App extends GenericApp<GenericAppProps, GenericAppState> {
             <StyledEngineProvider injectFirst>
                 <ThemeProvider theme={this.state.theme}>
                     {this.state.loaded ? (
-                        <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+                        <Box sx={{ minHeight: '100%', bgcolor: 'background.default', color: 'text.primary' }}>
                             <AdminPanel
                                 api={this.api}
                                 defaultLanguage={this.state.native.defaultLanguage === 'en' ? 'en' : 'de'}

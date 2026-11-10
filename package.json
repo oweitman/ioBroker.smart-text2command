@@ -72,8 +72,11 @@
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:ts && npm run test:package",
     "translate": "translate-adapter",
-    "release": "release-script",
-    "dev-server": "dev-server"
+    "dev:upload": "dev-server upload",
+    "dev:run": "dev-server run",
+    "dev:watch": "dev-server watch --noStart",
+    "watch:react": "npm run watch --prefix src-admin",
+    "release": "release-script"
   },
   "bugs": {
     "url": "https://github.com/oweitman/ioBroker.smart-text2command/issues"

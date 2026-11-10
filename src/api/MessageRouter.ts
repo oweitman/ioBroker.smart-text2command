@@ -75,13 +75,21 @@ export class MessageRouter {
                     .list()
                     .filter(
                         device =>
+                            device.status !== 'missing' &&
                             (!filter ||
                                 device.displayName.toLocaleLowerCase().includes(filter) ||
                                 device.id.toLocaleLowerCase().includes(filter)) &&
                             (!room || device.roomIds.includes(room)) &&
                             (!capability || device.discoveredCapabilities.some(item => item.kind === capability)),
                     );
-                const rooms = [...new Set(this.options.catalog.list().flatMap(device => device.roomIds))].sort();
+                const rooms = [
+                    ...new Set(
+                        this.options.catalog
+                            .list()
+                            .filter(device => device.status !== 'missing')
+                            .flatMap(device => device.roomIds),
+                    ),
+                ].sort();
                 return { total: devices.length, devices: devices.slice(offset, offset + limit), rooms };
             }
             if (command === 'getDiagnostics') {

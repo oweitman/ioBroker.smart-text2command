@@ -1,5 +1,7 @@
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
 import type { ActionKind } from '../devices/types';
+import { matchesValueDomain } from '../devices/ValueDomain';
+import type { ValueDomain } from '../devices/ValueDomain';
 import type { ParsedText } from '../nlp/EntityParser';
 import { normalizedValue } from './ValueNormalizer';
 import type { PlannedAction } from './types';
@@ -11,13 +13,14 @@ export function planAction(
     deviceId: string,
     action: ActionKind,
     parsed: ParsedText,
+    domain?: ValueDomain,
 ): PlanOutcome {
     const device = catalog.list().find(item => item.id === deviceId);
     if (!device || device.status === 'missing' || !device.enabled) {
         return { error: 'DEVICE_NOT_FOUND' };
     }
-    const capabilities = device.discoveredCapabilities.filter(capability =>
-        catalog.isAllowed(deviceId, capability, action),
+    const capabilities = device.discoveredCapabilities.filter(
+        capability => catalog.isAllowed(deviceId, capability, action) && matchesValueDomain(capability, domain),
     );
     if (capabilities.length !== 1) {
         return { error: capabilities.length ? 'AMBIGUOUS_CAPABILITY' : 'ACTION_NOT_APPROVED' };

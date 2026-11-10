@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && node scripts/clean-assets.mjs && vite build",
+    "watch": "vite build --watch",
     "check": "tsc --noEmit"
   },
   "dependencies": {

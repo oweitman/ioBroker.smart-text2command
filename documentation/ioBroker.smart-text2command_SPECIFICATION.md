@@ -187,12 +187,12 @@ Beim Start `device`-, `channel`- und `state`-Objekte einlesen, `common`-Metadate
 | ioBroker-Rolle / Merkmale | Capability | Voraussetzung |
 |---|---|---|
 | `switch`, boolescher schreibbarer State | `onOff` | verifiziertes On/Off-Mapping |
-| `level.dimmer`, numerisch | `brightness` | Min/Max oder explizite Skalierung |
-| `level.temperature` | `readTemperature` | lesbarer Messwert |
-| geeigneter Sollwert-State | `temperatureSetpoint` | eindeutig als Sollwert identifiziert, schreibbar |
+| `level.dimmer` oder `level.brightness`, numerisch | `brightness` | schreibbar, Min/Max oder explizite Skalierung |
+| `value.temperature` | `readTemperature` | lesbarer Messwert, nicht schreibbar |
+| `level.temperature` | `temperatureSetpoint` | schreibbar, mit Min/Max; Admin-Freigabe erforderlich |
 | `level.blind` o. ä. | `position` | Richtung/Skala explizit geklärt |
 
-Nicht aus `level.temperature` allein auf einen schreibbaren Thermostat-Sollwert schließen. Eine Capability kann verschiedene Lese- und Schreib-States besitzen. Alias-Objekte und gerätespezifische Mappings sind auf Zielreferenzen und Wertebereich zu prüfen.
+`level.temperature` wird nur mit `common.write=true` und gültigem Min/Max-Bereich als Sollwert erkannt. Ein nicht schreibbarer `level.temperature`-State kann als Messwert gelesen werden. Eine Capability kann verschiedene Lese- und Schreib-States besitzen. Alias-Objekte und gerätespezifische Mappings sind auf Zielreferenzen und Wertebereich zu prüfen.
 
 ### 6.2 Freigaben und Änderungen
 

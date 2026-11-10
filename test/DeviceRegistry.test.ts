@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { discoverDevices } from '../src/devices/DeviceDiscovery';
+import { mapCapability } from '../src/devices/CapabilityMapper';
 import { DeviceRegistry } from '../src/devices/DeviceRegistry';
 import type { ObjectSnapshot } from '../src/devices/types';
 
@@ -14,6 +15,33 @@ const base: ObjectSnapshot[] = [
 ];
 
 describe('device discovery and approvals', () => {
+    it('maps roles offered by Admin to the intended actions', () => {
+        const brightness = mapCapability({
+            id: '0_userdata.0.test.HELLIGKEIT',
+            type: 'state',
+            common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+        });
+        const actual = mapCapability({
+            id: '0_userdata.0.test.IST',
+            type: 'state',
+            common: { role: 'value.temperature', type: 'number', read: true, write: false, unit: '°C' },
+        });
+        const setpoint = mapCapability({
+            id: '0_userdata.0.test.SOLL',
+            type: 'state',
+            common: { role: 'level.temperature', type: 'number', read: true, write: true, min: 5, max: 30, unit: '°C' },
+        });
+        expect(brightness?.kind).to.equal('brightness');
+        expect(actual?.kind).to.equal('readTemperature');
+        expect(setpoint?.kind).to.equal('temperatureSetpoint');
+        expect(
+            mapCapability({
+                id: '0_userdata.0.test.SOLL',
+                type: 'state',
+                common: { role: 'level.temperature', type: 'number', read: true, write: false, min: 5, max: 30 },
+            })?.kind,
+        ).to.equal('readTemperature');
+    });
     it('discovers a device and keeps it disabled by default', () => {
         const devices = discoverDevices(base);
         expect(devices).to.have.length(1);
@@ -35,7 +63,7 @@ describe('device discovery and approvals', () => {
         expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'turnOff')).to.equal(false);
         const changed = base.map(item =>
             item.id === stateId
-                ? { ...item, common: { ...item.common, type: 'number', role: 'level.dimmer', min: 0, max: 100 } }
+                ? { ...item, common: { ...item.common, type: 'number', role: 'level.brightness', min: 0, max: 100 } }
                 : item,
         );
         registry.reconcile(discoverDevices(changed));
@@ -71,7 +99,7 @@ describe('device discovery and approvals', () => {
             {
                 id: 'sensor.0.TEMP',
                 type: 'state',
-                common: { role: 'level.temperature', type: 'number', read: true, write: false },
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
             },
             {
                 id: 'door.0.LOCK',

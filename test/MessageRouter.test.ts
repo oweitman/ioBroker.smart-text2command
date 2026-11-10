@@ -81,6 +81,13 @@ describe('message API', () => {
         expect(Object.keys(device.approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
         const listed = (await router.handle('listDevices', { limit: 1 }, admin)) as { total: number };
         expect(listed.total).to.equal(1);
+        await catalog.reconcile([]);
+        expect(catalog.list()[0].status).to.equal('missing');
+        expect(await router.handle('listDevices', { limit: 1 }, admin)).to.deep.equal({
+            total: 0,
+            devices: [],
+            rooms: [],
+        });
         expect(await router.handle('getDiagnostics', {}, admin)).to.deep.equal({ status: 'ready' });
         const imported: IntentDefinition[] = [
             {

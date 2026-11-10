@@ -52,14 +52,12 @@ export class ModelRepository {
         const entry: ModelEntry = { ...metadata, checksum: digest(model) };
         const target = this.modelPath(entry.version);
         await this.atomicWrite(target, model);
-        await this.atomicWrite(
-            this.manifestPath(),
-            JSON.stringify({
-                schemaVersion: 1,
-                active: entry,
-                previous: old?.active.version === entry.version ? old.previous : old?.active,
-            } satisfies Manifest),
-        );
+        const manifest: Manifest = {
+            schemaVersion: 1,
+            active: entry,
+            previous: old?.active.version === entry.version ? old.previous : old?.active,
+        };
+        await this.atomicWrite(this.manifestPath(), JSON.stringify(manifest));
     }
 
     public async rollback(): Promise<void> {
@@ -68,14 +66,12 @@ export class ModelRepository {
             throw new Error('No previous model');
         }
         await this.readEntry(manifest.previous);
-        await this.atomicWrite(
-            this.manifestPath(),
-            JSON.stringify({
-                schemaVersion: 1,
-                active: manifest.previous,
-                previous: manifest.active,
-            } satisfies Manifest),
-        );
+        const previous: Manifest = {
+            schemaVersion: 1,
+            active: manifest.previous,
+            previous: manifest.active,
+        };
+        await this.atomicWrite(this.manifestPath(), JSON.stringify(previous));
     }
 
     private async readEntry(entry: ModelEntry): Promise<{ model: string; metadata: ModelMetadata }> {

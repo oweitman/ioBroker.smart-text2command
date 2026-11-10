@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "smart-text2command: Adapter lokal starten",
+      "skipFiles": ["<node_internals>/**"],
+      "args": ["--debug", "0"],
+      "program": "${workspaceFolder}/.dev-server/default/node_modules/iobroker.smart-text2command/src/main.ts",
+      "cwd": "${workspaceFolder}/.dev-server/default",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--require", "@alcalzone/esbuild-register"],
+      "stopOnEntry": false,
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "outputCapture": "std",
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "**/node_modules/**"]
+    }
+  ]
+}

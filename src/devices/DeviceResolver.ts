@@ -1,5 +1,6 @@
 import type { Language } from '../types/api';
 import type { ActionKind, Capability, DeviceRecord } from './types';
+import { inferValueDomain, matchesValueDomain } from './ValueDomain';
 
 export interface DeviceCatalogView {
     list(): DeviceRecord[];
@@ -61,8 +62,15 @@ function matchScore(text: string, value: string): number {
     return best <= 2 ? 75 - best * 10 : 0;
 }
 
-function hasApprovedAction(device: DeviceRecord, action: ActionKind, registry: DeviceCatalogView): boolean {
-    return device.discoveredCapabilities.some(capability => registry.isAllowed(device.id, capability, action));
+function hasApprovedAction(
+    device: DeviceRecord,
+    action: ActionKind,
+    registry: DeviceCatalogView,
+    domain: ReturnType<typeof inferValueDomain>,
+): boolean {
+    return device.discoveredCapabilities.some(
+        capability => registry.isAllowed(device.id, capability, action) && matchesValueDomain(capability, domain),
+    );
 }
 
 export class DeviceResolver {
@@ -70,14 +78,19 @@ export class DeviceResolver {
 
     public resolve(text: string, language: Language, action: ActionKind): Resolution {
         const normalized = normalize(text);
+        const domain = action === 'getValue' ? inferValueDomain(text, language) : undefined;
         const candidates: Candidate[] = [];
         for (const device of this.registry.list()) {
-            if (!hasApprovedAction(device, action, this.registry)) {
+            if (!hasApprovedAction(device, action, this.registry, domain)) {
                 continue;
             }
             const names = [device.displayName, ...(device.aliases[language] ?? [])];
             let score = 0;
             const reasons: string[] = [];
+            const roomMatched = device.roomIds.some(id => {
+                const room = normalize(id.split('.').at(-1) ?? '');
+                return room.length > 0 && ` ${normalized} `.includes(` ${room} `);
+            });
             for (const name of names) {
                 const value = matchScore(normalized, name);
                 if (value > score) {
@@ -87,9 +100,12 @@ export class DeviceResolver {
                 }
             }
             if (!score) {
-                continue;
-            }
-            if (device.roomIds.some(id => normalized.includes(normalize(id.split('.').at(-1) ?? '')))) {
+                if (!roomMatched || (action !== 'getState' && action !== 'getValue')) {
+                    continue;
+                }
+                score = 65;
+                reasons.push('room');
+            } else if (roomMatched) {
                 score += 15;
                 reasons.push('room');
             }

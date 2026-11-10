@@ -179,6 +179,17 @@ function DeviceCard({
                 >
                     {t('Räume', 'Rooms')}: {device.roomIds.join(', ') || '—'}
                 </Typography>
+                {!device.enabled && Object.keys(device.approvedCapabilities).length > 0 && (
+                    <Alert
+                        severity="info"
+                        sx={{ mt: 1 }}
+                    >
+                        {t(
+                            'Aktionen sind freigegeben, aber dieses Gerät ist noch inaktiv. Schalte „Aktiv“ ein, damit Befehle es finden.',
+                            'Actions are approved, but this device is still disabled. Turn on Enabled so commands can find it.',
+                        )}
+                    </Alert>
+                )}
                 {device.status === 'needsReview' && (
                     <Alert
                         severity="warning"

@@ -1,6 +1,8 @@
 import type { CommandRequest, Language } from '../types/api';
 import type { ActionKind } from '../devices/types';
-import { DeviceResolver, type DeviceCatalogView } from '../devices/DeviceResolver';
+import { DeviceResolver } from '../devices/DeviceResolver';
+import type { DeviceCatalogView } from '../devices/DeviceResolver';
+import { inferValueDomain } from '../devices/ValueDomain';
 import { parseEntities } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
 import type { IntentDefinition } from '../nlp/types';
@@ -112,6 +114,15 @@ export class CommandController {
         if (!model) {
             return this.reject(request, language, 'MODEL_UNAVAILABLE');
         }
+        const rooms = [
+            ...new Set(
+                this.catalog
+                    .list()
+                    .filter(device => device.status !== 'missing')
+                    .flatMap(device => device.roomIds.map(id => id.split('.').at(-1) ?? ''))
+                    .filter(Boolean),
+            ),
+        ];
         let text = request.text;
         let forcedDeviceId: string | undefined;
         let intent: string;
@@ -136,7 +147,7 @@ export class CommandController {
                 forcedDeviceId = pending.selectedDeviceId;
             }
         } else {
-            const parsed = parseEntities(text, language);
+            const parsed = parseEntities(text, language, rooms);
             details.entities = parsed.entities;
             if (parsed.negated || parsed.unsupported.length) {
                 return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
@@ -170,7 +181,7 @@ export class CommandController {
                 return this.reject(request, language, 'UNSUPPORTED_ACTION');
             }
         }
-        const parsed = parseEntities(text, language);
+        const parsed = parseEntities(text, language, rooms);
         details.entities = parsed.entities;
         if (parsed.negated || parsed.unsupported.length) {
             return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
@@ -219,7 +230,13 @@ export class CommandController {
             }
             deviceId = resolution.selected.deviceId;
         }
-        const outcome = planAction(this.catalog, deviceId, action, parsed);
+        const outcome = planAction(
+            this.catalog,
+            deviceId,
+            action,
+            parsed,
+            action === 'getValue' ? inferValueDomain(text, language) : undefined,
+        );
         if ('error' in outcome) {
             return this.reject(request, language, outcome.error, intent, confidence);
         }
