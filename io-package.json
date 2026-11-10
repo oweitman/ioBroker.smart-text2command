@@ -1,0 +1,113 @@
+{
+    "common": {
+        "name": "smart-text2command",
+        "version": "0.0.1",
+        "news": {
+            "0.0.1": {
+                "en": "initial release",
+                "de": "Erstveröffentlichung",
+                "ru": "Начальная версия",
+                "pt": "lançamento inicial",
+                "nl": "Eerste uitgave",
+                "fr": "Première version",
+                "it": "Versione iniziale",
+                "es": "Versión inicial",
+                "pl": "Pierwsze wydanie",
+                "uk": "Початкова версія",
+                "zh-cn": "首次出版"
+            }
+        },
+        "titleLang": {
+            "en": "Natural language processing",
+            "de": "Verarbeitung natürlicher Sprache",
+            "ru": "Обработка естественного языка",
+            "pt": "Processamento de linguagem natural",
+            "nl": "Natuurlijke taalverwerking",
+            "fr": "Traitement du langage naturel",
+            "it": "Elaborazione del linguaggio naturale",
+            "es": "Procesamiento del lenguaje natural",
+            "pl": "Przetwarzanie języka naturalnego",
+            "uk": "Обробка природної мови",
+            "zh-cn": "自然语言处理"
+        },
+        "desc": {
+            "en": "smart-text2command",
+            "de": "smart-text2command",
+            "ru": "smart-text2command",
+            "pt": "comando texto2inteligente",
+            "nl": "smart-text2command",
+            "fr": "commande smart-text2",
+            "it": "comando-testo-smart2",
+            "es": "comando-text2inteligente",
+            "pl": "polecenie smart-text2",
+            "uk": "smart-text2command",
+            "zh-cn": "智能文本2命令"
+        },
+        "authors": [
+            "oweitman <oweitman@gmx.de>"
+        ],
+        "keywords": [
+            "template",
+            "automation",
+            "IoT",
+            "integration"
+        ],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "smart-text2command.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.png",
+        "readme": "https://github.com/oweitman/ioBroker.smart-text2command/blob/main/README.md",
+        "loglevel": "info",
+        "tier": 3,
+        "mode": "daemon",
+        "type": "misc-data",
+        "compact": true,
+        "connectionType": "local",
+        "dataSource": "assumption",
+        "adminUI": {
+            "config": "json"
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.0.23"
+            }
+        ]
+    },
+    "native": {
+        "option1": true,
+        "option2": "42"
+    },
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Device or service connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        }
+    ]
+}
