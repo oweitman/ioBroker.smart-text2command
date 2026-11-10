@@ -4,7 +4,7 @@
 
 The Admin configuration page is a React 19/MUI 9 application built with `@iobroker/gui-components` 10. It requires Admin 8. Device cards show concrete state targets, data types, ranges and mappings before an admin approves an action. The page also manages aliases, enabled devices, bilingual custom intents, background training and rollback, an analysis-first test lab, default language, and diagnostics. Custom intents have JSON export/import; approvals are deliberately excluded from imports. The backend API now returns intent alternatives, extracted entities, device candidates, policy decision and planned access for analysis requests.
 
-Frontend code is in `src-admin/`; the built `admin/index_m.html` and assets are included in the npm package. `npm run build:admin` type-checks and builds the UI. All tests remain under `/test`. A live browser session against an Admin 8 instance and a populated device controller still need verification before release.
+Frontend code is in `src-admin/`; the built `admin/index_m.html` and assets are included in the npm package. After `npm ci --prefix src-admin`, the root `npm run build` checks backend TypeScript and builds the Admin UI. All tests remain under `/test`. A live browser session against an Admin 8 instance and a populated device controller still need verification before release.
 
 ## Phase 3
 

@@ -36,7 +36,7 @@ jobs:
         run: |
           npm ci --prefix src-admin
           npm run format:check:admin
-          npm run build:admin
+          npm run build
           test -s admin/index_m.html
 
   # Runs adapter tests on all supported node versions and OSes

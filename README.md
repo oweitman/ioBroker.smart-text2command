@@ -21,7 +21,7 @@ npm ci
 npm ci --prefix src-admin
 npm run check
 npm run check:admin
-npm run build:admin
+npm run build
 npm run lint
 npm run format:check
 npm test
