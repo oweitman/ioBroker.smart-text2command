@@ -4,6 +4,7 @@
     // https://github.com/tsconfig/bases#node-22-tsconfigjson
     "extends": "@tsconfig/node22/tsconfig.json",
     "compilerOptions": {
+        "types": ["node", "mocha", "iobroker"],
         // do not compile anything, this file is just to configure type checking
         // TypeScript files are executed directly without transpilation
         "noEmit": true,

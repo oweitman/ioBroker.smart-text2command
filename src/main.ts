@@ -1,170 +1,108 @@
-/*
- * Created with @iobroker/create-adapter v3.1.5
- */
+import * as utils from '@iobroker/adapter-core';
+import { join } from 'node:path';
+import { discoverDevices } from './devices/DeviceDiscovery';
+import { DeviceCatalog } from './devices/DeviceCatalog';
+import type { ObjectSnapshot } from './devices/types';
+import { DeviceRepository } from './storage/DeviceRepository';
 
-// The adapter-core module gives you access to the core ioBroker functions
-// you need to create an adapter
-import * as utils from "@iobroker/adapter-core";
+const MAX_DISCOVERY_OBJECTS = 100_000;
 
-// Load your modules here, e.g.:
-// import * as fs from "fs";
+function snapshot(id: string, object: ioBroker.Object): ObjectSnapshot | undefined {
+    if (object.type !== 'device' && object.type !== 'channel' && object.type !== 'state' && object.type !== 'enum') {
+        return undefined;
+    }
+    return { id, type: object.type, common: object.common as ObjectSnapshot['common'] };
+}
 
 class SmartText2command extends utils.Adapter {
+    private readonly objects = new Map<string, ObjectSnapshot>();
+    private catalog?: DeviceCatalog;
+    private discoveryTimer?: ReturnType<typeof setTimeout>;
+    private updateQueue: Promise<void> = Promise.resolve();
+    private started = false;
+
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
-        super({
-            ...options,
-            name: "smart-text2command",
-        });
-        this.on("ready", this.onReady.bind(this));
-        this.on("stateChange", this.onStateChange.bind(this));
-        // this.on("objectChange", this.onObjectChange.bind(this));
-        // this.on("message", this.onMessage.bind(this));
-        this.on("unload", this.onUnload.bind(this));
+        super({ ...options, name: 'smart-text2command' });
+        this.on('ready', this.onReady.bind(this));
+        this.on('objectChange', this.onObjectChange.bind(this));
+        this.on('unload', this.onUnload.bind(this));
     }
 
-    /**
-     * Is called when databases are connected and adapter received configuration.
-     */
     private async onReady(): Promise<void> {
-        // Initialize your adapter here
-
-        // Reset the connection indicator during startup
-        this.setState("info.connection", false, true);
-
-        // The adapters config (in the instance object everything under the attribute "native") is accessible via
-        // this.config:
-        this.log.debug("config option1: ${this.config.option1}");
-        this.log.debug("config option2: ${this.config.option2}");
-
-        /*
-        For every state in the system there has to be also an object of type state
-        Here a simple template for a boolean variable named "testVariable"
-        Because every adapter instance uses its own unique namespace variable names can't collide with other adapters variables
-
-        IMPORTANT: State roles should be chosen carefully based on the state's purpose.
-                   Please refer to the state roles documentation for guidance:
-                   https://www.iobroker.net/#en/documentation/dev/stateroles.md
-        */
-        await this.setObjectNotExistsAsync("testVariable", {
-            type: "state",
-            common: {
-                name: "testVariable",
-                type: "boolean",
-                role: "indicator",
-                read: true,
-                write: true,
-            },
-            native: {},
-        });
-
-        // In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
-        this.subscribeStates("testVariable");
-        // You can also add a subscription for multiple states. The following line watches all states starting with "lights."
-        // this.subscribeStates("lights.*");
-        // Or, if you really must, you can also watch all states. Don't do this if you don't need to. Otherwise this will cause a lot of unnecessary load on the system:
-        // this.subscribeStates("*");
-
-        /*
-            setState examples
-            you will notice that each setState will cause the stateChange event to fire (because of above subscribeStates cmd)
-        */
-        // the variable testVariable is set to true as command (ack=false)
-        await this.setState("testVariable", true);
-
-        // same thing, but the value is flagged "ack"
-        // ack should be always set to true if the value is received from or acknowledged from the target system
-        await this.setState("testVariable", { val: true, ack: true });
-
-        // same thing, but the state is deleted after 30s (getState will return null afterwards)
-        await this.setState("testVariable", { val: true, ack: true, expire: 30 });
-
-        // examples for the checkPassword/checkGroup functions
-        const pwdResult = await this.checkPasswordAsync("admin", "iobroker");
-        this.log.info(`check user admin pw iobroker: ${JSON.stringify(pwdResult)}`);
-
-        const groupResult = await this.checkGroupAsync("admin", "admin");
-        this.log.info(`check group user admin group admin: ${JSON.stringify(groupResult)}`);
-    }
-
-    /**
-     * Is called when adapter shuts down - callback has to be called under any circumstances!
-     *
-     * @param callback - Callback function
-     */
-    private onUnload(callback: () => void): void {
         try {
-            // Here you must clear all timeouts or intervals that may still be active
-            // clearTimeout(timeout1);
-            // clearTimeout(timeout2);
-            // ...
-            // clearInterval(interval1);
-
-            callback();
+            const repository = new DeviceRepository(join(utils.getAbsoluteInstanceDataDir(this), 'devices-v1.json'));
+            this.catalog = await DeviceCatalog.load(repository);
         } catch (error) {
-            this.log.error(`Error during unloading: ${(error as Error).message}`);
-            callback();
+            this.log.error(`Device approvals could not be loaded; discovery remains disabled: ${String(error)}`);
+            return;
         }
-    }
-
-    // If you need to react to object changes, uncomment the following block and the corresponding line in the constructor.
-    // You also need to subscribe to the objects with `this.subscribeObjects`, similar to `this.subscribeStates`.
-    // /**
-    //  * Is called if a subscribed object changes
-    //  */
-    // private onObjectChange(id: string, obj: ioBroker.Object | null | undefined): void {
-    //     if (obj) {
-    //         // The object was changed
-    //         this.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
-    //     } else {
-    //         // The object was deleted
-    //         this.log.info(`object ${id} deleted`);
-    //     }
-    // }
-
-    /**
-     * Is called if a subscribed state changes
-     *
-     * @param id - State ID
-     * @param state - State object
-     */
-    private onStateChange(id: string, state: ioBroker.State | null | undefined): void {
-        if (state) {
-            // The state was changed
-            this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-
-            if (state.ack === false) {
-                // This is a command from the user (e.g., from the UI or other adapter)
-                // and should be processed by the adapter
-                this.log.info(`User command received for ${id}: ${state.val}`);
-
-                // TODO: Add your control logic here
+        try {
+            const all = await this.getForeignObjectsAsync('*');
+            const entries = Object.entries(all);
+            if (entries.length > MAX_DISCOVERY_OBJECTS) {
+                throw new Error('Discovery object limit exceeded');
             }
-        } else {
-            // The object was deleted or the state value has expired
-            this.log.info(`state ${id} deleted`);
+            for (const [id, object] of entries) {
+                if (id.startsWith(`${this.namespace}.`)) {
+                    continue;
+                }
+                const value = snapshot(id, object);
+                if (value) {
+                    this.objects.set(id, value);
+                }
+            }
+            await this.reconcile();
+            this.subscribeForeignObjects('*');
+            this.started = true;
+        } catch (error) {
+            this.log.error(`Device discovery failed: ${String(error)}`);
         }
     }
-    // If you need to accept messages in your adapter, uncomment the following block and the corresponding line in the constructor.
-    // /**
-    //  * Some message was sent to this instance over message box. Used by email, pushover, text2speech, ...
-    //  * Using this method requires "common.messagebox" property to be set to true in io-package.json
-    //  */
-    //
-    // private onMessage(obj: ioBroker.Message): void {
-    //     if (typeof obj === "object" && obj.message) {
-    //         if (obj.command === "send") {
-    //             // e.g. send email or pushover or whatever
-    //             this.log.info("send command");
-    //             // Send response in callback if required
-    //             if (obj.callback) this.sendTo(obj.from, obj.command, "Message received", obj.callback);
-    //         }
-    //     }
-    // }
+
+    private onObjectChange(id: string, object: ioBroker.Object | null | undefined): void {
+        if (!this.started || id.startsWith(`${this.namespace}.`)) {
+            return;
+        }
+        const value = object ? snapshot(id, object) : undefined;
+        if (value) {
+            this.objects.set(id, value);
+        } else {
+            this.objects.delete(id);
+        }
+        if (this.discoveryTimer) {
+            clearTimeout(this.discoveryTimer);
+        }
+        this.discoveryTimer = setTimeout(() => {
+            this.updateQueue = this.updateQueue
+                .then(() => this.reconcile())
+                .catch(error => {
+                    this.log.error(`Device discovery update failed: ${String(error)}`);
+                });
+        }, 300);
+    }
+
+    private async reconcile(): Promise<void> {
+        if (this.objects.size > MAX_DISCOVERY_OBJECTS) {
+            throw new Error('Discovery object limit exceeded');
+        }
+        await this.catalog!.reconcile(discoverDevices([...this.objects.values()]));
+        await this.setState(
+            'info.deviceCount',
+            this.catalog!.list().filter(device => device.status !== 'missing').length,
+            true,
+        );
+    }
+
+    private onUnload(callback: () => void): void {
+        if (this.discoveryTimer) {
+            clearTimeout(this.discoveryTimer);
+        }
+        void this.updateQueue.finally(callback);
+    }
 }
+
 if (require.main !== module) {
-    // Export the constructor in compact mode
     module.exports = (options: Partial<utils.AdapterOptions> | undefined) => new SmartText2command(options);
 } else {
-    // otherwise start the instance directly
-    (() => new SmartText2command())();
+    new SmartText2command();
 }

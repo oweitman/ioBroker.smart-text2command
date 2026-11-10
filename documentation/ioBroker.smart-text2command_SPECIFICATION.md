@@ -1,4 +1,4 @@
-# ioBroker.nlp-control – Technische Spezifikation
+# ioBroker.smart-text2command – Technische Spezifikation
 
 **Version:** 1.0.0 (MVP)  
 **Status:** Implementierungsvorgabe für Codex  
@@ -26,7 +26,7 @@ Ein eigenständiger ioBroker-Adapter interpretiert natürlichsprachliche Texte m
 ## 2. Projektstruktur
 
 ```text
-ioBroker.nlp-control/
+ioBroker.smart-text2command/
 ├── src/
 │   ├── main.ts
 │   ├── api/{MessageRouter,RequestValidator,CommandController}.ts
@@ -94,7 +94,7 @@ interface DeviceRecord {
   functionIds: string[];
   aliases: Partial<Record<Language, string[]>>;
   discoveredCapabilities: Capability[];
-  approvedCapabilities: CapabilityKind[];
+  approvedCapabilities: Record<string, string>; // Aktion:State-ID -> Fingerprint der Freigabe
   enabled: boolean;                 // Default false
   discoveryFingerprint: string;
   lastSeenAt: string;
@@ -106,7 +106,7 @@ interface IntentDefinition {
   source: 'system' | 'user';
   enabled: boolean;
   utterances: Partial<Record<Language, string[]>>;
-  action?: { kind: 'capability' | 'response'; capability?: CapabilityKind; response?: Partial<Record<Language,string>> };
+  action?: { kind: 'capability' | 'response'; operation?: 'turnOn' | 'turnOff' | 'setLevel' | 'setTemperature' | 'getState' | 'getValue'; response?: Partial<Record<Language,string>> };
 }
 
 interface CommandRequest {
@@ -115,6 +115,8 @@ interface CommandRequest {
   language?: Language;
   text: string;
   mode: 'analyze' | 'execute';
+  clarificationId?: string; // Antwort auf eine offene Rückfrage
+  selection?: string;       // eindeutige Option aus der Rückfrage
 }
 
 interface Candidate { deviceId: string; score: number; reasons: string[] }
@@ -129,13 +131,15 @@ interface CommandResult {
   response: string;
   candidates?: Candidate[];
   actions?: ActionResult[];
-  clarification?: { key: 'device' | 'room' | 'value' | 'confirmation'; options?: string[] };
+  clarification?: { id: string; key: 'device' | 'room' | 'value' | 'confirmation'; options?: Array<{ id: string; label: string }> };
   modelVersion?: string;
   durationMs?: number;
 }
 ```
 
 **Regeln:** Konfidenz ist eine Modellschätzung, keine garantierte Wahrscheinlichkeit. Keine Ausführung allein aufgrund einer hohen Konfidenz. Gerät und Capability müssen separat eindeutig identifiziert und autorisiert sein. Exakte Namen und Aliase höher gewichten als Fuzzy-Matches; Gleichstand oder geringer Score-Abstand führt zur Rückfrage.
+
+**MVP-Aktionskatalog:** `turnOn`, `turnOff`, `setLevel`, `setTemperature`, `getState`, `getValue`. Benutzerdefinierte Intents können nur eine vom Admin konfigurierte typisierte Aktion aus diesem Katalog oder eine Antwortvorlage auslösen. Die Aktion legt Operation und Capability eindeutig fest; Gerät und Wert werden nach denselben Auflösungs- und Validierungsregeln wie bei System-Intents ermittelt. `position` ist für eine spätere Erweiterung reserviert und im MVP nicht ausführbar.
 
 ## 5. NLP.js und Training
 
@@ -192,7 +196,7 @@ Nicht aus `level.temperature` allein auf einen schreibbaren Thermostat-Sollwert 
 
 ### 6.2 Freigaben und Änderungen
 
-Discovery erstellt neue Geräte mit `enabled:false` und leerer `approvedCapabilities`-Liste. Benutzer gibt Gerät **und** erlaubte Fähigkeiten explizit frei. Aliasänderungen, Raumwechsel und kosmetische Metadatenänderungen erhalten die Freigabe. Änderungen an State-ID, Datentyp, Schreibbarkeit, Wertemapping oder sicherheitsrelevanter Capability setzen diese Capability auf `needsReview` und deaktivieren die Ausführung bis zur erneuten Freigabe. Entfernte Geräte bleiben als `missing` für Diagnose und spätere Wiedererkennung erhalten. Freigaben niemals durch automatische Discovery überschreiben.
+Discovery erstellt neue Geräte mit `enabled:false` und leerer `approvedCapabilities`-Map. Der Admin gibt das Gerät und jede konkrete Aktion mit Ziel-State, Datentyp, Wertebereich und Mapping einmalig für spätere passende Befehle frei. Der Fingerprint dieser Angaben wird zur Freigabe gespeichert. Aliasänderungen, Raumwechsel und kosmetische Metadatenänderungen erhalten die Freigabe. Änderungen an State-ID, Datentyp, Schreibbarkeit, Wertemapping oder sicherheitsrelevanter Capability setzen nur die betroffene Aktion auf `needsReview` und sperren sie bis zur erneuten Freigabe. Entfernte Geräte bleiben als `missing` für Diagnose und spätere Wiedererkennung erhalten. Freigaben niemals durch automatische Discovery überschreiben.
 
 ## 7. API und Datenpunkte
 
@@ -225,7 +229,7 @@ Nachrichten werden über die ioBroker-Adapter-Message-API verarbeitet. `requestI
 
 ### 7.2 State-Schnittstelle
 
-| State unter `nlp-control.0` | Typ | Bedeutung |
+| State unter `smart-text2command.0` | Typ | Bedeutung |
 |---|---|---|
 | `input.text` | string, write | Eingabe für **Analysemodus** |
 | `output.response` | string, read | letzte Antwort |
@@ -240,7 +244,7 @@ Bei gleichzeitigen State-Eingaben ist `output.*` nur ein globaler Letztwert; Meh
 
 ## 8. Dialoge
 
-`SessionStore` hält pro Session einen begrenzten Kontext: offene Absicht, erkannte Werte, Kandidaten, Ablaufzeit und letzten Bezug. Standard-TTL 5 Minuten, maximale Sessions konfigurierbar. Keine langfristige Speicherung persönlicher Chattexte im MVP. Nach Ablauf oder Adapterneustart muss die Eingabe erneut vollständig gestellt werden. Rückfragen dürfen keine impliziten Schreibrechte erzeugen. Bestätigungstokens müssen serverseitig gebunden, einmalig und kurzlebig sein; im MVP sind kritische Aktionsarten standardmäßig gesperrt.
+`SessionStore` hält pro Session einen begrenzten Kontext: offene Absicht, erkannte Werte, Kandidaten, Ablaufzeit und letzten Bezug. Standard-TTL 5 Minuten, maximale Sessions konfigurierbar. Eine Rückfrage liefert eine kurzlebige `clarificationId` und eindeutige Optionen. Eine Antwort über `clarificationId` und `selection` muss zur offenen Anfrage und Session passen; nach Ablauf oder Adapterneustart ist die vollständige Eingabe erneut nötig. Vor Ausführung werden Gerät, State und Freigabe erneut geprüft. Keine langfristige Speicherung persönlicher Chattexte im MVP. Rückfragen dürfen keine impliziten Schreibrechte erzeugen. Bestätigungstokens müssen serverseitig gebunden, einmalig und kurzlebig sein; im MVP sind kritische Aktionsarten standardmäßig gesperrt.
 
 ## 9. Persistenz
 
@@ -255,6 +259,7 @@ Bei gleichzeitigen State-Eingaben ist `output.*` nur ein globaler Letztwert; Meh
 
 1. **Default Deny:** neue Geräte und Capabilities nicht freigegeben.
 2. **Keine Arbitrary Execution:** kein `eval`, keine Shell, keine dynamischen State-IDs aus Rohtext, keine beliebigen Skripte aus Benutzer-Intents.
+   Betriebssystem-`exec` ist für den MVP nicht erforderlich und wird nicht angeboten. Eine spätere konkrete Funktion mit `exec` benötigt eine eigene, standardmäßig deaktivierte Konfigurationsfreigabe.
 3. **Schreib-Whitelist:** Ziel-State muss aus der genehmigten Capability stammen, aktuell existieren und schreibbar sein.
 4. **Validierung zur Ausführungszeit:** Datentyp, Einheit, Grenzwerte, Enum-Werte und Mapping unmittelbar vor dem Schreiben erneut prüfen.
 5. **Mehrdeutigkeit:** Rückfrage oder Ablehnung; niemals Zufallsauswahl.
@@ -340,7 +345,7 @@ Nach jeder Phase: Tests ausführen, Dokumentation aktualisieren, Commit mit nach
 
 ## 14. Codex-Arbeitsauftrag
 
-> Implementiere `ioBroker.nlp-control` gemäß dieser Spezifikation in kleinen, testbaren Phasen. Beginne mit einer Bestandsaufnahme des Repositories und der aktuellen ioBroker-Adapter-Toolchain. Erstelle zunächst eine kurze Umsetzungsplanung mit konkreten Dateien, Abhängigkeiten und Tests. Implementiere anschließend Phase 0 und Phase 1 vollständig, einschließlich Unit- und Integrationstests. Vermeide nicht spezifizierte externe Services. Achte auf Default-Deny, die Trennung von Analyse und Ausführung sowie die vollständige Persistenz der Benutzerfreigaben. Dokumentiere Abweichungen und offene Architekturentscheidungen, statt sie stillschweigend zu treffen. Führe alle verfügbaren Tests aus und melde Ergebnisse und verbleibende Risiken.
+> Implementiere `ioBroker.smart-text2command` gemäß dieser Spezifikation in kleinen, testbaren Phasen. Beginne mit einer Bestandsaufnahme des Repositories und der aktuellen ioBroker-Adapter-Toolchain. Erstelle zunächst eine kurze Umsetzungsplanung mit konkreten Dateien, Abhängigkeiten und Tests. Implementiere anschließend Phase 0 und Phase 1 vollständig, einschließlich Unit- und Integrationstests. Vermeide nicht spezifizierte externe Services. Achte auf Default-Deny, die Trennung von Analyse und Ausführung sowie die vollständige Persistenz der Benutzerfreigaben. Dokumentiere Abweichungen und offene Architekturentscheidungen, statt sie stillschweigend zu treffen. Führe alle verfügbaren Tests aus und melde Ergebnisse und verbleibende Risiken.
 
 ## 15. Entscheidungen für spätere Versionen
 

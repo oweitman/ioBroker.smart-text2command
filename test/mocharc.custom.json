@@ -5,6 +5,6 @@
         "source-map-support/register"
     ],
     "watch-files": [
-        "src/**/*.test.ts"
+        "test/**/*.test.ts"
     ]
 }
