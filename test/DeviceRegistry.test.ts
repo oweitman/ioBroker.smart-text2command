@@ -72,6 +72,42 @@ describe('device discovery and approvals', () => {
         registry.approve(id, stateId, 'setLevel');
         expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setLevel')).to.equal(true);
     });
+    it('keeps supported capabilities available beside an unmapped state', () => {
+        const extra: ObjectSnapshot = {
+            id: 'lamp.0.room.DEBUG',
+            type: 'state',
+            common: { role: 'custom', type: 'string', read: true, write: false },
+        };
+        const devices = discoverDevices([...base, extra]);
+        expect(devices[0].discoveredCapabilities).to.have.length(1);
+        expect(devices[0].status).to.equal('available');
+        const registry = new DeviceRegistry();
+        registry.reconcile(devices);
+        registry.approve('lamp.0.room', 'lamp.0.room.POWER', 'turnOn');
+        registry.reconcile(discoverDevices([...base, extra]));
+        expect(registry.list()[0].status).to.equal('available');
+        expect(registry.list()[0].discoveredCapabilities[0].needsReview).to.equal(false);
+    });
+    it('keeps a temporarily missing state approval without flagging other capabilities', () => {
+        const brightness: ObjectSnapshot = {
+            id: 'lamp.0.room.HELLIGKEIT',
+            type: 'state',
+            common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+        };
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices([...base, brightness]));
+        registry.setEnabled('lamp.0.room', true);
+        registry.approve('lamp.0.room', 'lamp.0.room.POWER', 'turnOn');
+        registry.approve('lamp.0.room', brightness.id, 'getValue');
+        registry.reconcile(discoverDevices(base));
+        const device = registry.list()[0];
+        expect(device.status).to.equal('available');
+        expect(Object.keys(device.approvedCapabilities)).to.deep.equal([
+            'turnOn:lamp.0.room.POWER',
+            'getValue:lamp.0.room.HELLIGKEIT',
+        ]);
+        expect(registry.isAllowed(device.id, device.discoveredCapabilities[0], 'turnOn')).to.equal(true);
+    });
 
     it('keeps approval after name and room changes but blocks missing devices', () => {
         const registry = new DeviceRegistry();

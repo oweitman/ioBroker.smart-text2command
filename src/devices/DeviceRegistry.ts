@@ -71,11 +71,7 @@ export class DeviceRegistry {
                 approvedCapabilities,
                 discoveredCapabilities: capabilities,
                 status:
-                    fresh.status === 'needsReview' ||
-                    capabilities.some(capability => capability.needsReview) ||
-                    Object.keys(approvedCapabilities).some(
-                        key => !capabilities.some(capability => key.endsWith(`:${capability.stateId}`)),
-                    )
+                    fresh.status === 'needsReview' || capabilities.some(capability => capability.needsReview)
                         ? 'needsReview'
                         : 'available',
             });

@@ -53,11 +53,11 @@ Vor der Freigabe im Dialog Ziel-State, Rolle, Datentyp, Wertebereich und Lese-/S
 
 Im Geräte-Tab zeigen die Raum- und Funktionsfilter die Namen der ioBroker-Aufzählungen an. Hinter dem Gerätenamen steht die technische Geräte-ID in Klammern. Jede Gerätekarte trennt Aliase von Aktionsfreigaben. Aliase stehen in einer zweispaltigen Tabelle mit Sprachwahl und Eingabefeld; mit dem Plus kann eine weitere unterstützte Sprache ergänzt werden.
 
-Für die Formulierung **„könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren“** bei beiden Lampen den deutschen Alias `Leuchte` eintragen und speichern. Der Raum unterscheidet die Geräte. Ohne Raum fragt der Adapter nach dem gemeinten Gerät. Die Aktion `turnOff` muss für die jeweilige Lampe freigegeben und das Gerät aktiv sein.
+Für die Formulierung **„könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren“** bei beiden Lampen den deutschen Alias `Leuchte` eintragen und speichern. Der Raum unterscheidet die Geräte. Ohne Raum fragt der Adapter bei mehreren passenden Räumen zuerst nach dem Raum. Die Aktion `turnOff` muss für die jeweilige Lampe freigegeben und das Gerät aktiv sein.
 
 Die Sammelaktionen verwenden ein Auge für Lesen, einen Stift für Schreiben und beide Symbole für die Kombination. Grün öffnet die Freigabe, grau mit rotem Verbotssymbol die Rücknahme. Beide Wege zeigen eine Prüfliste der betroffenen Aktionen und Ziel-States; einzelne Einträge können abgewählt werden. Der Schalter **Aktiv** bleibt eine eigene Entscheidung.
 
-Die Filter für Raum, Funktion und Capability enthalten **Ohne** für Geräte ohne entsprechende Zuordnung. **Geräte neu einlesen** fragt die aktuellen ioBroker-Objekte erneut ab. Fehlende Objekte verschwinden danach aus der Ansicht; alte gespeicherte Freigaben für fehlende Geräte bleiben gesperrt und werden nicht angezeigt. Die kompakten Aktionschips zeigen mit einem Plus eine offene Freigabe und mit einem Haken eine freigegebene Aktion; Anklicken öffnet die Prüfung beziehungsweise widerruft die Freigabe. Für diesen Test müssen keine Datenpunkte gelöscht werden.
+Die Filter für Raum und ioBroker-Funktion enthalten **Ohne** für Geräte ohne entsprechende Zuordnung. Geräte ohne unterstützte Capability werden im Tab **Geräte** ausgeblendet und nicht mitgezählt. **Geräte neu einlesen** fragt die aktuellen ioBroker-Objekte erneut ab. Fehlende Objekte verschwinden danach aus der Ansicht. Alte Freigaben bleiben gespeichert, können ohne den zugehörigen State aber nicht ausgeführt werden und lösen allein keine Änderungswarnung aus. Die kompakten Aktionschips zeigen mit einem Plus eine offene Freigabe und mit einem Haken eine freigegebene Aktion; Anklicken öffnet die Prüfung beziehungsweise widerruft die Freigabe. Für diesen Test müssen keine Datenpunkte gelöscht werden.
 
 ## 5. Im Testlabor prüfen
 
@@ -66,7 +66,7 @@ Warten, bis `smart-text2command.0.info.modelStatus` **ready** meldet. Im **Testl
 | Eingabe                                        | Erwartung                                                                       |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
 | `Schalte die Lampe im Wohnzimmer ein`          | `POWER` der Wohnzimmerlampe wird `true`                                         |
-| `Schalte die Lampe aus`                        | Rückfrage zur Auswahl zwischen zwei Lampen                                      |
+| `Schalte die Lampe aus`                        | Rückfrage nach dem Raum, weil zwei freigegebene Lampen in verschiedenen Räumen passen. |
 | `Dimme die Lampe im Wohnzimmer auf 40 Prozent` | `HELLIGKEIT` wird `40`                                                          |
 | `Stelle die Heizung im Wohnzimmer auf 22 Grad` | `SOLL` wird `22`                                                                |
 | `Stelle im Wohnzimmer die Temperatur auf 25 Grad` | Bei genau einem freigegebenen Temperaturziel wird `SOLL` auf `25` gesetzt; bei mehreren folgt eine Geräterückfrage. |

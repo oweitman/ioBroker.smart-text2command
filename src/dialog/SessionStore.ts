@@ -4,7 +4,7 @@ import type { CommandRequest, Language } from '../types/api';
 
 export interface PendingClarification {
     id: string;
-    key: 'device' | 'value';
+    key: 'room' | 'device' | 'capability' | 'value';
     clientKey: string;
     sessionId?: string;
     request: CommandRequest;
@@ -13,6 +13,9 @@ export interface PendingClarification {
     intent: string;
     confidence: number;
     deviceIds: string[];
+    roomIds?: string[];
+    stateIds?: string[];
+    selectedRoomId?: string;
     selectedDeviceId?: string;
     expiresAt: number;
 }

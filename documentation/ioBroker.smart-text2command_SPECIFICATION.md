@@ -246,6 +246,10 @@ Bei gleichzeitigen State-Eingaben ist `output.*` nur ein globaler Letztwert; Meh
 
 `SessionStore` hält pro Session einen begrenzten Kontext: offene Absicht, erkannte Werte, Kandidaten, Ablaufzeit und letzten Bezug. Standard-TTL 5 Minuten, maximale Sessions konfigurierbar. Eine Rückfrage liefert eine kurzlebige `clarificationId` und eindeutige Optionen. Eine Antwort über `clarificationId` und `selection` muss zur offenen Anfrage und Session passen; nach Ablauf oder Adapterneustart ist die vollständige Eingabe erneut nötig. Vor Ausführung werden Gerät, State und Freigabe erneut geprüft. Keine langfristige Speicherung persönlicher Chattexte im MVP. Rückfragen dürfen keine impliziten Schreibrechte erzeugen. Bestätigungstokens müssen serverseitig gebunden, einmalig und kurzlebig sein; im MVP sind kritische Aktionsarten standardmäßig gesperrt.
 
+Fehlt der Raum, wird er nur erfragt, wenn mehrere geeignete Geräte in unterschiedlichen Räumen übrig bleiben. Mehrere erkannte Räume führen zu einer Auswahl. Ein eindeutiges, freigegebenes Gerät kann auch allein durch Raum und Aktion gewählt werden. Fehlt ein Gerätename, aber es gibt geeignete freigegebene Geräte, werden diese zur Auswahl angeboten. „Funktion“ bezeichnet hier eine freigegebene Capability beziehungsweise ihren Datenpunkt; bei mehreren passenden Datenpunkten wird danach gefragt. Ohne passenden freigegebenen Datenpunkt wird die Aktion abgelehnt. Rückfrageoptionen verwenden stabile IDs und sprechbare Anzeigenamen.
+
+Antworten sind lokalisiert und für Text- oder Sprachausgabe formuliert. Im Analysemodus beschreiben sie ausschließlich den geplanten Zugriff. Ein Leseergebnis nennt Gerät, Raum, Wert und vorhandene Einheit beziehungsweise den Schaltzustand. Nach einem Schreibzugriff bestätigt die Antwort nur die Übergabe des Befehls; sie behauptet keinen bestätigten Gerätezustand.
+
 ## 9. Persistenz
 
 - `native`-Konfiguration: Sprache, Schwellenwerte, Discovery-Optionen, Logging, Policy-Defaults; keine großen Binärmodelle.

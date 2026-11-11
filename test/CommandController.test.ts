@@ -22,6 +22,7 @@ describe('command pipeline', () => {
     function fixture(
         states: ObjectSnapshot[],
         intent = 'device.turnOn',
+        stateValue: unknown = true,
     ): {
         registry: DeviceRegistry;
         controller: CommandController;
@@ -34,7 +35,7 @@ describe('command pipeline', () => {
         let live = states;
         const io: DeviceIO = {
             getObject: id => Promise.resolve(live.find(item => item.id === id)),
-            getState: () => Promise.resolve({ val: true }),
+            getState: () => Promise.resolve({ val: stateValue }),
             setState: (id, value) => {
                 writes.push({ id, value });
                 return Promise.resolve();
@@ -245,6 +246,83 @@ describe('command pipeline', () => {
         expect(writes).to.be.empty;
     });
 
+    it('asks for a room when identical approved devices are in different rooms', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.living.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'test.0.bedroom', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.bedroom.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.living'] } },
+            { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['test.0.bedroom'] } },
+        ];
+        const { registry, controller } = fixture(objects);
+        for (const id of ['test.0.living', 'test.0.bedroom']) {
+            registry.setEnabled(id, true);
+            registry.approve(id, `${id}.POWER`, 'turnOn');
+        }
+        const first = await controller.process(
+            { requestId: 'room-choice-1', sessionId: 's1', text: 'Schalte die Lampe ein', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(first.clarification?.key).to.equal('room');
+        expect(first.clarification?.options).to.have.length(2);
+        expect(first.response.toLowerCase()).to.include('wohnzimmer');
+        const second = await controller.process(
+            {
+                requestId: 'room-choice-2',
+                sessionId: 's1',
+                text: 'Wohnzimmer',
+                mode: 'analyze',
+                clarificationId: first.clarification!.id,
+                selection: 'enum.rooms.wohnzimmer',
+            },
+            'admin.0',
+        );
+        expect(second.status).to.equal('success');
+        expect(second.actions?.[0].deviceId).to.equal('test.0.living');
+
+        const multiple = await controller.process(
+            {
+                requestId: 'room-choice-3',
+                text: 'Schalte die Lampe im Wohnzimmer und Schlafzimmer ein',
+                mode: 'analyze',
+            },
+            'admin.0',
+        );
+        expect(multiple.clarification?.key).to.equal('room');
+        const chosen = await controller.process(
+            {
+                requestId: 'room-choice-4',
+                text: 'Schlafzimmer',
+                mode: 'analyze',
+                clarificationId: multiple.clarification!.id,
+                selection: 'enum.rooms.schlafzimmer',
+            },
+            'admin.0',
+        );
+        expect(chosen.actions?.[0].deviceId).to.equal('test.0.bedroom');
+    });
+
+    it('asks for a device when no name or alias matches but an approved option exists', async () => {
+        const { registry, controller } = fixture(lamp);
+        registry.setEnabled('plug.0.lamp', true);
+        registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const result = await controller.process(
+            { requestId: 'unnamed-device', text: 'Schalte den Ventilator ein', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(result.clarification?.key).to.equal('device');
+        expect(result.clarification?.options?.[0].id).to.equal('plug.0.lamp');
+    });
+
     it('plans a temperature read when only the room identifies the sensor', async () => {
         const objects: ObjectSnapshot[] = [
             { id: 'test.0.lamp', type: 'channel', common: { name: 'Lampe' } },
@@ -314,6 +392,101 @@ describe('command pipeline', () => {
         expect(result.analysis?.plan).to.include({ action: 'getValue', stateId: 'test.0.heating.IST' });
         expect(result.analysis?.entities?.filter(entity => entity.type === 'room')).to.have.length(1);
         expect(writes).to.be.empty;
+    });
+
+    it('asks which approved data point to read when one device has multiple matching functions', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.heating', type: 'channel', common: { name: 'Heizung' } },
+            {
+                id: 'test.0.heating.SOLL',
+                type: 'state',
+                common: { role: 'level.temperature', type: 'number', read: true, write: true, min: 5, max: 30 },
+            },
+            {
+                id: 'test.0.heating.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false },
+            },
+            {
+                id: 'test.0.heating.HELLIGKEIT',
+                type: 'state',
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.heating'] } },
+        ];
+        const { registry, controller } = fixture(objects, 'device.getValue');
+        registry.setEnabled('test.0.heating', true);
+        registry.approve('test.0.heating', 'test.0.heating.SOLL', 'getValue');
+        registry.approve('test.0.heating', 'test.0.heating.IST', 'getValue');
+        registry.approve('test.0.heating', 'test.0.heating.HELLIGKEIT', 'getValue');
+        const first = await controller.process(
+            {
+                requestId: 'function-1',
+                sessionId: 's1',
+                text: 'Lies die Temperatur der Heizung im Wohnzimmer',
+                mode: 'analyze',
+            },
+            'admin.0',
+        );
+        expect(first.clarification?.key).to.equal('capability');
+        expect(first.clarification?.options).to.have.length(2);
+        expect(first.response).to.include('Funktion');
+        const second = await controller.process(
+            {
+                requestId: 'function-2',
+                sessionId: 's1',
+                text: 'IST',
+                mode: 'analyze',
+                clarificationId: first.clarification!.id,
+                selection: 'test.0.heating.IST',
+            },
+            'admin.0',
+        );
+        expect(second.analysis?.plan?.stateId).to.equal('test.0.heating.IST');
+        const multipleFunctions = await controller.process(
+            { requestId: 'function-3', text: 'Wie warm und hell ist die Heizung im Wohnzimmer', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(multipleFunctions.clarification?.key).to.equal('capability');
+    });
+
+    it('uses speech-ready responses without claiming that a write was confirmed', async () => {
+        const write = fixture(lamp);
+        write.registry.setEnabled('plug.0.lamp', true);
+        write.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const accepted = await write.controller.process(
+            { requestId: 'response-write', text: 'Schalte die Lampe ein', mode: 'execute' },
+            'admin.0',
+        );
+        expect(accepted.response).to.include('wurde übergeben');
+        expect(accepted.response).not.to.include('ist eingeschaltet');
+
+        const read = fixture(lamp, 'device.getState', true);
+        read.registry.setEnabled('plug.0.lamp', true);
+        read.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'getState');
+        const confirmed = await read.controller.process(
+            { requestId: 'response-read', text: 'Ist die Lampe an', mode: 'execute' },
+            'admin.0',
+        );
+        expect(confirmed.response).to.equal('Das Gerät Lampe ist eingeschaltet.');
+
+        const sensor: ObjectSnapshot[] = [
+            { id: 'test.0.sensor', type: 'channel', common: { name: 'Sensor' } },
+            {
+                id: 'test.0.sensor.IST',
+                type: 'state',
+                common: { role: 'value.temperature', type: 'number', read: true, write: false, unit: '°C' },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { name: 'Wohnzimmer', members: ['test.0.sensor'] } },
+        ];
+        const valueRead = fixture(sensor, 'device.getValue', 21);
+        valueRead.registry.setEnabled('test.0.sensor', true);
+        valueRead.registry.approve('test.0.sensor', 'test.0.sensor.IST', 'getValue');
+        const value = await valueRead.controller.process(
+            { requestId: 'response-value', text: 'Wie warm ist es im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(value.response).to.equal('Der Wert von Sensor im Raum Wohnzimmer beträgt 21 °C.');
     });
 
     it('explains that no matching device is known in the requested room', async () => {

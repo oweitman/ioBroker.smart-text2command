@@ -73,7 +73,9 @@ export class MessageRouter {
                 const room = typeof payload.room === 'string' ? payload.room.slice(0, 200) : '';
                 const functionId = typeof payload.functionId === 'string' ? payload.functionId.slice(0, 200) : '';
                 const capability = typeof payload.capability === 'string' ? payload.capability.slice(0, 100) : '';
-                const current = this.options.catalog.list().filter(device => device.status !== 'missing');
+                const current = this.options.catalog
+                    .list()
+                    .filter(device => device.status !== 'missing' && device.discoveredCapabilities.length > 0);
                 const devices = current.filter(
                     device =>
                         (!filter ||

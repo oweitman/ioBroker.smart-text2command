@@ -186,6 +186,7 @@ function DeviceCard({
     );
     const hasReadActions = eligibleApprovals.some(item => isReadAction(item.action));
     const hasWriteActions = eligibleApprovals.some(item => !isReadAction(item.action));
+    const reviewCapabilities = device.discoveredCapabilities.filter(capability => capability.needsReview);
     useEffect(() => {
         setAliasRows(
             rowsFromValues(
@@ -347,12 +348,35 @@ function DeviceCard({
                         {t('ui.actions_are_approved_but_this_device_is_still_disabled_turn_on_e')}
                     </Alert>
                 )}
-                {device.status === 'needsReview' && device.discoveredCapabilities.length > 0 && (
+                {reviewCapabilities.length > 0 && (
                     <Alert
                         severity="warning"
                         sx={{ mt: 1 }}
                     >
                         {t('ui.a_capability_changed_review_the_mapping_before_approving_again')}
+                        <Box
+                            component="ul"
+                            sx={{ mt: 1, mb: 0, pl: 2.5 }}
+                        >
+                            {reviewCapabilities.map(capability => {
+                                const affectedActions = Object.entries(device.approvedCapabilities)
+                                    .filter(
+                                        ([key, fingerprint]) =>
+                                            key.endsWith(`:${capability.stateId}`) &&
+                                            fingerprint !== capability.fingerprint,
+                                    )
+                                    .map(([key]) => actionName(key.slice(0, key.indexOf(':')) as ActionKind, language));
+                                return (
+                                    <Box
+                                        component="li"
+                                        key={capability.stateId}
+                                        sx={{ overflowWrap: 'anywhere' }}
+                                    >
+                                        {capability.stateId} ({affectedActions.join(', ')})
+                                    </Box>
+                                );
+                            })}
+                        </Box>
                     </Alert>
                 )}
                 <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -910,7 +934,6 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             sx={{ minWidth: 170 }}
                         >
                             <MenuItem value="">{t('ui.all')}</MenuItem>
-                            <MenuItem value="__none__">{t('ui.without_capability')}</MenuItem>
                             {Object.keys(actions).map(item => (
                                 <MenuItem
                                     key={item}

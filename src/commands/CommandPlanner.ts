@@ -6,7 +6,11 @@ import type { ParsedText } from '../nlp/EntityParser';
 import { normalizedValue } from './ValueNormalizer';
 import type { PlannedAction } from './types';
 
-export type PlanOutcome = { plan: PlannedAction } | { clarification: 'value' } | { error: string };
+export type PlanOutcome =
+    | { plan: PlannedAction }
+    | { clarification: 'value' }
+    | { clarification: 'capability'; stateIds: string[] }
+    | { error: string };
 
 export function planAction(
     catalog: DeviceCatalogView,
@@ -14,6 +18,7 @@ export function planAction(
     action: ActionKind,
     parsed: ParsedText,
     domain?: ValueDomain,
+    selectedStateId?: string,
 ): PlanOutcome {
     const device = catalog.list().find(item => item.id === deviceId);
     if (!device || device.status === 'missing' || !device.enabled) {
@@ -22,10 +27,18 @@ export function planAction(
     const capabilities = device.discoveredCapabilities.filter(
         capability => catalog.isAllowed(deviceId, capability, action) && matchesValueDomain(capability, domain),
     );
-    if (capabilities.length !== 1) {
-        return { error: capabilities.length ? 'AMBIGUOUS_CAPABILITY' : 'ACTION_NOT_APPROVED' };
+    if (selectedStateId && !capabilities.some(capability => capability.stateId === selectedStateId)) {
+        return { error: 'INVALID_SELECTION' };
     }
-    const capability = capabilities[0];
+    const selected = selectedStateId
+        ? capabilities.filter(capability => capability.stateId === selectedStateId)
+        : capabilities;
+    if (selected.length !== 1) {
+        return selected.length
+            ? { clarification: 'capability', stateIds: selected.map(capability => capability.stateId) }
+            : { error: 'ACTION_NOT_APPROVED' };
+    }
+    const capability = selected[0];
     const operation = action === 'getState' || action === 'getValue' ? 'read' : 'write';
     const value = normalizedValue(action, capability, parsed);
     if (operation === 'write' && value === undefined) {

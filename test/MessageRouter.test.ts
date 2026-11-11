@@ -168,9 +168,11 @@ describe('message API', () => {
             ...catalog.list(),
             ...discoverDevices([{ id: 'plug.0.empty', type: 'device', common: { name: 'Ohne Datenpunkt' } }]),
         ]);
-        for (const key of ['room', 'functionId', 'capability']) {
-            expect(await router.handle('listDevices', { [key]: '__none__' }, admin)).to.include({ total: 1 });
+        for (const key of ['room', 'functionId']) {
+            expect(await router.handle('listDevices', { [key]: '__none__' }, admin)).to.include({ total: 0 });
         }
+        expect(await router.handle('listDevices', { capability: '__none__' }, admin)).to.include({ total: 0 });
+        expect(await router.handle('listDevices', {}, admin)).to.include({ total: 1 });
         expect(await router.handle('listDevices', { capability: 'onOff' }, admin)).to.include({ total: 1 });
         await catalog.reconcile([]);
         expect(catalog.list().every(item => item.status === 'missing')).to.equal(true);

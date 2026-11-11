@@ -83,7 +83,9 @@ describe('device resolver', () => {
         expect(resolver.resolve('Wie hell ist es im Schlafzimmer', 'de', 'getValue').selected?.deviceId).to.equal(
             'test.0.lamp',
         );
-        expect(resolver.resolve('Schalte im Schlafzimmer ein', 'de', 'turnOn').candidates).to.be.empty;
+        expect(resolver.resolve('Schalte im Schlafzimmer ein', 'de', 'turnOn').selected?.deviceId).to.equal(
+            'test.0.lamp',
+        );
 
         const secondSensor: ObjectSnapshot[] = [
             { id: 'test.0.sensor2', type: 'channel', common: { name: 'Zweiter Sensor' } },

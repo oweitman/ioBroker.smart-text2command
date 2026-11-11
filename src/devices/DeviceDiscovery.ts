@@ -141,6 +141,9 @@ export function discoverDevices(objects: ObjectSnapshot[], now = new Date().toIS
         });
     }
     for (const device of devices.values()) {
+        if (device.discoveredCapabilities.length > 0) {
+            device.status = 'available';
+        }
         device.enumNames = Object.fromEntries(
             [...new Set([...device.roomIds, ...device.functionIds])].map(id => [id, byId.get(id)?.common.name ?? id]),
         );

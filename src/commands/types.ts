@@ -28,7 +28,11 @@ export interface CommandResult {
     errorCode?: string;
     candidates?: Array<{ deviceId: string; score: number; reasons: string[] }>;
     actions?: ActionResult[];
-    clarification?: { id: string; key: 'device' | 'value'; options?: Array<{ id: string; label: string }> };
+    clarification?: {
+        id: string;
+        key: 'room' | 'device' | 'capability' | 'value';
+        options?: Array<{ id: string; label: string }>;
+    };
     modelVersion?: string;
     durationMs?: number;
     analysis?: {
