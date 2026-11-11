@@ -51,13 +51,13 @@ Die zwei Kanäle mit dem Namen **Lampe** sind absichtlich gleich benannt. Damit 
 
 Vor der Freigabe im Dialog Ziel-State, Rolle, Datentyp, Wertebereich und Lese-/Schreibbarkeit prüfen. Falls ein State nach einer Metadatenänderung `needsReview` zeigt, die betroffene Aktion erneut prüfen und freigeben.
 
-Im Geräte-Tab zeigen die Raum- und Funktionsfilter die Namen der ioBroker-Aufzählungen an. Jede Gerätekarte trennt Aliase von Aktionsfreigaben. Sichtbar ist zunächst nur das Aliasfeld der eingestellten Hauptsprache; eine weitere derzeit unterstützte Sprache lässt sich gezielt hinzufügen. Bestehende Aliase der zweiten Sprache erscheinen automatisch.
+Im Geräte-Tab zeigen die Raum- und Funktionsfilter die Namen der ioBroker-Aufzählungen an. Hinter dem Gerätenamen steht die technische Geräte-ID in Klammern. Jede Gerätekarte trennt Aliase von Aktionsfreigaben. Aliase stehen in einer zweispaltigen Tabelle mit Sprachwahl und Eingabefeld; mit dem Plus kann eine weitere unterstützte Sprache ergänzt werden.
 
 Für die Formulierung **„könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren“** bei beiden Lampen den deutschen Alias `Leuchte` eintragen und speichern. Der Raum unterscheidet die Geräte. Ohne Raum fragt der Adapter nach dem gemeinten Gerät. Die Aktion `turnOff` muss für die jeweilige Lampe freigegeben und das Gerät aktiv sein.
 
-**Lesen gesammelt freigeben**, **Schreiben gesammelt freigeben** und **Alle Aktionen prüfen** öffnen je Gerät eine Prüfliste der betroffenen Aktionen und Ziel-States. Alle Einträge der gewählten Gruppe sind vorausgewählt, können aber einzeln abgewählt werden. Erst **Ausgewählte freigeben** speichert die Freigaben. Der Schalter **Aktiv** bleibt eine eigene Entscheidung.
+Die Sammelaktionen verwenden ein Auge für Lesen, einen Stift für Schreiben und beide Symbole für die Kombination. Grün öffnet die Freigabe, grau mit rotem Verbotssymbol die Rücknahme. Beide Wege zeigen eine Prüfliste der betroffenen Aktionen und Ziel-States; einzelne Einträge können abgewählt werden. Der Schalter **Aktiv** bleibt eine eigene Entscheidung.
 
-Die Filter für Raum, Funktion und Capability enthalten **Ohne** für Geräte ohne entsprechende Zuordnung. **Geräte neu einlesen** fragt die aktuellen ioBroker-Objekte erneut ab. Bereits gelöschte Objekte verschwinden danach aus der Ansicht; alte gespeicherte Freigaben für fehlende Geräte bleiben gesperrt und werden nicht angezeigt. Wenn ein Gerät ohne unterstützte Capability weiter erscheint, existiert sein Quellobjekt noch in ioBroker. Dieses bei Bedarf unter **Objekte** löschen und anschließend erneut einlesen. Die kompakten Aktionschips zeigen mit einem Plus eine offene Freigabe und mit einem Haken eine freigegebene Aktion; Anklicken öffnet die Prüfung beziehungsweise widerruft die Freigabe.
+Die Filter für Raum, Funktion und Capability enthalten **Ohne** für Geräte ohne entsprechende Zuordnung. **Geräte neu einlesen** fragt die aktuellen ioBroker-Objekte erneut ab. Fehlende Objekte verschwinden danach aus der Ansicht; alte gespeicherte Freigaben für fehlende Geräte bleiben gesperrt und werden nicht angezeigt. Die kompakten Aktionschips zeigen mit einem Plus eine offene Freigabe und mit einem Haken eine freigegebene Aktion; Anklicken öffnet die Prüfung beziehungsweise widerruft die Freigabe. Für diesen Test müssen keine Datenpunkte gelöscht werden.
 
 ## 5. Im Testlabor prüfen
 
@@ -69,11 +69,17 @@ Warten, bis `smart-text2command.0.info.modelStatus` **ready** meldet. Im **Testl
 | `Schalte die Lampe aus`                        | Rückfrage zur Auswahl zwischen zwei Lampen                                      |
 | `Dimme die Lampe im Wohnzimmer auf 40 Prozent` | `HELLIGKEIT` wird `40`                                                          |
 | `Stelle die Heizung im Wohnzimmer auf 22 Grad` | `SOLL` wird `22`                                                                |
+| `Stelle im Wohnzimmer die Temperatur auf 25 Grad` | Bei genau einem freigegebenen Temperaturziel wird `SOLL` auf `25` gesetzt; bei mehreren folgt eine Geräterückfrage. |
 | `Schreibe im Wohnzimmer die Solltemperatur`    | Rückfrage nach dem fehlenden Wert; nach `21 Grad` wird nur `SOLL` geschrieben.  |
 | `Wie warm ist es im Wohnzimmer`                | Analyse plant das Lesen von `IST` der Heizung; die Helligkeit der Lampe zählt nicht als Temperaturwert. |
+| `Welche Temperatur hat die Heizung im Wohnzimmer` | Analyse erkennt `device.getValue` und plant das Lesen von `IST` der Heizung. |
 | `Wie warm ist es im Schlafzimmer`              | Analyse plant das Lesen von `IST`; Ausführen liefert den Messwert. Bei mehreren passenden Lesegeräten folgt eine Rückfrage. |
+| `Wie hell ist die Lampe im Schlafzimmer`        | `device.getValue`; mit den obigen Testdaten: „Ich kenne das Gerät in diesem Raum nicht.“, weil die Schlafzimmerlampe nur `POWER` besitzt. Es wird kein Wert aus dem Wohnzimmer gelesen. |
+| `Schalte die Lampe im Kinderzimmer ein`         | „Ich kenne den Raum nicht.“, solange kein Raum `Kinderzimmer` angelegt ist. |
 
 Die NLP-Erkennung und die Geräteauflösung können bei einzelnen Formulierungen Rückfragen auslösen. Im Testlabor die erkannten Intents, Gerätekandidaten und den geplanten State-Zugriff prüfen. Für einen eindeutigen Lesetest kann auch `Welchen Wert hat der Temperatursensor` verwendet werden.
+
+Für einen erfolgreichen Helligkeitslesetest `Wie hell ist die Lampe im Wohnzimmer` verwenden. Soll die Schlafzimmerlampe ebenfalls einen Helligkeitswert liefern, dort einen lesbaren State mit Rolle `level.brightness` ergänzen, **Geräte neu einlesen** und `getValue` für diesen State freigeben.
 
 Die mitgelieferten Trainingssätze enthalten Schreibbefehle für Solltemperaturen auf Deutsch und Englisch, auch ohne Zahlenwert. Nach einem Adapter-Neustart wird ein vorhandenes Modell neu trainiert, wenn sich die Trainingssätze geändert haben. Erst bei `info.modelStatus = ready` erneut testen.
 

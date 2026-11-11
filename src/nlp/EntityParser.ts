@@ -1,4 +1,5 @@
 import type { Language } from '../types/api';
+import { languageRules } from '../i18n/LanguageConfig';
 
 export interface ParsedEntity {
     type: 'number' | 'percent' | 'temperature' | 'room' | 'devicePhrase' | 'negation';
@@ -14,6 +15,7 @@ export interface ParsedText {
 }
 
 export function parseEntities(text: string, language: Language, rooms: string[] = []): ParsedText {
+    const rules = languageRules(language);
     const entities: ParsedEntity[] = [];
     const unsupported: ParsedText['unsupported'] = [];
     const addUnsupported = (kind: ParsedText['unsupported'][number], pattern: RegExp): void => {
@@ -21,48 +23,51 @@ export function parseEntities(text: string, language: Language, rooms: string[] 
             unsupported.push(kind);
         }
     };
-    addUnsupported('group', language === 'de' ? /\b(alle|sämtliche)\b/i : /\b(all|every)\b/i);
-    addUnsupported('exception', language === 'de' ? /\b(außer|ausgenommen)\b/i : /\b(except|excluding)\b/i);
-    addUnsupported(
-        'time',
-        language === 'de'
-            ? /\b(morgen|später|um\s+\d{1,2}(?::\d{2})?\s*uhr)\b/i
-            : /\b(tomorrow|later|at\s+\d{1,2}(?::\d{2})?)\b/i,
-    );
-    addUnsupported('multipleActions', language === 'de' ? /\b(und|danach)\b/i : /\b(and|then)\b/i);
-    addUnsupported('unit', /\b(fahrenheit|kelvin)\b|°\s*[fFkK]\b/i);
-    const actionVerbs =
-        language === 'de'
-            ? /\b(schalte|schalt|setze|setz|stelle|stell|dimme|dimm|aktiviere|deaktiviere)\b/gi
-            : /\b(turn|switch|set|dim|activate|deactivate)\b/gi;
+    for (const kind of ['group', 'exception', 'time', 'multipleActions', 'unit'] as const) {
+        addUnsupported(kind, new RegExp(rules.unsupported[kind], 'iu'));
+    }
+    const actionVerbs = new RegExp(rules.actionVerbs, 'giu');
     if ([...text.matchAll(actionVerbs)].length > 1 && !unsupported.includes('multipleActions')) {
         unsupported.push('multipleActions');
     }
-    const negation = language === 'de' ? /\b(nicht|kein(?:e|en|er|es)?)\b/gi : /\b(not|don't|do not|never)\b/gi;
+    const negation = new RegExp(rules.negation, 'giu');
     for (const match of text.matchAll(negation)) {
         entities.push({ type: 'negation', value: match[0], start: match.index, end: match.index + match[0].length });
     }
-    const numeric = /(?<![\p{L}\d])[-+]?\d+(?:[.,]\d+)?\s*(?:%|prozent|percent|°\s*c|grad|degrees?|celsius)?/giu;
+    const numeric = new RegExp(rules.numeric, 'giu');
     for (const match of text.matchAll(numeric)) {
         const raw = match[0];
         const number = Number(raw.match(/[-+]?\d+(?:[.,]\d+)?/)![0].replace(',', '.'));
         if (!Number.isFinite(number)) {
             continue;
         }
-        const type = /%|prozent|percent/i.test(raw)
+        const type = new RegExp(rules.numericPercent, 'iu').test(raw)
             ? 'percent'
-            : /°\s*c|grad|degree|celsius/i.test(raw)
+            : new RegExp(rules.numericTemperature, 'iu').test(raw)
               ? 'temperature'
               : 'number';
         entities.push({ type, value: number, start: match.index, end: match.index + raw.length });
     }
     for (const room of rooms) {
-        const index = text.toLocaleLowerCase(language).indexOf(room.toLocaleLowerCase(language));
-        if (index >= 0) {
-            entities.push({ type: 'room', value: room, start: index, end: index + room.length });
+        const words = room.split(/[\s_-]+/).filter(Boolean);
+        if (!words.length) {
+            continue;
+        }
+        const pattern = words.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s_-]+');
+        const match = new RegExp(`(?<![\\p{L}\\p{N}])${pattern}(?![\\p{L}\\p{N}])`, 'iu').exec(text);
+        if (
+            match &&
+            !entities.some(
+                entity =>
+                    entity.type === 'room' &&
+                    entity.start === match.index &&
+                    entity.end === match.index + match[0].length,
+            )
+        ) {
+            entities.push({ type: 'room', value: room, start: match.index, end: match.index + match[0].length });
         }
     }
-    const quoted = /["„“]([^"„“]{2,100})["„“]/g;
+    const quoted = new RegExp(rules.quoted, 'gu');
     for (const match of text.matchAll(quoted)) {
         entities.push({
             type: 'devicePhrase',

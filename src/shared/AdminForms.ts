@@ -1,5 +1,6 @@
 import type { ActionKind, DeviceRecord } from '../devices/types';
 import type { IntentDefinition } from '../nlp/types';
+import languages from '../../resources/languages.json';
 
 const ACTIONS = new Set<ActionKind>(['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue']);
 
@@ -40,7 +41,7 @@ export function validateIntentDraft(draft: IntentDefinition): void {
     ) {
         throw new Error('Invalid intent ID');
     }
-    for (const language of ['de', 'en'] as const) {
+    for (const { code: language } of languages) {
         const examples = draft.utterances[language] ?? [];
         if (examples.length < 2 || examples.some(text => !text.trim() || text.length > 1000)) {
             throw new Error(`At least two valid ${language} examples required`);

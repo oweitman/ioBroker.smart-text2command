@@ -6,6 +6,7 @@ import { NlpJsProvider } from './NlpJsProvider';
 import type { ModelRepository, ModelMetadata } from './ModelRepository';
 import { regressionCases, systemIntents } from './TrainingData';
 import type { IntentDefinition, RegressionCase } from './types';
+import { supportedLanguages } from '../i18n/LanguageConfig';
 
 interface WorkerResult {
     model?: string;
@@ -88,7 +89,7 @@ export class TrainingManager {
             if (intent.source === 'user' && (intent.id.startsWith('device.') || intent.id === 'None')) {
                 throw new Error('Reserved intent ID');
             }
-            for (const language of ['de', 'en'] as const) {
+            for (const { code: language } of supportedLanguages) {
                 const examples = intent.utterances[language] ?? [];
                 if (
                     !Array.isArray(examples) ||
@@ -103,7 +104,7 @@ export class TrainingManager {
     private runWorker(intents: IntentDefinition[], regression: RegressionCase[]): Promise<WorkerResult> {
         return new Promise((resolve, reject) => {
             const worker = new Worker(join(__dirname, 'training-worker.js'), {
-                workerData: { intents, languages: ['de', 'en'], regression },
+                workerData: { intents, languages: supportedLanguages.map(item => item.code), regression },
             });
             const timer = setTimeout(() => {
                 void worker.terminate();

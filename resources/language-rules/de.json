@@ -1,0 +1,20 @@
+{
+  "unsupported": {
+    "group": "\\b(alle|sämtliche)\\b",
+    "exception": "\\b(außer|ausgenommen)\\b",
+    "time": "\\b(morgen|später|um\\s+\\d{1,2}(?::\\d{2})?\\s*uhr)\\b",
+    "multipleActions": "\\b(und|danach)\\b",
+    "unit": "\\b(fahrenheit|kelvin)\\b|°\\s*[fFkK]\\b"
+  },
+  "actionVerbs": "\\b(schalte|schalt|setze|setz|stelle|stell|dimme|dimm|aktiviere|deaktiviere)\\b",
+  "negation": "\\b(nicht|kein(?:e|en|er|es)?)\\b",
+  "numeric": "(?<![\\p{L}\\d])[-+]?\\d+(?:[.,]\\d+)?\\s*(?:%|prozent|°\\s*c|grad|celsius)?",
+  "numericPercent": "%|prozent",
+  "numericTemperature": "°\\s*c|grad|celsius",
+  "quoted": "[\"„“]([^\"„“]{2,100})[\"„“]",
+  "valueDomainTemperature": "\\b(warm|warme|warmer|temperatur|grad|kalt|heiss)\\b",
+  "valueDomainBrightness": "\\b(hell|helligkeit|dimmwert)\\b",
+  "setpointVerb": "\\b(?:schreibe|schreib|setze|setz|stelle|stell)\\b",
+  "setpointTarget": "\\b(?:soll\\s*temperatur|sollwert)\\b",
+  "roomReference": "\\b(?:im|in\\s+der|in\\s+dem)\\s+[\\p{L}][\\p{L}\\p{N}-]*"
+}

@@ -144,6 +144,11 @@ export class DeviceRegistry {
             device.status = 'available';
         }
     }
+    public revokeMany(deviceId: string, revocations: Array<{ stateId: string; action: ActionKind }>): void {
+        for (const revocation of revocations) {
+            this.revoke(deviceId, revocation.stateId, revocation.action);
+        }
+    }
     public isAllowed(deviceId: string, capability: Capability, action: ActionKind): boolean {
         const device = this.devices.get(deviceId);
         return (

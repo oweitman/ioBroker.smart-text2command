@@ -2,13 +2,22 @@
 
 const { parentPort, workerData } = require('node:worker_threads');
 const { Nlp } = require('@nlpjs/nlp');
-const { LangDe } = require('@nlpjs/lang-de');
-const { LangEn } = require('@nlpjs/lang-en');
+const languages = require('../../resources/languages.json');
 
 async function run() {
-    const manager = new Nlp({ languages: ['de', 'en'], autoSave: false, forceNER: false, nlu: { log: false } });
-    manager.use(LangDe);
-    manager.use(LangEn);
+    const manager = new Nlp({
+        languages: languages.map(item => item.code),
+        autoSave: false,
+        forceNER: false,
+        nlu: { log: false },
+    });
+    for (const item of languages) {
+        const plugin = require(item.nlpPackage)[item.nlpExport];
+        if (!plugin) {
+            throw new Error(`Missing NLP language plugin: ${item.code}`);
+        }
+        manager.use(plugin);
+    }
     for (const intent of workerData.intents) {
         if (!intent.enabled) {
             continue;

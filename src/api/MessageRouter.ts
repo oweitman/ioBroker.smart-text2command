@@ -182,7 +182,8 @@ export class MessageRouter {
             payload.enabled === undefined &&
             payload.aliases === undefined &&
             payload.approval === undefined &&
-            payload.approvals === undefined
+            payload.approvals === undefined &&
+            payload.revocations === undefined
         ) {
             throw new Error('No device update');
         }
@@ -213,6 +214,7 @@ export class MessageRouter {
                 payload.enabled !== undefined ||
                 payload.aliases !== undefined ||
                 payload.approval !== undefined ||
+                payload.revocations !== undefined ||
                 !Array.isArray(payload.approvals) ||
                 payload.approvals.length < 1 ||
                 payload.approvals.length > 50
@@ -228,6 +230,30 @@ export class MessageRouter {
             });
             if (new Set(approvals.map(item => `${item.action}:${item.stateId}`)).size !== approvals.length) {
                 throw new Error('Duplicate approvals');
+            }
+        }
+        let revocations: Array<{ stateId: string; action: ActionKind }> | undefined;
+        if (payload.revocations !== undefined) {
+            if (
+                payload.enabled !== undefined ||
+                payload.aliases !== undefined ||
+                payload.approval !== undefined ||
+                payload.approvals !== undefined ||
+                !Array.isArray(payload.revocations) ||
+                payload.revocations.length < 1 ||
+                payload.revocations.length > 50
+            ) {
+                throw new Error('Invalid revocations');
+            }
+            revocations = payload.revocations.map(item => {
+                if (!item || typeof item !== 'object' || Array.isArray(item)) {
+                    throw new Error('Invalid revocations');
+                }
+                const entry = item as Payload;
+                return { stateId: this.string(entry.stateId), action: this.string(entry.action) as ActionKind };
+            });
+            if (new Set(revocations.map(item => `${item.action}:${item.stateId}`)).size !== revocations.length) {
+                throw new Error('Duplicate revocations');
             }
         }
         if (payload.enabled !== undefined) {
@@ -249,6 +275,9 @@ export class MessageRouter {
         }
         if (approvals) {
             await this.options.catalog.approveMany(deviceId, approvals);
+        }
+        if (revocations) {
+            await this.options.catalog.revokeMany(deviceId, revocations);
         }
         return { device: this.options.catalog.list().find(device => device.id === deviceId) };
     }

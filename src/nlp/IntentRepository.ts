@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { IntentDefinition } from './types';
+import { supportedLanguages } from '../i18n/LanguageConfig';
 
 interface IntentStore {
     schemaVersion: 1;
@@ -38,7 +39,7 @@ function validate(intents: IntentDefinition[]): void {
             throw new Error('Invalid user intent');
         }
         ids.add(intent.id);
-        for (const language of ['de', 'en'] as const) {
+        for (const { code: language } of supportedLanguages) {
             const examples = intent.utterances?.[language] ?? [];
             if (
                 !Array.isArray(examples) ||

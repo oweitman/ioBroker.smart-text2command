@@ -1,3 +1,5 @@
+import type { Language } from '../types/api';
+
 export type CapabilityKind = 'onOff' | 'brightness' | 'temperatureSetpoint' | 'readTemperature' | 'position';
 export type ActionKind = 'turnOn' | 'turnOff' | 'setLevel' | 'setTemperature' | 'getState' | 'getValue';
 export type ValueKind = 'boolean' | 'number' | 'string';
@@ -30,7 +32,7 @@ export interface DeviceRecord {
     roomIds: string[];
     functionIds: string[];
     enumNames?: Record<string, string | Record<string, string>>;
-    aliases: Partial<Record<'de' | 'en', string[]>>;
+    aliases: Partial<Record<Language, string[]>>;
     discoveredCapabilities: Capability[];
     approvedCapabilities: Record<string, string>; // action:state ID -> approved fingerprint
     enabled: boolean;

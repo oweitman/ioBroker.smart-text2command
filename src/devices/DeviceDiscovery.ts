@@ -6,7 +6,7 @@ function nameOf(object: ObjectSnapshot): string {
     if (typeof name === 'string') {
         return name;
     }
-    return name?.de ?? name?.en ?? object.id;
+    return Object.values(name ?? {})[0] ?? object.id;
 }
 
 function parentFor(stateId: string, objects: Map<string, ObjectSnapshot>): string {

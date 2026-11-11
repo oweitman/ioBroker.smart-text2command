@@ -140,6 +140,30 @@ describe('message API', () => {
             'turnOff:plug.0.lamp.POWER',
             'getState:plug.0.lamp.POWER',
         ]);
+        expect(
+            await router.handle(
+                'updateDevice',
+                {
+                    deviceId: 'plug.0.lamp',
+                    enabled: false,
+                    revocations: [{ stateId: 'plug.0.lamp.POWER', action: 'turnOff' }],
+                },
+                admin,
+            ),
+        ).to.have.property('error');
+        expect(catalog.list()[0].enabled).to.equal(true);
+        await router.handle(
+            'updateDevice',
+            {
+                deviceId: 'plug.0.lamp',
+                revocations: [
+                    { stateId: 'plug.0.lamp.POWER', action: 'turnOff' },
+                    { stateId: 'plug.0.lamp.POWER', action: 'getState' },
+                ],
+            },
+            admin,
+        );
+        expect(Object.keys(catalog.list()[0].approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
         await catalog.reconcile([
             ...catalog.list(),
             ...discoverDevices([{ id: 'plug.0.empty', type: 'device', common: { name: 'Ohne Datenpunkt' } }]),

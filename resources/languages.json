@@ -1,0 +1,4 @@
+[
+  { "code": "de", "name": "Deutsch", "nlpPackage": "@nlpjs/lang-de", "nlpExport": "LangDe" },
+  { "code": "en", "name": "English", "nlpPackage": "@nlpjs/lang-en", "nlpExport": "LangEn" }
+]

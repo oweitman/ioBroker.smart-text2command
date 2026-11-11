@@ -10,6 +10,8 @@
     { "language": "de", "text": "Schreibe im Wohnzimmer die Soll Temperatur", "intent": "device.setTemperature" },
     { "language": "de", "text": "Ist die Steckdose eingeschaltet", "intent": "device.getState" },
     { "language": "de", "text": "Welche Temperatur zeigt der Sensor", "intent": "device.getValue" },
+    { "language": "de", "text": "Welche Temperatur hat die Heizung im Wohnzimmer", "intent": "device.getValue" },
+    { "language": "de", "text": "Wie hell ist die Lampe im Schlafzimmer", "intent": "device.getValue" },
     { "language": "en", "text": "Please turn the floor lamp on", "intent": "device.turnOn" },
     { "language": "en", "text": "Switch the floor lamp off", "intent": "device.turnOff" },
     { "language": "en", "text": "Could you kindly deactivate the light in the living room", "intent": "device.turnOff" },
@@ -19,6 +21,8 @@
     { "language": "en", "text": "Write the thermostat setpoint in the living room", "intent": "device.setTemperature" },
     { "language": "en", "text": "Is the plug switched on", "intent": "device.getState" },
     { "language": "en", "text": "What temperature does the sensor show", "intent": "device.getValue" },
+    { "language": "en", "text": "What temperature does the heater in the living room have", "intent": "device.getValue" },
+    { "language": "en", "text": "How bright is the lamp in the bedroom", "intent": "device.getValue" },
     { "language": "de", "text": "Erzähl mir eine Geschichte", "intent": null },
     { "language": "en", "text": "Tell me a story", "intent": null }
   ]

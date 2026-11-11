@@ -15,6 +15,7 @@ import { TrainingManager, trainingHash } from './nlp/TrainingManager';
 import { systemIntents } from './nlp/TrainingData';
 import type { IntentDefinition } from './nlp/types';
 import { AuditRepository } from './storage/AuditRepository';
+import { defaultLanguage, isSupportedLanguage } from './i18n/LanguageConfig';
 
 const MAX_DISCOVERY_OBJECTS = 100_000;
 const DEVICE_IO_TIMEOUT_MS = 15_000;
@@ -127,7 +128,9 @@ class SmartText2command extends utils.Adapter {
             () => (this.model ? { engine: this.model, version: this.modelVersion } : undefined),
             () => this.userIntents,
             new AuditRepository(join(dataDir, 'audit-v1.json')),
-            (this.config as { defaultLanguage?: string }).defaultLanguage === 'en' ? 'en' : 'de',
+            isSupportedLanguage((this.config as { defaultLanguage?: string }).defaultLanguage)
+                ? (this.config as { defaultLanguage: string }).defaultLanguage
+                : defaultLanguage(),
         );
         this.router = new MessageRouter({
             controller,

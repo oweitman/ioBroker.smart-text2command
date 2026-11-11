@@ -14,6 +14,7 @@ import {
     DialogTitle,
     Divider,
     FormControlLabel,
+    IconButton,
     MenuItem,
     Pagination,
     Select,
@@ -36,13 +37,18 @@ import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from '@mui/icons-material/Edit';
+import BlockIcon from '@mui/icons-material/Block';
 import type { AdminApi } from '../../src/shared/AdminApi';
 import { parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
 import type { IntentDefinition } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
+import type { Language } from '../../src/types/api';
+import LanguageValueTable, { languageOptions, rowsFromValues, valuesFromRows } from './LanguageValueTable';
+import type { LanguageRow } from './LanguageValueTable';
 
-type Language = 'de' | 'en';
 type Page = 'dashboard' | 'devices' | 'intents' | 'training' | 'test' | 'settings';
 type Diagnostics = {
     modelStatus?: string;
@@ -63,14 +69,11 @@ type Training = {
 type EnumOption = { id: string; name: string | Record<string, string> };
 type DeviceList = { total: number; devices: DeviceRecord[]; rooms?: EnumOption[]; functions?: EnumOption[] };
 
-const pages: Array<{ id: Page; de: string; en: string }> = [
-    { id: 'dashboard', de: 'Übersicht', en: 'Overview' },
-    { id: 'devices', de: 'Geräte', en: 'Devices' },
-    { id: 'intents', de: 'Intents', en: 'Intents' },
-    { id: 'training', de: 'Training', en: 'Training' },
-    { id: 'test', de: 'Testlabor', en: 'Test lab' },
-    { id: 'settings', de: 'Einstellungen', en: 'Settings' },
-];
+const pages: Page[] = ['dashboard', 'devices', 'intents', 'training', 'test', 'settings'];
+const localeFiles = import.meta.glob<Record<string, string>>('./i18n/*.json', { eager: true, import: 'default' });
+const dictionaries: Record<Language, Record<string, string>> = Object.fromEntries(
+    languageOptions.map(item => [item.code, localeFiles[`./i18n/${item.code}.json`] ?? {}]),
+);
 const actions: Record<Capability['kind'], ActionKind[]> = {
     onOff: ['turnOn', 'turnOff', 'getState'],
     brightness: ['setLevel', 'getValue'],
@@ -79,33 +82,16 @@ const actions: Record<Capability['kind'], ActionKind[]> = {
     position: [],
 };
 const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue'];
-const aliasLanguages: Language[] = ['de', 'en'];
-
 function languageName(language: Language): string {
-    return language === 'de' ? 'Deutsch' : 'English';
+    return languageOptions.find(item => item.code === language)?.name ?? language;
 }
 
 function actionName(action: ActionKind, language: Language): string {
-    const names: Record<ActionKind, [string, string]> = {
-        turnOn: ['Einschalten', 'Turn on'],
-        turnOff: ['Ausschalten', 'Turn off'],
-        setLevel: ['Helligkeit setzen', 'Set brightness'],
-        setTemperature: ['Solltemperatur setzen', 'Set target temperature'],
-        getState: ['Schaltzustand lesen', 'Read switch state'],
-        getValue: ['Wert lesen', 'Read value'],
-    };
-    return names[action][language === 'de' ? 0 : 1];
+    return labels(language)(`action.${action}`);
 }
 
 function capabilityName(kind: Capability['kind'], language: Language): string {
-    const names: Record<Capability['kind'], [string, string]> = {
-        onOff: ['Schalten', 'Switch'],
-        brightness: ['Helligkeit', 'Brightness'],
-        temperatureSetpoint: ['Solltemperatur', 'Target temperature'],
-        readTemperature: ['Temperaturmesswert', 'Measured temperature'],
-        position: ['Position', 'Position'],
-    };
-    return names[kind][language === 'de' ? 0 : 1];
+    return labels(language)(`capability.${kind}`);
 }
 
 function capabilityIcon(kind: Capability['kind']): React.JSX.Element {
@@ -127,14 +113,26 @@ function isReadAction(action: ActionKind): boolean {
     return action === 'getState' || action === 'getValue';
 }
 
+function BulkActionIcon({ scope, revoke }: { scope: 'read' | 'write' | 'all'; revoke: boolean }): React.JSX.Element {
+    return (
+        <Box sx={{ display: 'inline-flex', position: 'relative', color: revoke ? 'text.secondary' : 'success.main' }}>
+            {(scope === 'read' || scope === 'all') && <VisibilityIcon fontSize="small" />}
+            {(scope === 'write' || scope === 'all') && <EditIcon fontSize="small" />}
+            {revoke && (
+                <BlockIcon sx={{ position: 'absolute', right: -5, bottom: -5, fontSize: 17, color: 'error.main' }} />
+            )}
+        </Box>
+    );
+}
+
 interface Props {
     api: AdminApi;
     defaultLanguage: Language;
     onDefaultLanguage: (value: Language) => void;
 }
 
-function labels(language: Language): (de: string, en: string) => string {
-    return (de, en) => (language === 'de' ? de : en);
+function labels(language: Language): (key: string) => string {
+    return key => dictionaries[language]?.[key] ?? dictionaries[languageOptions[0].code]?.[key] ?? key;
 }
 
 function displayError(error: unknown): string {
@@ -147,7 +145,7 @@ function approvalKey(action: ActionKind, capability: Capability): string {
 
 function enumLabel(name: string | Record<string, string> | undefined, id: string, language: Language): string {
     if (typeof name === 'string') return name;
-    return name?.[language] ?? name?.de ?? name?.en ?? id;
+    return name?.[language] ?? Object.values(name ?? {})[0] ?? id;
 }
 
 function DeviceCard({
@@ -162,15 +160,15 @@ function DeviceCard({
     onError: (message: string) => void;
 }): React.JSX.Element {
     const t = labels(language);
-    const [aliasDrafts, setAliasDrafts] = useState<Record<string, string>>({
-        de: (device.aliases.de ?? []).join(', '),
-        en: (device.aliases.en ?? []).join(', '),
-    });
-    const [extraAliasLanguages, setExtraAliasLanguages] = useState<Language[]>(
-        aliasLanguages.filter(item => item !== language && (device.aliases[item] ?? []).length > 0),
+    const [aliasRows, setAliasRows] = useState<LanguageRow[]>(() =>
+        rowsFromValues(
+            Object.fromEntries(languageOptions.map(item => [item.code, (device.aliases[item.code] ?? []).join(', ')])),
+            language,
+        ),
     );
     const [pending, setPending] = useState<{ capability: Capability; action: ActionKind }>();
     const [batchScope, setBatchScope] = useState<'read' | 'write' | 'all'>();
+    const [batchOperation, setBatchOperation] = useState<'grant' | 'revoke'>('grant');
     const [batchSelected, setBatchSelected] = useState<string[]>([]);
     const eligibleApprovals = device.discoveredCapabilities.flatMap(capability =>
         actions[capability.kind]
@@ -180,38 +178,46 @@ function DeviceCard({
     const availableApprovals = eligibleApprovals.filter(
         item => device.approvedCapabilities[item.key] !== item.capability.fingerprint || item.capability.needsReview,
     );
-    const batchApprovals = availableApprovals.filter(item =>
+    const approvedActions = eligibleApprovals.filter(
+        item => device.approvedCapabilities[item.key] === item.capability.fingerprint && !item.capability.needsReview,
+    );
+    const batchItems = (batchOperation === 'grant' ? availableApprovals : approvedActions).filter(item =>
         batchScope === 'all' ? true : batchScope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
     );
-    const readApprovals = availableApprovals.filter(item => isReadAction(item.action));
-    const writeApprovals = availableApprovals.filter(item => !isReadAction(item.action));
     const hasReadActions = eligibleApprovals.some(item => isReadAction(item.action));
     const hasWriteActions = eligibleApprovals.some(item => !isReadAction(item.action));
     useEffect(() => {
-        setAliasDrafts({ de: (device.aliases.de ?? []).join(', '), en: (device.aliases.en ?? []).join(', ') });
-        setExtraAliasLanguages(
-            aliasLanguages.filter(item => item !== language && (device.aliases[item] ?? []).length > 0),
+        setAliasRows(
+            rowsFromValues(
+                Object.fromEntries(
+                    languageOptions.map(item => [item.code, (device.aliases[item.code] ?? []).join(', ')]),
+                ),
+                language,
+            ),
         );
     }, [device.aliases, language]);
     const saveAliases = (): void => {
         try {
             const aliases: DeviceRecord['aliases'] = { ...device.aliases };
-            for (const item of aliasLanguages) {
-                aliases[item] =
-                    item === language || extraAliasLanguages.includes(item)
-                        ? parseAliases(aliasDrafts[item] ?? '')
-                        : [];
+            const values = valuesFromRows(aliasRows);
+            for (const item of languageOptions) {
+                aliases[item.code] = parseAliases(values[item.code] ?? '');
             }
             void update({ deviceId: device.id, aliases });
         } catch (error) {
             onError(displayError(error));
         }
     };
-    const openBatch = (scope: 'read' | 'write' | 'all'): void => {
-        const selected = availableApprovals.filter(item =>
+    const countBatch = (scope: 'read' | 'write' | 'all', operation: 'grant' | 'revoke'): number =>
+        (operation === 'grant' ? availableApprovals : approvedActions).filter(item =>
+            scope === 'all' ? true : scope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
+        ).length;
+    const openBatch = (scope: 'read' | 'write' | 'all', operation: 'grant' | 'revoke'): void => {
+        const selected = (operation === 'grant' ? availableApprovals : approvedActions).filter(item =>
             scope === 'all' ? true : scope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
         );
         setBatchScope(scope);
+        setBatchOperation(operation);
         setBatchSelected(selected.map(item => item.key));
     };
     const approve = (): void => {
@@ -227,13 +233,18 @@ function DeviceCard({
             onError(displayError(error));
         }
     };
-    const approveBatch = (): void => {
+    const submitBatch = (): void => {
         try {
-            const selected = batchApprovals.filter(item => batchSelected.includes(item.key));
-            for (const item of selected) validateApproval(device, item.capability.stateId, item.action);
+            const selected = batchItems.filter(item => batchSelected.includes(item.key));
+            if (batchOperation === 'grant') {
+                for (const item of selected) validateApproval(device, item.capability.stateId, item.action);
+            }
             void update({
                 deviceId: device.id,
-                approvals: selected.map(item => ({ stateId: item.capability.stateId, action: item.action })),
+                [batchOperation === 'grant' ? 'approvals' : 'revocations']: selected.map(item => ({
+                    stateId: item.capability.stateId,
+                    action: item.action,
+                })),
             });
             setBatchScope(undefined);
             setBatchSelected([]);
@@ -263,14 +274,13 @@ function DeviceCard({
                             ) : (
                                 <DeviceHubIcon fontSize="small" />
                             )}
-                            <Typography variant="h6">{device.displayName}</Typography>
+                            <Typography
+                                variant="h6"
+                                sx={{ overflowWrap: 'anywhere' }}
+                            >
+                                {device.displayName} ({device.id})
+                            </Typography>
                         </Stack>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                        >
-                            {device.id}
-                        </Typography>
                     </Box>
                     <Stack
                         direction="row"
@@ -281,10 +291,10 @@ function DeviceCard({
                             size="small"
                             label={
                                 device.status === 'needsReview'
-                                    ? t('Prüfung nötig', 'Review needed')
+                                    ? t('ui.review_needed')
                                     : device.status === 'missing'
-                                      ? t('Fehlt', 'Missing')
-                                      : t('Verfügbar', 'Available')
+                                      ? t('ui.missing')
+                                      : t('ui.available')
                             }
                             color={
                                 device.status === 'needsReview'
@@ -295,7 +305,7 @@ function DeviceCard({
                             }
                         />
                         <FormControlLabel
-                            label={t('Aktiv', 'Enabled')}
+                            label={t('ui.enabled')}
                             control={
                                 <Switch
                                     checked={device.enabled}
@@ -329,26 +339,12 @@ function DeviceCard({
                         />
                     ))}
                 </Stack>
-                {device.discoveredCapabilities.length === 0 && (
-                    <Alert
-                        severity="info"
-                        sx={{ mt: 1 }}
-                    >
-                        {t(
-                            'Für dieses ioBroker-Objekt wurde kein unterstützter Datenpunkt gefunden. Wenn es nicht mehr gebraucht wird, lösche das Quellobjekt unter Objekte und lies die Geräte erneut ein.',
-                            'No supported state was found for this ioBroker object. If it is no longer needed, delete the source object in Objects and rescan devices.',
-                        )}
-                    </Alert>
-                )}
                 {!device.enabled && Object.keys(device.approvedCapabilities).length > 0 && (
                     <Alert
                         severity="info"
                         sx={{ mt: 1 }}
                     >
-                        {t(
-                            'Aktionen sind freigegeben, aber dieses Gerät ist noch inaktiv. Schalte „Aktiv“ ein, damit Befehle es finden.',
-                            'Actions are approved, but this device is still disabled. Turn on Enabled so commands can find it.',
-                        )}
+                        {t('ui.actions_are_approved_but_this_device_is_still_disabled_turn_on_e')}
                     </Alert>
                 )}
                 {device.status === 'needsReview' && device.discoveredCapabilities.length > 0 && (
@@ -356,143 +352,98 @@ function DeviceCard({
                         severity="warning"
                         sx={{ mt: 1 }}
                     >
-                        {t(
-                            'Eine Capability hat sich geändert. Prüfe das Mapping vor erneuter Freigabe.',
-                            'A capability changed. Review the mapping before approving again.',
-                        )}
+                        {t('ui.a_capability_changed_review_the_mapping_before_approving_again')}
                     </Alert>
                 )}
                 <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Typography variant="subtitle1">
-                        {t('Gerätenamen und Aliase', 'Device names and aliases')}
-                    </Typography>
+                    <Typography variant="subtitle1">{t('ui.device_names_and_aliases')}</Typography>
                     <Typography
                         variant="body2"
                         color="text.secondary"
                         sx={{ mb: 1 }}
                     >
-                        {t(
-                            'Zum Beispiel „Leuchte“ für eine Lampe. Mehrere Aliase mit Komma trennen; der Raum unterscheidet gleich benannte Geräte.',
-                            'For example, add “light” as an alias for a lamp. Separate aliases with commas; the room distinguishes devices with the same alias.',
-                        )}
+                        {t('ui.for_example_add_light_as_an_alias_for_a_lamp_separate_aliases_wi')}
                     </Typography>
                     <Stack spacing={1}>
-                        <TextField
-                            size="small"
-                            fullWidth
-                            label={`${t('Aliase der Hauptsprache', 'Primary language aliases')} (${languageName(language)})`}
-                            value={aliasDrafts[language] ?? ''}
-                            onChange={event =>
-                                setAliasDrafts(current => ({ ...current, [language]: event.target.value }))
-                            }
+                        <LanguageValueTable
+                            rows={aliasRows}
+                            onChange={setAliasRows}
+                            languageHeader={t('ui.language')}
+                            valueHeader={t('ui.aliases')}
+                            valueLabel={t('ui.alias_names')}
+                            addLabel={t('ui.add_language')}
+                            removeLabel={t('ui.remove_language')}
                         />
-                        {extraAliasLanguages.map(item => (
-                            <Stack
-                                key={item}
-                                direction={{ xs: 'column', sm: 'row' }}
-                                spacing={1}
-                            >
-                                <TextField
-                                    size="small"
-                                    fullWidth
-                                    label={`${t('Weitere Sprache', 'Additional language')}: ${languageName(item)}`}
-                                    value={aliasDrafts[item] ?? ''}
-                                    onChange={event =>
-                                        setAliasDrafts(current => ({ ...current, [item]: event.target.value }))
-                                    }
-                                />
-                                <Button
-                                    onClick={() =>
-                                        setExtraAliasLanguages(current => current.filter(value => value !== item))
-                                    }
-                                >
-                                    {t('Entfernen', 'Remove')}
-                                </Button>
-                            </Stack>
-                        ))}
-                        {aliasLanguages.some(item => item !== language && !extraAliasLanguages.includes(item)) && (
-                            <TextField
-                                select
-                                size="small"
-                                label={t('Alias in weiterer Sprache hinzufügen', 'Add aliases in another language')}
-                                value=""
-                                onChange={event =>
-                                    setExtraAliasLanguages(current => [...current, event.target.value as Language])
-                                }
-                                sx={{ maxWidth: 340 }}
-                            >
-                                <MenuItem
-                                    value=""
-                                    disabled
-                                >
-                                    {t('Sprache wählen', 'Choose language')}
-                                </MenuItem>
-                                {aliasLanguages
-                                    .filter(item => item !== language && !extraAliasLanguages.includes(item))
-                                    .map(item => (
-                                        <MenuItem
-                                            key={item}
-                                            value={item}
-                                        >
-                                            {languageName(item)}
-                                        </MenuItem>
-                                    ))}
-                            </TextField>
-                        )}
                         <Button
                             variant="outlined"
                             onClick={saveAliases}
                             sx={{ alignSelf: 'flex-start' }}
                         >
-                            {t('Aliase speichern', 'Save aliases')}
+                            {t('ui.save_aliases')}
                         </Button>
                     </Stack>
                 </Box>
                 <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle1">{t('Aktionsfreigaben', 'Action approvals')}</Typography>
+                    <Typography variant="subtitle1">{t('ui.action_approvals')}</Typography>
                     <Typography
                         variant="body2"
                         color="text.secondary"
                         sx={{ mb: 1 }}
                     >
-                        {t(
-                            'Jede Sammelfreigabe zeigt vor dem Bestätigen alle betroffenen Aktionen und Datenpunkte.',
-                            'Each bulk approval shows all affected actions and states before confirmation.',
-                        )}
+                        {t('ui.each_bulk_approval_shows_all_affected_actions_and_states_before_')}
                     </Typography>
                     <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={1}
-                        sx={{ mb: 2 }}
+                        direction="row"
+                        spacing={2}
+                        sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
                     >
-                        {hasReadActions && (
-                            <Button
-                                variant="outlined"
-                                disabled={readApprovals.length === 0}
-                                onClick={() => openBatch('read')}
-                            >
-                                {t('Lesen gesammelt freigeben', 'Approve reads together')} ({readApprovals.length})
-                            </Button>
-                        )}
-                        {hasWriteActions && (
-                            <Button
-                                variant="outlined"
-                                disabled={writeApprovals.length === 0}
-                                onClick={() => openBatch('write')}
-                            >
-                                {t('Schreiben gesammelt freigeben', 'Approve writes together')} ({writeApprovals.length}
-                                )
-                            </Button>
-                        )}
-                        {hasReadActions && hasWriteActions && (
-                            <Button
-                                variant="outlined"
-                                disabled={availableApprovals.length === 0}
-                                onClick={() => openBatch('all')}
-                            >
-                                {t('Alle Aktionen prüfen', 'Review all actions')} ({availableApprovals.length})
-                            </Button>
-                        )}
+                        {[
+                            { scope: 'read' as const, label: t('ui.read'), show: hasReadActions },
+                            { scope: 'write' as const, label: t('ui.write'), show: hasWriteActions },
+                            {
+                                scope: 'all' as const,
+                                label: t('ui.read_and_write'),
+                                show: hasReadActions && hasWriteActions,
+                            },
+                        ]
+                            .filter(item => item.show)
+                            .map(item => (
+                                <Stack
+                                    key={item.scope}
+                                    direction="row"
+                                    spacing={0.5}
+                                    sx={{ alignItems: 'center' }}
+                                >
+                                    <Typography variant="body2">{item.label}</Typography>
+                                    {(['grant', 'revoke'] as const).map(operation => {
+                                        const count = countBatch(item.scope, operation);
+                                        const title =
+                                            operation === 'grant'
+                                                ? `${t('ui.approve_together')}: ${item.label} (${count})`
+                                                : `${t('ui.revoke_together')}: ${item.label} (${count})`;
+                                        return (
+                                            <Tooltip
+                                                key={operation}
+                                                title={title}
+                                            >
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        aria-label={title}
+                                                        disabled={count === 0}
+                                                        onClick={() => openBatch(item.scope, operation)}
+                                                    >
+                                                        <BulkActionIcon
+                                                            scope={item.scope}
+                                                            revoke={operation === 'revoke'}
+                                                        />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        );
+                                    })}
+                                </Stack>
+                            ))}
                     </Stack>
                 </Box>
                 {device.discoveredCapabilities.map(capability => (
@@ -511,7 +462,7 @@ function DeviceCard({
                                 <Chip
                                     size="small"
                                     color="warning"
-                                    label={t('Prüfung nötig', 'Review needed')}
+                                    label={t('ui.review_needed')}
                                 />
                             )}
                         </Stack>
@@ -525,10 +476,15 @@ function DeviceCard({
                             variant="caption"
                             color="text.secondary"
                         >
-                            {capability.valueKind} · {capability.readable ? 'read' : ''}
-                            {capability.writable ? ' / write' : ''}
-                            {capability.min !== undefined ? ` · min ${capability.min}` : ''}
-                            {capability.max !== undefined ? ` · max ${capability.max}` : ''}
+                            {capability.valueKind} ·{' '}
+                            {[
+                                capability.readable ? t('ui.read') : undefined,
+                                capability.writable ? t('ui.write') : undefined,
+                            ]
+                                .filter(Boolean)
+                                .join(' / ')}
+                            {capability.min !== undefined ? ` · ${t('ui.minimum')} ${capability.min}` : ''}
+                            {capability.max !== undefined ? ` · ${t('ui.maximum')} ${capability.max}` : ''}
                             {capability.unit ? ` · ${capability.unit}` : ''}
                             {capability.mapping ? ` · ${JSON.stringify(capability.mapping)}` : ''}
                         </Typography>
@@ -549,9 +505,7 @@ function DeviceCard({
                                         <Tooltip
                                             key={action}
                                             title={
-                                                approved
-                                                    ? t('Freigabe widerrufen', 'Revoke approval')
-                                                    : t('Aktion prüfen und freigeben', 'Review and approve action')
+                                                approved ? t('ui.revoke_approval') : t('ui.review_and_approve_action')
                                             }
                                         >
                                             <Chip
@@ -586,7 +540,7 @@ function DeviceCard({
                     maxWidth="sm"
                     fullWidth
                 >
-                    <DialogTitle>{t('Aktion freigeben', 'Approve action')}</DialogTitle>
+                    <DialogTitle>{t('ui.approve_action')}</DialogTitle>
                     <DialogContent>
                         <Typography>
                             {pending ? actionName(pending.action, language) : ''} · {device.displayName}
@@ -596,27 +550,24 @@ function DeviceCard({
                             variant="body2"
                             sx={{ mt: 1 }}
                         >
-                            {t('Typ, Bereich und Mapping:', 'Type, range and mapping:')} {pending?.capability.valueKind}
-                            , {pending?.capability.min ?? '—'}–{pending?.capability.max ?? '—'},{' '}
+                            {t('ui.type_range_and_mapping')} {pending?.capability.valueKind},{' '}
+                            {pending?.capability.min ?? '—'}–{pending?.capability.max ?? '—'},{' '}
                             {JSON.stringify(pending?.capability.mapping ?? {})}
                         </Typography>
                         <Alert
                             severity="warning"
                             sx={{ mt: 2 }}
                         >
-                            {t(
-                                'Diese Freigabe gilt künftig für passende Befehle, bis das Ziel geändert oder die Freigabe widerrufen wird.',
-                                'This approval applies to matching commands until the target changes or approval is revoked.',
-                            )}
+                            {t('ui.this_approval_applies_to_matching_commands_until_the_target_chan')}
                         </Alert>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setPending(undefined)}>{t('Abbrechen', 'Cancel')}</Button>
+                        <Button onClick={() => setPending(undefined)}>{t('ui.cancel')}</Button>
                         <Button
                             variant="contained"
                             onClick={approve}
                         >
-                            {t('Freigeben', 'Approve')}
+                            {t('ui.approve')}
                         </Button>
                     </DialogActions>
                 </Dialog>
@@ -627,22 +578,20 @@ function DeviceCard({
                     fullWidth
                 >
                     <DialogTitle>
-                        {batchScope === 'read'
-                            ? t('Leseaktionen gemeinsam freigeben', 'Approve read actions together')
-                            : batchScope === 'write'
-                              ? t('Schreibaktionen gemeinsam freigeben', 'Approve write actions together')
-                              : t('Alle Aktionen gemeinsam freigeben', 'Approve all actions together')}
+                        {batchOperation === 'grant'
+                            ? t('ui.approve_actions_together')
+                            : t('ui.revoke_approvals_together')}
                     </DialogTitle>
                     <DialogContent>
                         <Typography sx={{ mb: 1 }}>{device.displayName}</Typography>
                         <Button
                             size="small"
-                            onClick={() => setBatchSelected(batchApprovals.map(item => item.key))}
+                            onClick={() => setBatchSelected(batchItems.map(item => item.key))}
                         >
-                            {t('Alle auswählen', 'Select all')}
+                            {t('ui.select_all')}
                         </Button>
                         <Stack sx={{ mt: 1 }}>
-                            {batchApprovals.map(item => (
+                            {batchItems.map(item => (
                                 <FormControlLabel
                                     key={item.key}
                                     sx={{ alignItems: 'flex-start', mb: 1 }}
@@ -674,13 +623,18 @@ function DeviceCard({
                                                 variant="caption"
                                                 color="text.secondary"
                                             >
-                                                {item.capability.valueKind} · {item.capability.readable ? 'read' : ''}
-                                                {item.capability.writable ? ' / write' : ''}
+                                                {item.capability.valueKind} ·{' '}
+                                                {[
+                                                    item.capability.readable ? t('ui.read') : undefined,
+                                                    item.capability.writable ? t('ui.write') : undefined,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' / ')}
                                                 {item.capability.min !== undefined
-                                                    ? ` · min ${item.capability.min}`
+                                                    ? ` · ${t('ui.minimum')} ${item.capability.min}`
                                                     : ''}
                                                 {item.capability.max !== undefined
-                                                    ? ` · max ${item.capability.max}`
+                                                    ? ` · ${t('ui.maximum')} ${item.capability.max}`
                                                     : ''}
                                                 {item.capability.unit ? ` · ${item.capability.unit}` : ''}
                                                 {item.capability.mapping
@@ -693,23 +647,22 @@ function DeviceCard({
                             ))}
                         </Stack>
                         <Alert
-                            severity="warning"
+                            severity={batchOperation === 'grant' ? 'warning' : 'info'}
                             sx={{ mt: 1 }}
                         >
-                            {t(
-                                'Nur ausgewählte Aktionen werden dauerhaft freigegeben. Prüfe die Ziel-States und Wertebereiche vor dem Bestätigen.',
-                                'Only selected actions are approved permanently. Review target states and ranges before confirming.',
-                            )}
+                            {batchOperation === 'grant'
+                                ? t('ui.only_selected_actions_are_approved_permanently_review_target_sta')
+                                : t('ui.only_the_selected_approvals_will_be_revoked')}
                         </Alert>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={() => setBatchScope(undefined)}>{t('Abbrechen', 'Cancel')}</Button>
+                        <Button onClick={() => setBatchScope(undefined)}>{t('ui.cancel')}</Button>
                         <Button
                             variant="contained"
                             disabled={batchSelected.length === 0}
-                            onClick={approveBatch}
+                            onClick={submitBatch}
                         >
-                            {t('Ausgewählte freigeben', 'Approve selected')}
+                            {batchOperation === 'grant' ? t('ui.approve_selected') : t('ui.revoke_selected')}
                         </Button>
                     </DialogActions>
                 </Dialog>
@@ -797,7 +750,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     async function readImport(file: File | undefined): Promise<void> {
         if (!file) return;
         try {
-            if (file.size > 65_536) throw new Error('Import exceeds 64 KiB');
+            if (file.size > 65_536) throw new Error(t('error.import_too_large'));
             const data: unknown = JSON.parse(await file.text());
             if (
                 !data ||
@@ -807,7 +760,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 !('intents' in data) ||
                 !Array.isArray(data.intents)
             )
-                throw new Error('Invalid intent import');
+                throw new Error(t('error.invalid_intent_import'));
             for (const intent of data.intents) validateIntentDraft(intent as IntentDefinition);
             setImportDraft(data as { schemaVersion: number; intents: IntentDefinition[] });
         } catch (error) {
@@ -819,7 +772,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const functionOptions = useMemo(() => deviceList.functions ?? [], [deviceList.functions]);
 
     return (
-        <Box sx={{ maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 3 } }}>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 }, pb: 16 }}>
             <Stack
                 direction="row"
                 spacing={2}
@@ -828,10 +781,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 <Box>
                     <Typography variant="h4">smart-text2command</Typography>
                     <Typography color="text.secondary">
-                        {t(
-                            'Lokale Textsteuerung mit geprüften Geräteaktionen',
-                            'Local text control with approved device actions',
-                        )}
+                        {t('ui.local_text_control_with_approved_device_actions')}
                     </Typography>
                 </Box>
                 {busy && <CircularProgress size={24} />}
@@ -845,9 +795,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
             >
                 {pages.map(item => (
                     <Tab
-                        key={item.id}
-                        value={item.id}
-                        label={defaultLanguage === 'de' ? item.de : item.en}
+                        key={item}
+                        value={item}
+                        label={t(`page.${item}`)}
                     />
                 ))}
             </Tabs>
@@ -859,24 +809,20 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     >
                         <Card sx={{ flex: 1 }}>
                             <CardContent>
-                                <Typography color="text.secondary">{t('Modell', 'Model')}</Typography>
+                                <Typography color="text.secondary">{t('ui.model')}</Typography>
                                 <Typography variant="h5">{diagnostics.modelStatus ?? '—'}</Typography>
                                 <Typography variant="caption">{diagnostics.modelVersion ?? '—'}</Typography>
                             </CardContent>
                         </Card>
                         <Card sx={{ flex: 1 }}>
                             <CardContent>
-                                <Typography color="text.secondary">
-                                    {t('Erkannte Geräte', 'Discovered devices')}
-                                </Typography>
+                                <Typography color="text.secondary">{t('ui.discovered_devices')}</Typography>
                                 <Typography variant="h5">{diagnostics.deviceCount ?? '—'}</Typography>
                             </CardContent>
                         </Card>
                         <Card sx={{ flex: 1 }}>
                             <CardContent>
-                                <Typography color="text.secondary">
-                                    {t('Freigegebene Geräte', 'Approved devices')}
-                                </Typography>
+                                <Typography color="text.secondary">{t('ui.approved_devices')}</Typography>
                                 <Typography variant="h5">{diagnostics.approvedDevices ?? '—'}</Typography>
                             </CardContent>
                         </Card>
@@ -888,7 +834,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             void refresh((devicePage - 1) * 50).catch(error => setError(displayError(error)))
                         }
                     >
-                        {t('Aktualisieren', 'Refresh')}
+                        {t('ui.refresh')}
                     </Button>
                 </Stack>
             )}
@@ -901,7 +847,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     >
                         <TextField
                             size="small"
-                            label={t('Gerät suchen', 'Search devices')}
+                            label={t('ui.search_devices')}
                             value={filter}
                             onChange={event => {
                                 setFilter(event.target.value);
@@ -911,7 +857,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         <TextField
                             size="small"
                             select
-                            label={t('Raum', 'Room')}
+                            label={t('ui.room')}
                             value={room}
                             onChange={event => {
                                 setRoom(event.target.value);
@@ -919,8 +865,8 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             }}
                             sx={{ minWidth: 160 }}
                         >
-                            <MenuItem value="">{t('Alle Räume', 'All rooms')}</MenuItem>
-                            <MenuItem value="__none__">{t('Ohne Raum', 'Without room')}</MenuItem>
+                            <MenuItem value="">{t('ui.all_rooms')}</MenuItem>
+                            <MenuItem value="__none__">{t('ui.without_room')}</MenuItem>
                             {roomOptions.map(item => (
                                 <MenuItem
                                     key={item.id}
@@ -933,7 +879,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         <TextField
                             size="small"
                             select
-                            label={t('Funktion', 'Function')}
+                            label={t('ui.function')}
                             value={functionId}
                             onChange={event => {
                                 setFunctionId(event.target.value);
@@ -941,8 +887,8 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             }}
                             sx={{ minWidth: 160 }}
                         >
-                            <MenuItem value="">{t('Alle Funktionen', 'All functions')}</MenuItem>
-                            <MenuItem value="__none__">{t('Ohne Funktion', 'Without function')}</MenuItem>
+                            <MenuItem value="">{t('ui.all_functions')}</MenuItem>
+                            <MenuItem value="__none__">{t('ui.without_function')}</MenuItem>
                             {functionOptions.map(item => (
                                 <MenuItem
                                     key={item.id}
@@ -955,7 +901,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         <TextField
                             size="small"
                             select
-                            label="Capability"
+                            label={t('ui.capability')}
                             value={capability}
                             onChange={event => {
                                 setCapability(event.target.value);
@@ -963,8 +909,8 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             }}
                             sx={{ minWidth: 170 }}
                         >
-                            <MenuItem value="">{t('Alle', 'All')}</MenuItem>
-                            <MenuItem value="__none__">{t('Ohne Capability', 'Without capability')}</MenuItem>
+                            <MenuItem value="">{t('ui.all')}</MenuItem>
+                            <MenuItem value="__none__">{t('ui.without_capability')}</MenuItem>
                             {Object.keys(actions).map(item => (
                                 <MenuItem
                                     key={item}
@@ -981,15 +927,13 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         sx={{ mb: 2, alignItems: 'center', justifyContent: 'space-between' }}
                     >
                         <Typography>
-                            {deviceList.total} {t('Geräte', 'devices')}
+                            {deviceList.total} {t('ui.devices')}
                         </Typography>
                         <Button
                             startIcon={<RefreshIcon />}
-                            onClick={() =>
-                                void mutate('rescanDevices', {}, t('Geräte neu eingelesen', 'Devices rescanned'))
-                            }
+                            onClick={() => void mutate('rescanDevices', {}, t('ui.devices_rescanned'))}
                         >
-                            {t('Geräte neu einlesen', 'Rescan devices')}
+                            {t('ui.rescan_devices')}
                         </Button>
                     </Stack>
                     {deviceList.devices.map(device => (
@@ -998,7 +942,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             device={device}
                             language={defaultLanguage}
                             onError={setError}
-                            update={payload => mutate('updateDevice', payload, t('Gerät gespeichert', 'Device saved'))}
+                            update={payload => mutate('updateDevice', payload, t('ui.device_saved'))}
                         />
                     ))}
                     {deviceList.total > 50 && (
@@ -1015,22 +959,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     intents={intents}
                     language={defaultLanguage}
                     onSave={intent =>
-                        mutate(
-                            'saveIntent',
-                            { intent },
-                            t(
-                                'Intent gespeichert. Für die Aktivierung Modell trainieren.',
-                                'Intent saved. Train the model to activate it.',
-                            ),
-                        )
+                        mutate('saveIntent', { intent }, t('ui.intent_saved_train_the_model_to_activate_it'))
                     }
-                    onDelete={id =>
-                        mutate(
-                            'deleteIntent',
-                            { id },
-                            t('Intent gelöscht. Modell neu trainieren.', 'Intent deleted. Retrain the model.'),
-                        )
-                    }
+                    onDelete={id => mutate('deleteIntent', { id }, t('ui.intent_deleted_retrain_the_model'))}
                 />
             )}
             {page === 'training' && (
@@ -1038,8 +969,8 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     training={training}
                     language={defaultLanguage}
                     busy={busy}
-                    onTrain={() => mutate('trainModel', {}, t('Training gestartet', 'Training started'))}
-                    onRollback={() => mutate('rollbackModel', {}, t('Modell zurückgesetzt', 'Model rolled back'))}
+                    onTrain={() => mutate('trainModel', {}, t('ui.training_started'))}
+                    onRollback={() => mutate('rollbackModel', {}, t('ui.model_rolled_back'))}
                 />
             )}
             {page === 'test' && (
@@ -1052,21 +983,24 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 <Stack spacing={2}>
                     <TextField
                         select
-                        label={t('Standardsprache', 'Default language')}
+                        label={t('ui.default_language')}
                         value={defaultLanguage}
                         onChange={event => onDefaultLanguage(event.target.value as Language)}
                         sx={{ maxWidth: 240 }}
                     >
-                        <MenuItem value="de">Deutsch</MenuItem>
-                        <MenuItem value="en">English</MenuItem>
+                        {languageOptions.map(item => (
+                            <MenuItem
+                                key={item.code}
+                                value={item.code}
+                            >
+                                {item.name}
+                            </MenuItem>
+                        ))}
                     </TextField>
                     <Typography variant="body2">
-                        {t(
-                            'Die Sprache wird mit dem Speichern der Adapterkonfiguration übernommen.',
-                            'The language takes effect after saving adapter configuration.',
-                        )}
+                        {t('ui.the_language_takes_effect_after_saving_adapter_configuration')}
                     </Typography>
-                    <Typography variant="h6">{t('Diagnose', 'Diagnostics')}</Typography>
+                    <Typography variant="h6">{t('ui.diagnostics')}</Typography>
                     <Box
                         component="pre"
                         sx={{ p: 2, bgcolor: 'action.hover', overflowX: 'auto' }}
@@ -1079,17 +1013,12 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             void refresh((devicePage - 1) * 50).catch(error => setError(displayError(error)))
                         }
                     >
-                        {t('Diagnose aktualisieren', 'Refresh diagnostics')}
+                        {t('ui.refresh_diagnostics')}
                     </Button>
                     <Divider />
-                    <Typography variant="h6">
-                        {t('Eigene Intents exportieren/importieren', 'Export/import custom intents')}
-                    </Typography>
+                    <Typography variant="h6">{t('ui.export_import_custom_intents')}</Typography>
                     <Typography variant="body2">
-                        {t(
-                            'Freigaben und Geräte werden dabei nicht importiert. Nach dem Import muss das Modell neu trainiert werden.',
-                            'Device approvals are not imported. Train the model after importing.',
-                        )}
+                        {t('ui.device_approvals_are_not_imported_train_the_model_after_importin')}
                     </Typography>
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -1100,13 +1029,13 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             variant="outlined"
                             onClick={() => void exportIntents()}
                         >
-                            {t('Exportieren', 'Export')}
+                            {t('ui.export')}
                         </Button>
                         <Button
                             variant="outlined"
                             component="label"
                         >
-                            {t('JSON-Datei wählen', 'Choose JSON file')}
+                            {t('ui.choose_json_file')}
                             <input
                                 hidden
                                 type="file"
@@ -1121,25 +1050,22 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 open={!!importDraft}
                 onClose={() => setImportDraft(undefined)}
             >
-                <DialogTitle>{t('Trainingsdaten ersetzen?', 'Replace training data?')}</DialogTitle>
+                <DialogTitle>{t('ui.replace_training_data')}</DialogTitle>
                 <DialogContent>
-                    {t('Eigene Intents in Datei', 'Custom intents in file')}: {importDraft?.intents.length}.{' '}
-                    {t(
-                        'Das aktive Modell bleibt bis zum nächsten Training unverändert.',
-                        'The active model stays unchanged until training.',
-                    )}
+                    {t('ui.custom_intents_in_file')}: {importDraft?.intents.length}.{' '}
+                    {t('ui.the_active_model_stays_unchanged_until_training')}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setImportDraft(undefined)}>{t('Abbrechen', 'Cancel')}</Button>
+                    <Button onClick={() => setImportDraft(undefined)}>{t('ui.cancel')}</Button>
                     <Button
                         color="warning"
                         onClick={() => {
                             if (!importDraft) return;
-                            void mutate('importIntents', importDraft, t('Intents importiert', 'Intents imported'));
+                            void mutate('importIntents', importDraft, t('ui.intents_imported'));
                             setImportDraft(undefined);
                         }}
                     >
-                        {t('Ersetzen', 'Replace')}
+                        {t('ui.replace')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1175,7 +1101,7 @@ const emptyIntent = (): IntentDefinition => ({
     id: '',
     source: 'user',
     enabled: true,
-    utterances: { de: [], en: [] },
+    utterances: Object.fromEntries(languageOptions.map(item => [item.code, []])),
     action: { kind: 'capability', operation: 'turnOn' },
 });
 
@@ -1192,20 +1118,26 @@ function IntentEditor({
 }): React.JSX.Element {
     const t = labels(language);
     const [draft, setDraft] = useState<IntentDefinition>(emptyIntent);
+    const [responseRows, setResponseRows] = useState<LanguageRow[]>(() => rowsFromValues({}, language));
     const [editingId, setEditingId] = useState<string>();
     const [error, setError] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const action = draft.action ?? { kind: 'capability' as const, operation: 'turnOn' as const };
     const edit = (intent: IntentDefinition, existing = true): void => {
         setDraft(structuredClone(intent));
+        setResponseRows(rowsFromValues(intent.action?.kind === 'response' ? intent.action.response : {}, language));
         setEditingId(existing ? intent.id : undefined);
         setError('');
+    };
+    const changeResponseRows = (rows: LanguageRow[]): void => {
+        setResponseRows(rows);
+        setDraft(current => ({ ...current, action: { kind: 'response', response: valuesFromRows(rows) } }));
     };
     const save = async (): Promise<void> => {
         try {
             validateIntentDraft(draft);
             if (!editingId && intents.some(item => item.id === draft.id)) {
-                throw new Error('Intent ID already exists');
+                throw new Error(t('error.intent_id_exists'));
             }
             await onSave(draft);
             setEditingId(draft.id);
@@ -1225,9 +1157,9 @@ function IntentEditor({
                     onClick={() => edit(emptyIntent(), false)}
                     sx={{ mb: 2 }}
                 >
-                    {t('Neuer Intent', 'New intent')}
+                    {t('ui.new_intent')}
                 </Button>
-                <Typography variant="subtitle1">{t('System-Intents', 'System intents')}</Typography>
+                <Typography variant="subtitle1">{t('ui.system_intents')}</Typography>
                 {intents
                     .filter(item => item.source === 'system')
                     .map(item => (
@@ -1236,11 +1168,11 @@ function IntentEditor({
                             variant="body2"
                             sx={{ py: 0.5 }}
                         >
-                            {item.id} · {(item.utterances[language] ?? []).length} {t('Beispiele', 'examples')}
+                            {item.id} · {(item.utterances[language] ?? []).length} {t('ui.examples')}
                         </Typography>
                     ))}
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle1">{t('Eigene Intents', 'Custom intents')}</Typography>
+                <Typography variant="subtitle1">{t('ui.custom_intents')}</Typography>
                 {intents
                     .filter(item => item.source === 'user')
                     .map(item => (
@@ -1259,16 +1191,16 @@ function IntentEditor({
             >
                 <CardContent>
                     <Stack spacing={2}>
-                        <Typography variant="h6">{t('Intent bearbeiten', 'Edit intent')}</Typography>
+                        <Typography variant="h6">{t('ui.edit_intent')}</Typography>
                         <TextField
                             label="ID"
                             value={draft.id}
                             disabled={intents.some(item => item.source === 'user' && item.id === draft.id)}
                             onChange={event => setDraft({ ...draft, id: event.target.value })}
-                            helperText={t('Eindeutige ID, z. B. meinLicht', 'Unique ID, e.g. myLight')}
+                            helperText={t('ui.unique_id_e_g_mylight')}
                         />
                         <FormControlLabel
-                            label={t('Aktiv', 'Enabled')}
+                            label={t('ui.enabled')}
                             control={
                                 <Switch
                                     checked={draft.enabled}
@@ -1276,57 +1208,45 @@ function IntentEditor({
                                 />
                             }
                         />
-                        <TextField
-                            multiline
-                            minRows={4}
-                            label={t(
-                                'Deutsche Trainingsbeispiele (eine Zeile pro Beispiel)',
-                                'German training examples (one per line)',
-                            )}
-                            value={(draft.utterances.de ?? []).join('\n')}
-                            onChange={event =>
-                                setDraft({
-                                    ...draft,
-                                    utterances: { ...draft.utterances, de: event.target.value.split('\n') },
-                                })
-                            }
-                        />
-                        <TextField
-                            multiline
-                            minRows={4}
-                            label={t(
-                                'Englische Trainingsbeispiele (eine Zeile pro Beispiel)',
-                                'English training examples (one per line)',
-                            )}
-                            value={(draft.utterances.en ?? []).join('\n')}
-                            onChange={event =>
-                                setDraft({
-                                    ...draft,
-                                    utterances: { ...draft.utterances, en: event.target.value.split('\n') },
-                                })
-                            }
-                        />
+                        {languageOptions.map(item => (
+                            <TextField
+                                key={item.code}
+                                multiline
+                                minRows={4}
+                                label={`${t('ui.training_examples_one_per_line')} (${item.name})`}
+                                value={(draft.utterances[item.code] ?? []).join('\n')}
+                                onChange={event =>
+                                    setDraft({
+                                        ...draft,
+                                        utterances: {
+                                            ...draft.utterances,
+                                            [item.code]: event.target.value.split('\n'),
+                                        },
+                                    })
+                                }
+                            />
+                        ))}
                         <TextField
                             select
-                            label={t('Aktionstyp', 'Action type')}
+                            label={t('ui.action_type')}
                             value={action.kind}
                             onChange={event =>
                                 setDraft({
                                     ...draft,
                                     action:
                                         event.target.value === 'response'
-                                            ? { kind: 'response', response: { de: '', en: '' } }
+                                            ? { kind: 'response', response: valuesFromRows(responseRows) }
                                             : { kind: 'capability', operation: 'turnOn' },
                                 })
                             }
                         >
-                            <MenuItem value="capability">{t('Geräteaktion', 'Device action')}</MenuItem>
-                            <MenuItem value="response">{t('Antwortvorlage', 'Response template')}</MenuItem>
+                            <MenuItem value="capability">{t('ui.device_action')}</MenuItem>
+                            <MenuItem value="response">{t('ui.response_template')}</MenuItem>
                         </TextField>
                         {action.kind === 'capability' ? (
                             <TextField
                                 select
-                                label={t('Operation', 'Operation')}
+                                label={t('ui.operation')}
                                 value={action.operation}
                                 onChange={event =>
                                     setDraft({
@@ -1340,46 +1260,24 @@ function IntentEditor({
                                         value={item}
                                         key={item}
                                     >
-                                        {item}
+                                        {actionName(item, language)}
                                     </MenuItem>
                                 ))}
                             </TextField>
                         ) : (
-                            <>
-                                <TextField
-                                    label={t('Antwort Deutsch', 'German response')}
-                                    value={action.response.de ?? ''}
-                                    onChange={event =>
-                                        setDraft({
-                                            ...draft,
-                                            action: {
-                                                kind: 'response',
-                                                response: { ...action.response, de: event.target.value },
-                                            },
-                                        })
-                                    }
-                                />
-                                <TextField
-                                    label={t('Antwort Englisch', 'English response')}
-                                    value={action.response.en ?? ''}
-                                    onChange={event =>
-                                        setDraft({
-                                            ...draft,
-                                            action: {
-                                                kind: 'response',
-                                                response: { ...action.response, en: event.target.value },
-                                            },
-                                        })
-                                    }
-                                />
-                            </>
+                            <LanguageValueTable
+                                rows={responseRows}
+                                onChange={changeResponseRows}
+                                languageHeader={t('ui.language')}
+                                valueHeader={t('ui.response_template')}
+                                valueLabel={t('ui.response_text')}
+                                addLabel={t('ui.add_language')}
+                                removeLabel={t('ui.remove_language')}
+                            />
                         )}
                         {error && <Alert severity="error">{error}</Alert>}
                         <Alert severity="info">
-                            {t(
-                                'Speichern ändert die Trainingsdaten. Das aktive Modell bleibt bis zum nächsten erfolgreichen Training bestehen.',
-                                'Saving changes training data. The active model stays in place until training succeeds.',
-                            )}
+                            {t('ui.saving_changes_training_data_the_active_model_stays_in_place_unt')}
                         </Alert>
                         <Stack
                             direction="row"
@@ -1389,14 +1287,14 @@ function IntentEditor({
                                 variant="contained"
                                 onClick={() => void save()}
                             >
-                                {t('Speichern', 'Save')}
+                                {t('ui.save')}
                             </Button>
                             {intents.some(item => item.source === 'user' && item.id === draft.id) && (
                                 <Button
                                     color="error"
                                     onClick={() => setConfirmDelete(true)}
                                 >
-                                    {t('Löschen', 'Delete')}
+                                    {t('ui.delete')}
                                 </Button>
                             )}
                         </Stack>
@@ -1407,10 +1305,10 @@ function IntentEditor({
                 open={confirmDelete}
                 onClose={() => setConfirmDelete(false)}
             >
-                <DialogTitle>{t('Intent löschen?', 'Delete intent?')}</DialogTitle>
+                <DialogTitle>{t('ui.delete_intent')}</DialogTitle>
                 <DialogContent>{draft.id}</DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setConfirmDelete(false)}>{t('Abbrechen', 'Cancel')}</Button>
+                    <Button onClick={() => setConfirmDelete(false)}>{t('ui.cancel')}</Button>
                     <Button
                         color="error"
                         onClick={() => {
@@ -1419,7 +1317,7 @@ function IntentEditor({
                             edit(emptyIntent(), false);
                         }}
                     >
-                        {t('Löschen', 'Delete')}
+                        {t('ui.delete')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1446,19 +1344,18 @@ function TrainingPage({
         <Card variant="outlined">
             <CardContent>
                 <Stack spacing={2}>
-                    <Typography variant="h6">{t('Modelltraining', 'Model training')}</Typography>
+                    <Typography variant="h6">{t('ui.model_training')}</Typography>
                     <Typography>
-                        {t('Status', 'Status')}: {training.status}
+                        {t('ui.status')}: {training.status}
                     </Typography>
                     <Typography>
-                        {t('Modellversion', 'Model version')}: {training.version ?? training.modelVersion ?? '—'}
+                        {t('ui.model_version')}: {training.version ?? training.modelVersion ?? '—'}
                     </Typography>
                     <Typography>
-                        {t('Regression', 'Regression')}: {training.regressionPassed ?? '—'} /{' '}
-                        {training.regressionTotal ?? '—'}
+                        {t('ui.regression')}: {training.regressionPassed ?? '—'} / {training.regressionTotal ?? '—'}
                     </Typography>
                     {training.error && <Alert severity="error">{training.error}</Alert>}
-                    {training.status === 'running' && <LinearProgressFallback />}
+                    {training.status === 'running' && <LinearProgressFallback language={language} />}
                     <Stack
                         direction="row"
                         spacing={1}
@@ -1468,36 +1365,33 @@ function TrainingPage({
                             disabled={busy || training.status === 'running'}
                             onClick={() => void onTrain()}
                         >
-                            {t('Training starten', 'Start training')}
+                            {t('ui.start_training')}
                         </Button>
                         <Button
                             variant="outlined"
                             disabled={busy || training.status === 'running'}
                             onClick={() => setConfirmRollback(true)}
                         >
-                            {t('Vorheriges Modell aktivieren', 'Activate previous model')}
+                            {t('ui.activate_previous_model')}
                         </Button>
                     </Stack>
                     <Alert severity="info">
-                        {t(
-                            'Training läuft im Hintergrund. Das aktive Modell wechselt nur nach erfolgreicher Regression.',
-                            'Training runs in the background. The active model changes only after regression succeeds.',
-                        )}
+                        {t('ui.training_runs_in_the_background_the_active_model_changes_only_af')}
                     </Alert>
                     <Dialog
                         open={confirmRollback}
                         onClose={() => setConfirmRollback(false)}
                     >
-                        <DialogTitle>{t('Modell zurücksetzen?', 'Roll back model?')}</DialogTitle>
+                        <DialogTitle>{t('ui.roll_back_model')}</DialogTitle>
                         <DialogActions>
-                            <Button onClick={() => setConfirmRollback(false)}>{t('Abbrechen', 'Cancel')}</Button>
+                            <Button onClick={() => setConfirmRollback(false)}>{t('ui.cancel')}</Button>
                             <Button
                                 onClick={() => {
                                     void onRollback();
                                     setConfirmRollback(false);
                                 }}
                             >
-                                {t('Zurücksetzen', 'Roll back')}
+                                {t('ui.roll_back')}
                             </Button>
                         </DialogActions>
                     </Dialog>
@@ -1507,7 +1401,7 @@ function TrainingPage({
     );
 }
 
-function LinearProgressFallback(): React.JSX.Element {
+function LinearProgressFallback({ language }: { language: Language }): React.JSX.Element {
     return (
         <Stack
             direction="row"
@@ -1515,7 +1409,7 @@ function LinearProgressFallback(): React.JSX.Element {
             sx={{ alignItems: 'center' }}
         >
             <CircularProgress size={18} />
-            <Typography variant="body2">Training …</Typography>
+            <Typography variant="body2">{labels(language)('ui.training_in_progress')}</Typography>
         </Stack>
     );
 }
@@ -1535,7 +1429,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
         setBusy(true);
         setError('');
         try {
-            if (!selection && (!text.trim() || text.length > 1000)) throw new Error('Enter up to 1000 characters');
+            if (!selection && (!text.trim() || text.length > 1000)) throw new Error(t('error.text_length'));
             const response = await api.call<CommandResult>('processText', {
                 requestId: crypto.randomUUID(),
                 sessionId,
@@ -1556,9 +1450,9 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
         <Card variant="outlined">
             <CardContent>
                 <Stack spacing={2}>
-                    <Typography variant="h6">{t('Testlabor', 'Test lab')}</Typography>
+                    <Typography variant="h6">{t('ui.test_lab')}</Typography>
                     <TextField
-                        label={t('Befehl', 'Command')}
+                        label={t('ui.command')}
                         multiline
                         minRows={2}
                         value={text}
@@ -1573,16 +1467,22 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                         <TextField
                             select
                             size="small"
-                            label={t('Sprache', 'Language')}
+                            label={t('ui.language')}
                             value={selectedLanguage}
                             onChange={event => setSelectedLanguage(event.target.value as Language)}
                             sx={{ minWidth: 140 }}
                         >
-                            <MenuItem value="de">Deutsch</MenuItem>
-                            <MenuItem value="en">English</MenuItem>
+                            {languageOptions.map(item => (
+                                <MenuItem
+                                    key={item.code}
+                                    value={item.code}
+                                >
+                                    {item.name}
+                                </MenuItem>
+                            ))}
                         </TextField>
                         <FormControlLabel
-                            label={t('Ausführen', 'Execute')}
+                            label={t('ui.execute')}
                             control={
                                 <Switch
                                     checked={mode === 'execute'}
@@ -1595,18 +1495,11 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             disabled={busy || !text.trim()}
                             onClick={() => (mode === 'execute' ? setConfirm(true) : void submit())}
                         >
-                            {mode === 'execute'
-                                ? t('Ausführung prüfen', 'Review execution')
-                                : t('Analysieren', 'Analyze')}
+                            {mode === 'execute' ? t('ui.review_execution') : t('ui.analyze')}
                         </Button>
                     </Stack>
                     {mode === 'execute' && (
-                        <Alert severity="warning">
-                            {t(
-                                'Ausführung verwendet nur bereits freigegebene Aktionen.',
-                                'Execution uses only approved actions.',
-                            )}
-                        </Alert>
+                        <Alert severity="warning">{t('ui.execution_uses_only_approved_actions')}</Alert>
                     )}
                     {busy && <CircularProgress size={24} />}
                     {error && <Alert severity="error">{error}</Alert>}
@@ -1628,15 +1521,13 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                 spacing={1}
                                 sx={{ mt: 2, flexWrap: 'wrap' }}
                             >
-                                <Chip label={`${t('Intent', 'Intent')}: ${result.intent ?? '—'}`} />
-                                <Chip
-                                    label={`${t('Konfidenz', 'Confidence')}: ${result.confidence?.toFixed(3) ?? '—'}`}
-                                />
-                                <Chip label={`${t('Modell', 'Model')}: ${result.modelVersion ?? '—'}`} />
+                                <Chip label={`${t('ui.intent')}: ${result.intent ?? '—'}`} />
+                                <Chip label={`${t('ui.confidence')}: ${result.confidence?.toFixed(3) ?? '—'}`} />
+                                <Chip label={`${t('ui.model')}: ${result.modelVersion ?? '—'}`} />
                             </Stack>
                             {result.candidates?.length ? (
                                 <Typography sx={{ mt: 2 }}>
-                                    {t('Gerätekandidaten', 'Device candidates')}:{' '}
+                                    {t('ui.device_candidates')}:{' '}
                                     {result.candidates
                                         .map(item => `${item.deviceId} (${item.score.toFixed(2)})`)
                                         .join(', ')}
@@ -1644,7 +1535,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             ) : null}
                             {result.analysis?.alternatives?.length ? (
                                 <Typography sx={{ mt: 1 }}>
-                                    {t('Intent-Ranking', 'Intent ranking')}:{' '}
+                                    {t('ui.intent_ranking')}:{' '}
                                     {result.analysis.alternatives
                                         .slice(0, 5)
                                         .map(item => `${item.intent} (${item.confidence.toFixed(2)})`)
@@ -1653,16 +1544,16 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             ) : null}
                             {result.analysis?.entities?.length ? (
                                 <Typography sx={{ mt: 1 }}>
-                                    {t('Entitäten', 'Entities')}:{' '}
+                                    {t('ui.entities')}:{' '}
                                     {result.analysis.entities.map(item => `${item.type}=${item.value}`).join(', ')}
                                 </Typography>
                             ) : null}
                             {result.analysis?.plan && (
                                 <Typography sx={{ mt: 1 }}>
-                                    {t('Geplanter Zugriff', 'Planned access')}: {result.analysis.plan.operation}{' '}
+                                    {t('ui.planned_access')}: {result.analysis.plan.operation}{' '}
                                     {result.analysis.plan.stateId}{' '}
                                     {result.analysis.plan.value !== undefined ? `= ${result.analysis.plan.value}` : ''}{' '}
-                                    · {t('Policy', 'Policy')}: {result.analysis.policyDecision ?? '—'}
+                                    · {t('ui.policy')}: {result.analysis.policyDecision ?? '—'}
                                 </Typography>
                             )}
                             {result.actions?.map(item => (
@@ -1706,10 +1597,10 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                         open={confirm}
                         onClose={() => setConfirm(false)}
                     >
-                        <DialogTitle>{t('Befehl ausführen?', 'Execute command?')}</DialogTitle>
+                        <DialogTitle>{t('ui.execute_command')}</DialogTitle>
                         <DialogContent>{text}</DialogContent>
                         <DialogActions>
-                            <Button onClick={() => setConfirm(false)}>{t('Abbrechen', 'Cancel')}</Button>
+                            <Button onClick={() => setConfirm(false)}>{t('ui.cancel')}</Button>
                             <Button
                                 color="warning"
                                 variant="contained"
@@ -1718,7 +1609,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                     void submit();
                                 }}
                             >
-                                {t('Ausführen', 'Execute')}
+                                {t('ui.execute')}
                             </Button>
                         </DialogActions>
                     </Dialog>

@@ -104,6 +104,66 @@ describe('device resolver', () => {
         registry.approve('test.0.sensor2', 'test.0.sensor2.IST', 'getValue');
         expect(resolver.resolve('Wie warm ist es im Schlafzimmer', 'de', 'getValue').clarification).to.equal(true);
     });
+    it('does not read brightness from another room when the named lamp has no brightness state', () => {
+        const source: ObjectSnapshot[] = [
+            { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.living.HELLIGKEIT',
+                type: 'state',
+                common: { role: 'level.brightness', type: 'number', read: true, write: true, min: 0, max: 100 },
+            },
+            { id: 'test.0.bedroom', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.bedroom.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.living'] } },
+            { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['test.0.bedroom'] } },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        for (const id of ['test.0.living', 'test.0.bedroom']) {
+            registry.setEnabled(id, true);
+        }
+        registry.approve('test.0.living', 'test.0.living.HELLIGKEIT', 'getValue');
+        registry.approve('test.0.bedroom', 'test.0.bedroom.POWER', 'getState');
+        const resolver = new DeviceResolver(registry);
+        expect(resolver.resolve('Wie hell ist die Lampe im Schlafzimmer', 'de', 'getValue').candidates).to.be.empty;
+    });
+    it('asks which thermostat to use when a room has two approved temperature targets', () => {
+        const source: ObjectSnapshot[] = [
+            ...['first', 'second'].flatMap(name => [
+                { id: `test.0.${name}`, type: 'channel' as const, common: { name: 'Heizung' } },
+                {
+                    id: `test.0.${name}.SOLL`,
+                    type: 'state' as const,
+                    common: {
+                        role: 'level.temperature',
+                        type: 'number' as const,
+                        read: true,
+                        write: true,
+                        min: 5,
+                        max: 30,
+                    },
+                },
+            ]),
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['test.0.first', 'test.0.second'] } },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        for (const id of ['test.0.first', 'test.0.second']) {
+            registry.setEnabled(id, true);
+            registry.approve(id, `${id}.SOLL`, 'setTemperature');
+        }
+        const result = new DeviceResolver(registry).resolve(
+            'Stelle im Wohnzimmer die Temperatur auf 25 Grad',
+            'de',
+            'setTemperature',
+        );
+        expect(result.candidates).to.have.length(2);
+        expect(result.clarification).to.equal(true);
+    });
     it('asks when names tie and uses room or updated alias without retraining', () => {
         const registry = new DeviceRegistry();
         registry.reconcile(discoverDevices(objects));

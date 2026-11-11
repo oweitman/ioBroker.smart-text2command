@@ -12,6 +12,16 @@ describe('entity parser', () => {
         );
     });
 
+    it('reports a room only once when its ID and display name match', () => {
+        const parsed = parseEntities('Welche Temperatur hat die Heizung im Wohnzimmer', 'de', [
+            'wohnzimmer',
+            'Wohnzimmer',
+        ]);
+        expect(parsed.entities.filter(entity => entity.type === 'room')).to.deep.equal([
+            { type: 'room', value: 'wohnzimmer', start: 37, end: 47 },
+        ]);
+    });
+
     it('marks negation and unsupported group, exception, time, and multiple actions', () => {
         const parsed = parseEntities('Schalte nicht alle Lampen außer Küche morgen ein und aus', 'de', ['Küche']);
         expect(parsed.negated).to.equal(true);

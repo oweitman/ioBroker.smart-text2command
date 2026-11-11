@@ -1,4 +1,4 @@
-export type Language = 'de' | 'en';
+export type Language = string;
 export type CommandMode = 'analyze' | 'execute';
 
 export interface CommandRequest {

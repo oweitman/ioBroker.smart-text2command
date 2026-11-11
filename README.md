@@ -6,11 +6,63 @@ An ioBroker adapter for local natural-language device control. Development follo
 
 Phases 0–4 are implemented. The adapter discovers ioBroker objects and room/function enums, maps conservative device capabilities, and stores a registry in the instance data directory. Every new device is disabled and every action requires a separate approval tied to the current capability fingerprint. A changed target, type, range, or mapping invalidates the affected approval. Critical and unknown roles are not executable.
 
-NLP.js classifies German and English requests using a versioned local model. Baseline training runs in a worker thread when no valid model exists. A new model is activated only after fixed regression cases pass. Device names and aliases are resolved from the current registry without retraining. User intents have separate persistent storage with typed action validation.
+NLP.js classifies German and English requests using a versioned local model. Training runs in a worker thread when no valid model exists or the supplied training data changes. A new model is activated only after fixed regression cases pass. Device names and aliases are resolved from the current registry without retraining. User intents have separate persistent storage with typed action validation.
 
 The `sendTo` API accepts `processText` with `mode: "analyze"` or `mode: "execute"`. Execution requires a current per-action approval and rechecks the target object immediately before access. `input.text` only analyzes; it cannot execute. Results appear in `output.response`, `output.result`, and `output.status`. Admin-only message commands manage devices, typed user intents, model training, rollback and diagnostics. Admin mutation requires an authenticated admin sender and an administrator group member.
 
 The React 19/MUI 9 Admin page provides a dashboard, device approvals and aliases, custom intents, background training, an analysis-first test lab, and diagnostics. Custom intents can be exported and imported as JSON; device approvals are excluded from imports. Admin 8 or later is required. After editing intents, start training to activate them.
+
+## Trainingsbeispiele für eigene Intents
+
+Ein eigener Intent braucht derzeit mindestens zwei gültige Beispiele auf Deutsch und zwei auf Englisch. Jedes Beispiel beschreibt **dieselbe Absicht**, aber mit einer anderen natürlichen Formulierung. Verwende kurze und längere Sätze, höfliche Varianten, andere Verben sowie wechselnde Geräte, Räume und Zahlen. Schreibe konkrete, realistische Befehle statt nur einzelne Stichwörter. Beispiele für Ein- und Ausschalten müssen klar unterscheidbar sein; ebenso Lese- und Schreibbefehle. Vermeide Formulierungen mit mehreren Aktionen, Ausnahmen oder Zeitangaben, die der Adapter noch nicht unterstützt.
+
+Die Trainingsbeispiele steuern die **Intent-Erkennung**. Welches konkrete Gerät gemeint ist, bestimmen Gerätename, konfigurierte Aliase, Räume, Funktionen und Freigaben. Ein neues Wort für ein Gerät gehört deshalb in dessen Alias-Konfiguration. Nach Änderungen an eigenen Intents das Modell auf der Seite **Training** erneut trainieren und die Beispiele im **Testlabor** analysieren.
+
+Ein Prompt zum Erzeugen kopierbarer Varianten:
+
+```text
+Erzeuge für meinen ioBroker-Intent "<INTENT-ID>" je 10 deutsche und 10 englische Trainingssätze.
+Die beabsichtigte Aktion ist: <AKTION UND BEDEUTUNG>.
+Beispiele, die dazugehören: <2–3 BEISPIELE>.
+Nahe, aber andere Intents sind: <GEGENBEISPIELE>.
+
+Alle Sätze müssen genau diese eine Absicht ausdrücken. Variiere Satzbau, Höflichkeit,
+Verben, Geräte, Räume und bei Bedarf Zahlen/Werte. Vermeide mehrere Aktionen,
+Zeitangaben, Ausnahmen, Negationen und mehrdeutige Aussagen. Verwende keine
+fast identischen Kopien und keine Kommentare. Gib zwei Blöcke aus, "de" und "en",
+mit genau einem Satz pro Zeile, sodass ich sie direkt in die Eingabefelder kopieren kann.
+```
+
+Prüfe die erzeugten Sätze vor dem Speichern: Ein Beispiel mit falscher Bedeutung verschlechtert die Klassifikation. Die spätere Erweiterung auf weitere Sprachen erfordert passende Trainingsdaten und Sprachmodelle.
+
+Die Sprachliste und die benötigten NLP-Pakete stehen in `resources/languages.json`. Pro Sprache liegen Trainingsdaten unter `resources/training/`, Erkennungsmuster unter `resources/language-rules/`, Laufzeitantworten unter `resources/messages/` und Admin-Texte unter `src-admin/src/i18n/`. Beim Hinzufügen einer Sprache müssen diese Dateien, das passende NLP-Paket und Regressionstests ergänzt werden. Die Erkennungslogik enthält keine sprachspezifischen Wörter.
+
+## Eigene Intents als JSON importieren
+
+Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`. Jeder Eintrag hat eine eindeutige `id` (Buchstabe am Anfang; danach Buchstaben, Ziffern, `_`, `-` oder `.`), `source: "user"`, `enabled`, Beispiele unter `utterances.de` und `utterances.en` sowie eine typisierte `action`. IDs mit `device.` am Anfang und `None` sind reserviert. Die Admin-Oberfläche verlangt bei Importen mindestens zwei Beispiele je derzeit unterstützter Sprache. Eine `response` enthält Antworttexte je Sprache; eine `capability` enthält eine Operation. Gerätefreigaben sind nicht Teil der Datei.
+
+```json
+{
+  "schemaVersion": 1,
+  "intents": [
+    {
+      "id": "user.greeting",
+      "source": "user",
+      "enabled": true,
+      "utterances": {
+        "de": ["Sag Hallo", "Begrüße mich"],
+        "en": ["Say hello", "Greet me"]
+      },
+      "action": {
+        "kind": "response",
+        "response": { "de": "Hallo!", "en": "Hello!" }
+      }
+    }
+  ]
+}
+```
+
+Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setLevel`, `setTemperature`, `getState` und `getValue`. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
 
 ## Development
 

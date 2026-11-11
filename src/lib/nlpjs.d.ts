@@ -22,11 +22,3 @@ declare module '@nlpjs/nlp' {
         import(model: string): void;
     }
 }
-
-declare module '@nlpjs/lang-de' {
-    export class LangDe {}
-}
-
-declare module '@nlpjs/lang-en' {
-    export class LangEn {}
-}

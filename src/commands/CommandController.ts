@@ -1,6 +1,6 @@
 import type { CommandRequest, Language } from '../types/api';
 import type { ActionKind } from '../devices/types';
-import { DeviceResolver } from '../devices/DeviceResolver';
+import { DeviceResolver, roomNames } from '../devices/DeviceResolver';
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
 import { inferValueDomain } from '../devices/ValueDomain';
 import { parseEntities } from '../nlp/EntityParser';
@@ -12,6 +12,12 @@ import { CommandExecutor } from './CommandExecutor';
 import { PolicyEngine } from './PolicyEngine';
 import { planAction } from './CommandPlanner';
 import type { CommandResult, DeviceIO } from './types';
+import {
+    defaultLanguage as primaryLanguage,
+    languageMessage,
+    languageRules,
+    supportedLanguages,
+} from '../i18n/LanguageConfig';
 
 const SYSTEM_ACTIONS: Record<string, ActionKind> = {
     'device.turnOn': 'turnOn',
@@ -23,10 +29,8 @@ const SYSTEM_ACTIONS: Record<string, ActionKind> = {
 };
 
 function isExplicitSetpointWrite(text: string, language: Language): boolean {
-    return language === 'de'
-        ? /\b(?:schreibe|schreib|setze|setz|stelle|stell)\b/i.test(text) &&
-              /\bsoll\s*temperatur\b|\bsollwert\b/i.test(text)
-        : /\b(?:write|set|adjust)\b/i.test(text) && /\b(?:target\s+temperature|setpoint)\b/i.test(text);
+    const rules = languageRules(language);
+    return new RegExp(rules.setpointVerb, 'iu').test(text) && new RegExp(rules.setpointTarget, 'iu').test(text);
 }
 
 interface CachedRequest {
@@ -45,7 +49,7 @@ export class CommandController {
         private readonly getModel: () => { engine: NlpEngine; version?: string } | undefined,
         private readonly getUserIntents: () => IntentDefinition[],
         private readonly audit: AuditRepository,
-        private readonly defaultLanguage: Language = 'de',
+        private readonly defaultLanguage: Language = primaryLanguage(),
     ) {}
 
     public process(request: CommandRequest, clientKey: string): Promise<CommandResult> {
@@ -87,7 +91,7 @@ export class CommandController {
                 requestId: request.requestId,
                 status: 'error',
                 language,
-                response: 'Processing failed',
+                response: languageMessage(language, 'processingFailed'),
                 errorCode: 'PROCESSING_ERROR',
             };
         }
@@ -126,7 +130,7 @@ export class CommandController {
                 this.catalog
                     .list()
                     .filter(device => device.status !== 'missing')
-                    .flatMap(device => device.roomIds.map(id => id.split('.').at(-1) ?? ''))
+                    .flatMap(device => device.roomIds.flatMap(id => roomNames(device, id, language)))
                     .filter(Boolean),
             ),
         ];
@@ -159,6 +163,12 @@ export class CommandController {
             if (parsed.negated || parsed.unsupported.length) {
                 return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
             }
+            if (
+                !parsed.entities.some(entity => entity.type === 'room') &&
+                new RegExp(languageRules(language).roomReference, 'iu').test(text)
+            ) {
+                return this.reject(request, language, 'UNKNOWN_ROOM');
+            }
             const analysis = await model.engine.analyze(text, language);
             const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
             intent = explicitSetpointWrite ? 'device.setTemperature' : (analysis.intent ?? '');
@@ -170,6 +180,7 @@ export class CommandController {
             }
             const configured = this.getUserIntents().find(item => item.id === intent && item.enabled);
             if (configured?.action?.kind === 'response') {
+                const responses = configured.action.response;
                 return {
                     requestId: request.requestId,
                     status: 'success',
@@ -177,10 +188,7 @@ export class CommandController {
                     intent,
                     confidence,
                     response:
-                        configured.action.response[language] ??
-                        configured.action.response.de ??
-                        configured.action.response.en ??
-                        '',
+                        responses[language] ?? supportedLanguages.map(item => responses[item.code]).find(Boolean) ?? '',
                     modelVersion: model.version,
                 };
             }
@@ -201,7 +209,16 @@ export class CommandController {
             candidates = resolution.candidates;
             details.candidates = resolution.candidates;
             if (!resolution.candidates.length) {
-                return this.reject(request, language, 'DEVICE_NOT_FOUND_OR_NOT_APPROVED', intent, confidence);
+                return this.reject(
+                    request,
+                    language,
+                    'DEVICE_NOT_FOUND_OR_NOT_APPROVED',
+                    intent,
+                    confidence,
+                    parsed.entities.some(entity => entity.type === 'room')
+                        ? 'deviceNotFoundInRoom'
+                        : 'error.DEVICE_NOT_FOUND_OR_NOT_APPROVED',
+                );
             }
             if (!resolution.selected) {
                 const pending = this.sessions.create({
@@ -221,7 +238,7 @@ export class CommandController {
                     language,
                     intent,
                     confidence,
-                    response: language === 'de' ? 'Welches Gerät meinst du?' : 'Which device do you mean?',
+                    response: languageMessage(language, 'deviceClarification'),
                     candidates,
                     clarification: {
                         id: pending.id,
@@ -267,7 +284,7 @@ export class CommandController {
                 language,
                 intent,
                 confidence,
-                response: language === 'de' ? 'Welchen Wert soll ich setzen?' : 'Which value should I set?',
+                response: languageMessage(language, 'valueClarification'),
                 clarification: { id: pending.id, key: 'value' },
                 modelVersion: model.version,
             };
@@ -287,7 +304,7 @@ export class CommandController {
                 language,
                 intent,
                 confidence,
-                response: language === 'de' ? 'Aktion geplant.' : 'Action planned.',
+                response: languageMessage(language, 'planned'),
                 actions: [{ deviceId, stateId: plan.stateId, status: 'planned' }],
                 modelVersion: model.version,
             };
@@ -301,12 +318,10 @@ export class CommandController {
             confidence,
             response:
                 executed.status === 'accepted'
-                    ? language === 'de'
-                        ? 'Befehl übergeben.'
-                        : 'Command accepted.'
+                    ? languageMessage(language, 'accepted')
                     : executed.status === 'confirmed'
                       ? String(executed.value)
-                      : (executed.message ?? 'Execution failed'),
+                      : languageMessage(language, `error.${executed.message ?? ''}`, 'executionFailed'),
             errorCode: executed.status === 'rejected' || executed.status === 'failed' ? executed.message : undefined,
             actions: [executed],
             modelVersion: model.version,
@@ -319,6 +334,7 @@ export class CommandController {
         code: string,
         intent?: string,
         confidence?: number,
+        responseKey = `error.${code}`,
     ): CommandResult {
         return {
             requestId: request.requestId,
@@ -326,7 +342,7 @@ export class CommandController {
             language,
             intent,
             confidence,
-            response: language === 'de' ? 'Anfrage abgelehnt.' : 'Request rejected.',
+            response: languageMessage(language, responseKey, 'rejected'),
             errorCode: code,
         };
     }

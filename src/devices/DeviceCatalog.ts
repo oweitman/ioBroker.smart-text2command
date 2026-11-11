@@ -38,6 +38,12 @@ export class DeviceCatalog {
     public async revoke(deviceId: string, stateId: string, action: ActionKind): Promise<void> {
         await this.update(registry => registry.revoke(deviceId, stateId, action));
     }
+    public async revokeMany(
+        deviceId: string,
+        revocations: Array<{ stateId: string; action: ActionKind }>,
+    ): Promise<void> {
+        await this.update(registry => registry.revokeMany(deviceId, revocations));
+    }
 
     private async update(change: (registry: DeviceRegistry) => void): Promise<void> {
         const operation = this.queue.then(async () => {

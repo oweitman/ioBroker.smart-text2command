@@ -1,6 +1,7 @@
 import type { Language } from '../types/api';
 import type { ActionKind, Capability, DeviceRecord } from './types';
 import { inferValueDomain, matchesValueDomain } from './ValueDomain';
+import { languageRules } from '../i18n/LanguageConfig';
 
 export interface DeviceCatalogView {
     list(): DeviceRecord[];
@@ -26,6 +27,12 @@ function normalize(value: string): string {
         .toLocaleLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, ' ')
         .trim();
+}
+
+export function roomNames(device: DeviceRecord, id: string, language: Language): string[] {
+    const name = device.enumNames?.[id];
+    const label = typeof name === 'string' ? name : (name?.[language] ?? Object.values(name ?? {})[0]);
+    return [...new Set([id.split('.').at(-1) ?? '', label].filter(Boolean))];
 }
 
 function distance(a: string, b: string): number {
@@ -79,18 +86,33 @@ export class DeviceResolver {
     public resolve(text: string, language: Language, action: ActionKind): Resolution {
         const normalized = normalize(text);
         const domain = action === 'getValue' ? inferValueDomain(text, language) : undefined;
+        const requestedRooms = new Set(
+            this.registry.list().flatMap(device =>
+                device.roomIds.filter(id =>
+                    roomNames(device, id, language).some(name => {
+                        const room = normalize(name);
+                        return room.length > 0 && ` ${normalized} `.includes(` ${room} `);
+                    }),
+                ),
+            ),
+        );
         const candidates: Candidate[] = [];
         for (const device of this.registry.list()) {
+            if (requestedRooms.size && !device.roomIds.some(id => requestedRooms.has(id))) {
+                continue;
+            }
             if (!hasApprovedAction(device, action, this.registry, domain)) {
                 continue;
             }
             const names = [device.displayName, ...(device.aliases[language] ?? [])];
             let score = 0;
             const reasons: string[] = [];
-            const roomMatched = device.roomIds.some(id => {
-                const room = normalize(id.split('.').at(-1) ?? '');
-                return room.length > 0 && ` ${normalized} `.includes(` ${room} `);
-            });
+            const roomMatched = device.roomIds.some(id =>
+                roomNames(device, id, language).some(name => {
+                    const room = normalize(name);
+                    return room.length > 0 && ` ${normalized} `.includes(` ${room} `);
+                }),
+            );
             for (const name of names) {
                 const value = matchScore(normalized, name);
                 if (value > score) {
@@ -100,12 +122,11 @@ export class DeviceResolver {
                 }
             }
             if (!score) {
-                const explicitSetpoint =
+                const roomOnlyTemperature =
                     action === 'setTemperature' &&
-                    (language === 'de'
-                        ? /\b(?:soll\s*temperatur|sollwert)\b/.test(normalized)
-                        : /\b(?:target\s+temperature|setpoint)\b/.test(normalized));
-                if (!roomMatched || (action !== 'getState' && action !== 'getValue' && !explicitSetpoint)) {
+                    (new RegExp(languageRules(language).setpointTarget, 'u').test(normalized) ||
+                        inferValueDomain(text, language) === 'temperature');
+                if (!roomMatched || (action !== 'getState' && action !== 'getValue' && !roomOnlyTemperature)) {
                     continue;
                 }
                 score = 65;

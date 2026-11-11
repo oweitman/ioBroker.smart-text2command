@@ -1,0 +1,20 @@
+{
+  "unsupported": {
+    "group": "\\b(all|every)\\b",
+    "exception": "\\b(except|excluding)\\b",
+    "time": "\\b(tomorrow|later|at\\s+\\d{1,2}(?::\\d{2})?)\\b",
+    "multipleActions": "\\b(and|then)\\b",
+    "unit": "\\b(fahrenheit|kelvin)\\b|°\\s*[fFkK]\\b"
+  },
+  "actionVerbs": "\\b(turn|switch|set|dim|activate|deactivate)\\b",
+  "negation": "\\b(not|don't|do not|never)\\b",
+  "numeric": "(?<![\\p{L}\\d])[-+]?\\d+(?:[.,]\\d+)?\\s*(?:%|percent|°\\s*c|degrees?|celsius)?",
+  "numericPercent": "%|percent",
+  "numericTemperature": "°\\s*c|degrees?|celsius",
+  "quoted": "[\"„“]([^\"„“]{2,100})[\"„“]",
+  "valueDomainTemperature": "\\b(warm|temperature|degrees?|cold|hot)\\b",
+  "valueDomainBrightness": "\\b(bright|brightness|dimming)\\b",
+  "setpointVerb": "\\b(?:write|set|adjust)\\b",
+  "setpointTarget": "\\b(?:target\\s+temperature|setpoint)\\b",
+  "roomReference": "\\bin\\s+the\\s+[\\p{L}][\\p{L}\\p{N}-]*"
+}

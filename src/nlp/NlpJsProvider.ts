@@ -1,14 +1,25 @@
 import { Nlp } from '@nlpjs/nlp';
-import { LangDe } from '@nlpjs/lang-de';
-import { LangEn } from '@nlpjs/lang-en';
+import { createRequire } from 'node:module';
 import type { Language } from '../types/api';
+import { supportedLanguages } from '../i18n/LanguageConfig';
 import type { NlpEngine } from './NlpEngine';
 import type { Analysis, IntentDefinition } from './types';
 
 function createManager(): Nlp {
-    const manager = new Nlp({ languages: ['de', 'en'], autoSave: false, forceNER: false, nlu: { log: false } });
-    manager.use(LangDe);
-    manager.use(LangEn);
+    const loadPlugin = createRequire(__filename);
+    const manager = new Nlp({
+        languages: supportedLanguages.map(item => item.code),
+        autoSave: false,
+        forceNER: false,
+        nlu: { log: false },
+    });
+    for (const item of supportedLanguages) {
+        const plugin = (loadPlugin(item.nlpPackage) as Record<string, unknown>)[item.nlpExport];
+        if (!plugin) {
+            throw new Error(`Missing NLP language plugin: ${item.code}`);
+        }
+        manager.use(plugin);
+    }
     return manager;
 }
 

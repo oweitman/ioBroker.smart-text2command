@@ -1,4 +1,5 @@
 import type { CommandRequest } from '../types/api';
+import { isSupportedLanguage } from '../i18n/LanguageConfig';
 import { RequestError } from '../types/api';
 
 const ID_PATTERN = /^[A-Za-z0-9._:-]{1,100}$/;
@@ -13,7 +14,7 @@ export function validateCommandRequest(input: unknown): CommandRequest {
     if (value.sessionId !== undefined && (typeof value.sessionId !== 'string' || !ID_PATTERN.test(value.sessionId))) {
         throw new RequestError('INVALID_REQUEST', 'Invalid sessionId');
     }
-    if (value.language !== undefined && value.language !== 'de' && value.language !== 'en') {
+    if (value.language !== undefined && !isSupportedLanguage(value.language)) {
         throw new RequestError('INVALID_REQUEST', 'Unsupported language');
     }
     if (value.mode !== 'analyze' && value.mode !== 'execute') {
