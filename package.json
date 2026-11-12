@@ -1,6 +1,6 @@
 {
   "name": "iobroker.smart-text2command",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "smart-text2command",
   "author": {
     "name": "oweitman",
@@ -78,7 +78,7 @@
     "dev:watch": "dev-server watch --noStart",
     "watch:react": "npm run watch --prefix src-admin",
     "repochecker": "npx @iobroker/repochecker https://github.com/oweitman/ioBroker.smart-text2command --local --env=../iobroker.env",
-    "release": "release-script"
+    "release": "release-script --all"
   },
   "bugs": {
     "url": "https://github.com/oweitman/ioBroker.smart-text2command/issues"
