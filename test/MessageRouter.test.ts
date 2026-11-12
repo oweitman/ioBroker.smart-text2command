@@ -11,6 +11,7 @@ import { ModelRepository } from '../src/nlp/ModelRepository';
 import type { IntentDefinition } from '../src/nlp/types';
 import { AuditRepository } from '../src/storage/AuditRepository';
 import { DeviceRepository } from '../src/storage/DeviceRepository';
+import { testAdapterTimers } from './AdapterTimers';
 
 describe('message API', () => {
     let directory: string;
@@ -57,6 +58,7 @@ describe('message API', () => {
             catalog,
             intentRepository: new IntentRepository(join(directory, 'intents.json')),
             modelRepository: new ModelRepository(join(directory, 'models')),
+            timers: testAdapterTimers,
             getUserIntents: () => userIntents,
             setUserIntents: intents => {
                 userIntents = intents;

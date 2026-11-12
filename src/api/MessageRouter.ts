@@ -11,6 +11,7 @@ import { TrainingManager } from '../nlp/TrainingManager';
 import { systemIntents } from '../nlp/TrainingData';
 import { NlpJsProvider } from '../nlp/NlpJsProvider';
 import type { IntentDefinition } from '../nlp/types';
+import type { AdapterTimers } from '../shared/AdapterTimers';
 
 interface MessageContext {
     from: string;
@@ -22,6 +23,7 @@ interface RouterOptions {
     catalog: DeviceCatalog;
     intentRepository: IntentRepository;
     modelRepository: ModelRepository;
+    timers: AdapterTimers;
     getUserIntents: () => IntentDefinition[];
     setUserIntents: (intents: IntentDefinition[]) => void;
     setModel: (model: NlpJsProvider, version: string) => void;
@@ -330,7 +332,7 @@ export class MessageRouter {
         }
         const job = { id: randomUUID(), status: 'running' as const };
         this.job = job;
-        void new TrainingManager(this.options.modelRepository)
+        void new TrainingManager(this.options.modelRepository, this.options.timers)
             .train([...systemIntents(), ...this.options.getUserIntents()])
             .then(result => {
                 this.options.setModel(result.engine, result.metadata.version);

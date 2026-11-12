@@ -16,22 +16,23 @@ import { systemIntents } from './nlp/TrainingData';
 import type { IntentDefinition } from './nlp/types';
 import { AuditRepository } from './storage/AuditRepository';
 import { defaultLanguage, isSupportedLanguage } from './i18n/LanguageConfig';
+import type { AdapterTimers } from './shared/AdapterTimers';
 
 const MAX_DISCOVERY_OBJECTS = 100_000;
 const DEVICE_IO_TIMEOUT_MS = 15_000;
 
-async function withTimeout<T>(operation: Promise<T>): Promise<T> {
-    let timer: ReturnType<typeof setTimeout> | undefined;
+async function withTimeout<T>(operation: Promise<T>, timers: AdapterTimers): Promise<T> {
+    let timer: ioBroker.Timeout | undefined;
     try {
         return await Promise.race([
             operation,
             new Promise<never>((_resolve, reject) => {
-                timer = setTimeout(() => reject(new Error('DEVICE_IO_TIMEOUT')), DEVICE_IO_TIMEOUT_MS);
+                timer = timers.setTimeout(() => reject(new Error('DEVICE_IO_TIMEOUT')), DEVICE_IO_TIMEOUT_MS);
             }),
         ]);
     } finally {
-        if (timer) {
-            clearTimeout(timer);
+        if (timer !== undefined && timer !== null) {
+            timers.clearTimeout(timer);
         }
     }
 }
@@ -51,7 +52,7 @@ class SmartText2command extends utils.Adapter {
     private userIntents: IntentDefinition[] = [];
     private router?: MessageRouter;
     private lastError?: string;
-    private discoveryTimer?: ReturnType<typeof setTimeout>;
+    private discoveryTimer?: ioBroker.Timeout;
     private updateQueue: Promise<void> = Promise.resolve();
     private inputQueue: Promise<void> = Promise.resolve();
     private started = false;
@@ -97,7 +98,7 @@ class SmartText2command extends utils.Adapter {
             if (existing?.metadata.trainingHash !== trainingHash(trainingIntents)) {
                 await this.setState('info.modelStatus', 'training', true);
             }
-            const result = await new TrainingManager(repository).loadOrTrain(trainingIntents);
+            const result = await new TrainingManager(repository, this).loadOrTrain(trainingIntents);
             this.model = result.engine;
             this.modelVersion = result.metadata.version;
             await this.setState('info.modelStatus', 'ready', true);
@@ -111,15 +112,15 @@ class SmartText2command extends utils.Adapter {
         const dataDir = utils.getAbsoluteInstanceDataDir(this);
         const io: DeviceIO = {
             getObject: async id => {
-                const object = await withTimeout(this.getForeignObjectAsync(id));
+                const object = await withTimeout(this.getForeignObjectAsync(id), this);
                 return object ? snapshot(id, object) : undefined;
             },
             getState: async id => {
-                const state = await withTimeout(this.getForeignStateAsync(id));
+                const state = await withTimeout(this.getForeignStateAsync(id), this);
                 return state ? { val: state.val } : undefined;
             },
             setState: async (id, value) => {
-                await withTimeout(this.setForeignStateAsync(id, value, false));
+                await withTimeout(this.setForeignStateAsync(id, value, false), this);
             },
         };
         const controller = new CommandController(
@@ -137,6 +138,7 @@ class SmartText2command extends utils.Adapter {
             catalog: this.catalog!,
             intentRepository: new IntentRepository(join(dataDir, 'training', 'user-intents-v1.json')),
             modelRepository: new ModelRepository(join(dataDir, 'models')),
+            timers: this,
             getUserIntents: () => this.userIntents,
             setUserIntents: intents => {
                 this.userIntents = intents;
@@ -250,10 +252,10 @@ class SmartText2command extends utils.Adapter {
         } else {
             this.objects.delete(id);
         }
-        if (this.discoveryTimer) {
-            clearTimeout(this.discoveryTimer);
+        if (this.discoveryTimer !== undefined && this.discoveryTimer !== null) {
+            this.clearTimeout(this.discoveryTimer);
         }
-        this.discoveryTimer = setTimeout(() => {
+        this.discoveryTimer = this.setTimeout(() => {
             this.updateQueue = this.updateQueue
                 .then(() => this.reconcile())
                 .catch(error => {
@@ -303,8 +305,8 @@ class SmartText2command extends utils.Adapter {
     }
 
     private onUnload(callback: () => void): void {
-        if (this.discoveryTimer) {
-            clearTimeout(this.discoveryTimer);
+        if (this.discoveryTimer !== undefined && this.discoveryTimer !== null) {
+            this.clearTimeout(this.discoveryTimer);
         }
         void this.updateQueue.finally(callback);
     }

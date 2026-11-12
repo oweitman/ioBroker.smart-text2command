@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { ModelRepository } from '../src/nlp/ModelRepository';
 import { TrainingManager } from '../src/nlp/TrainingManager';
 import { systemIntents } from '../src/nlp/TrainingData';
+import { testAdapterTimers } from './AdapterTimers';
 
 describe('NLP model training and persistence', function () {
     this.timeout(120_000);
@@ -13,7 +14,7 @@ describe('NLP model training and persistence', function () {
         const dir = await mkdtemp(join(tmpdir(), 'smart-text2command-model-'));
         try {
             const repository = new ModelRepository(dir);
-            const manager = new TrainingManager(repository);
+            const manager = new TrainingManager(repository, testAdapterTimers);
             const trained = await manager.loadOrTrain();
             expect(trained.metadata.regressionPassed).to.equal(trained.metadata.regressionTotal);
             expect((await trained.engine.analyze('Schalte die Lampe ein', 'de')).intent).to.equal('device.turnOn');

@@ -7,6 +7,7 @@ import type { ModelRepository, ModelMetadata } from './ModelRepository';
 import { regressionCases, systemIntents } from './TrainingData';
 import type { IntentDefinition, RegressionCase } from './types';
 import { supportedLanguages } from '../i18n/LanguageConfig';
+import type { AdapterTimers } from '../shared/AdapterTimers';
 
 interface WorkerResult {
     model?: string;
@@ -25,7 +26,10 @@ export function trainingHash(intents: IntentDefinition[]): string {
 export class TrainingManager {
     private running = false;
 
-    public constructor(private readonly repository: ModelRepository) {}
+    public constructor(
+        private readonly repository: ModelRepository,
+        private readonly timers: AdapterTimers,
+    ) {}
 
     public async loadOrTrain(
         intents: IntentDefinition[] = systemIntents(),
@@ -106,22 +110,22 @@ export class TrainingManager {
             const worker = new Worker(join(__dirname, 'training-worker.js'), {
                 workerData: { intents, languages: supportedLanguages.map(item => item.code), regression },
             });
-            const timer = setTimeout(() => {
+            const timer = this.timers.setTimeout(() => {
                 void worker.terminate();
                 reject(new Error('Training timed out'));
             }, 120_000);
             worker.once('message', (result: WorkerResult) => {
-                clearTimeout(timer);
+                this.timers.clearTimeout(timer);
                 void worker.terminate();
                 resolve(result);
             });
             worker.once('error', error => {
-                clearTimeout(timer);
+                this.timers.clearTimeout(timer);
                 reject(error);
             });
             worker.once('exit', code => {
                 if (code !== 0) {
-                    clearTimeout(timer);
+                    this.timers.clearTimeout(timer);
                     reject(new Error(`Training worker exited with code ${code}`));
                 }
             });
