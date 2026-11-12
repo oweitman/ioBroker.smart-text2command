@@ -109,8 +109,7 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
-
-### **WORK IN PROGRESS**
+### 0.0.2 (2026-11-12)
 
 - first alpha release
 

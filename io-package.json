@@ -1,130 +1,207 @@
 {
-    "common": {
-        "name": "smart-text2command",
-        "version": "0.0.1",
-        "news": {
-            "0.0.1": {
-                "en": "initial release",
-                "de": "Erstveröffentlichung",
-                "ru": "Начальная версия",
-                "pt": "lançamento inicial",
-                "nl": "Eerste uitgave",
-                "fr": "Première version",
-                "it": "Versione iniziale",
-                "es": "Versión inicial",
-                "pl": "Pierwsze wydanie",
-                "uk": "Початкова версія",
-                "zh-cn": "首次出版"
-            }
-        },
-        "titleLang": {
-            "en": "Natural language processing",
-            "de": "Verarbeitung natürlicher Sprache",
-            "ru": "Обработка естественного языка",
-            "pt": "Processamento de linguagem natural",
-            "nl": "Natuurlijke taalverwerking",
-            "fr": "Traitement du langage naturel",
-            "it": "Elaborazione del linguaggio naturale",
-            "es": "Procesamiento del lenguaje natural",
-            "pl": "Przetwarzanie języka naturalnego",
-            "uk": "Обробка природної мови",
-            "zh-cn": "自然语言处理"
-        },
-        "desc": {
-            "en": "smart-text2command",
-            "de": "smart-text2command",
-            "ru": "smart-text2command",
-            "pt": "comando texto2inteligente",
-            "nl": "smart-text2command",
-            "fr": "commande smart-text2",
-            "it": "comando-testo-smart2",
-            "es": "comando-text2inteligente",
-            "pl": "polecenie smart-text2",
-            "uk": "smart-text2command",
-            "zh-cn": "智能文本2命令"
-        },
-        "authors": [
-            "oweitman <oweitman@gmx.de>"
-        ],
-        "keywords": [
-            "template",
-            "automation",
-            "IoT",
-            "integration"
-        ],
-        "licenseInformation": {
-            "type": "free",
-            "license": "MIT"
-        },
-        "platform": "Javascript/Node.js",
-        "icon": "smart-text2command.png",
-        "enabled": true,
-        "extIcon": "https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.png",
-        "readme": "https://github.com/oweitman/ioBroker.smart-text2command/blob/main/README.md",
-        "loglevel": "info",
-        "tier": 3,
-        "mode": "daemon",
-        "type": "misc-data",
-        "compact": true,
-        "messagebox": true,
-        "connectionType": "local",
-        "dataSource": "assumption",
-        "adminUI": {
-            "config": "materialize"
-        },
-        "dependencies": [
-            {
-                "js-controller": ">=7.2.5"
-            }
-        ],
-        "globalDependencies": [
-            {
-                "admin": ">=8.0.0"
-            }
-        ]
+  "common": {
+    "name": "smart-text2command",
+    "version": "0.0.2",
+    "news": {
+      "0.0.2": {
+        "en": "first alpha release",
+        "de": "erste Alphaversion",
+        "ru": "первый альфа-релиз",
+        "pt": "1ª versão alfa",
+        "nl": "eerste alfa-release",
+        "fr": "première version alpha",
+        "it": "prima versione alfa",
+        "es": "primera versión alfa",
+        "pl": "pierwsze wydanie alfa",
+        "uk": "перший альфа-реліз",
+        "zh-cn": "首个 alpha 版本"
+      },
+      "0.0.1": {
+        "en": "initial release",
+        "de": "Erstveröffentlichung",
+        "ru": "Начальная версия",
+        "pt": "lançamento inicial",
+        "nl": "Eerste uitgave",
+        "fr": "Première version",
+        "it": "Versione iniziale",
+        "es": "Versión inicial",
+        "pl": "Pierwsze wydanie",
+        "uk": "Початкова версія",
+        "zh-cn": "首次出版"
+      }
     },
-    "native": {"defaultLanguage": "de"},
-    "objects": [],
-    "instanceObjects": [
-        {
-            "_id": "info",
-            "type": "channel",
-            "common": {
-                "name": "Information"
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.deviceCount",
-            "type": "state",
-            "common": {
-                "role": "value",
-                "name": "Discovered devices",
-                "type": "number",
-                "read": true,
-                "write": false,
-                "def": 0
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.modelStatus",
-            "type": "state",
-            "common": {
-                "role": "text",
-                "name": "NLP model status",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": "loading"
-            },
-            "native": {}
-        },
-        {"_id":"input","type":"channel","common":{"name":"Input"},"native":{}},
-        {"_id":"input.text","type":"state","common":{"name":"Text for analysis","role":"text","type":"string","read":true,"write":true,"def":""},"native":{}},
-        {"_id":"output","type":"channel","common":{"name":"Output"},"native":{}},
-        {"_id":"output.response","type":"state","common":{"name":"Last response","role":"text","type":"string","read":true,"write":false,"def":""},"native":{}},
-        {"_id":"output.result","type":"state","common":{"name":"Last result JSON","role":"json","type":"string","read":true,"write":false,"def":""},"native":{}},
-        {"_id":"output.status","type":"state","common":{"name":"Processing status","role":"text","type":"string","read":true,"write":false,"def":"idle"},"native":{}}
+    "titleLang": {
+      "en": "Natural language processing",
+      "de": "Verarbeitung natürlicher Sprache",
+      "ru": "Обработка естественного языка",
+      "pt": "Processamento de linguagem natural",
+      "nl": "Natuurlijke taalverwerking",
+      "fr": "Traitement du langage naturel",
+      "it": "Elaborazione del linguaggio naturale",
+      "es": "Procesamiento del lenguaje natural",
+      "pl": "Przetwarzanie języka naturalnego",
+      "uk": "Обробка природної мови",
+      "zh-cn": "自然语言处理"
+    },
+    "desc": {
+      "en": "smart-text2command",
+      "de": "smart-text2command",
+      "ru": "smart-text2command",
+      "pt": "comando texto2inteligente",
+      "nl": "smart-text2command",
+      "fr": "commande smart-text2",
+      "it": "comando-testo-smart2",
+      "es": "comando-text2inteligente",
+      "pl": "polecenie smart-text2",
+      "uk": "smart-text2command",
+      "zh-cn": "智能文本2命令"
+    },
+    "authors": [
+      "oweitman <oweitman@gmx.de>"
+    ],
+    "keywords": [
+      "template",
+      "automation",
+      "IoT",
+      "integration"
+    ],
+    "licenseInformation": {
+      "type": "free",
+      "license": "MIT"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "smart-text2command.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.png",
+    "readme": "https://github.com/oweitman/ioBroker.smart-text2command/blob/main/README.md",
+    "loglevel": "info",
+    "tier": 3,
+    "mode": "daemon",
+    "type": "misc-data",
+    "compact": true,
+    "messagebox": true,
+    "connectionType": "local",
+    "dataSource": "assumption",
+    "adminUI": {
+      "config": "materialize"
+    },
+    "dependencies": [
+      {
+        "js-controller": ">=7.2.5"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=8.0.0"
+      }
     ]
+  },
+  "native": {
+    "defaultLanguage": "de"
+  },
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.deviceCount",
+      "type": "state",
+      "common": {
+        "role": "value",
+        "name": "Discovered devices",
+        "type": "number",
+        "read": true,
+        "write": false,
+        "def": 0
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.modelStatus",
+      "type": "state",
+      "common": {
+        "role": "text",
+        "name": "NLP model status",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": "loading"
+      },
+      "native": {}
+    },
+    {
+      "_id": "input",
+      "type": "channel",
+      "common": {
+        "name": "Input"
+      },
+      "native": {}
+    },
+    {
+      "_id": "input.text",
+      "type": "state",
+      "common": {
+        "name": "Text for analysis",
+        "role": "text",
+        "type": "string",
+        "read": true,
+        "write": true,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "output",
+      "type": "channel",
+      "common": {
+        "name": "Output"
+      },
+      "native": {}
+    },
+    {
+      "_id": "output.response",
+      "type": "state",
+      "common": {
+        "name": "Last response",
+        "role": "text",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "output.result",
+      "type": "state",
+      "common": {
+        "name": "Last result JSON",
+        "role": "json",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "output.status",
+      "type": "state",
+      "common": {
+        "name": "Processing status",
+        "role": "text",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": "idle"
+      },
+      "native": {}
+    }
+  ]
 }
