@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "news": {
+      "0.0.7": {
+        "en": "add session history and extend analyze date in test lab",
+        "de": "Sitzungsverlauf und Analysedatum im Testlabor verlängern",
+        "ru": "добавьте историю сеансов и увеличьте дату анализа в тестовой лаборатории",
+        "pt": "adicione o histórico da sessão e analise no Test Lab",
+        "nl": "sessiegeschiedenis toevoegen en analysedatum verlengen in het testlab",
+        "fr": "ajouter l'historique des sessions et les analyser au labo",
+        "it": "aggiungere cronologia e data di analisi in laboratorio",
+        "es": "añadir el historial de sesiones y ampliar la fecha de análisis",
+        "pl": "dodaj historię sesji i przedłuż datę analizy w laboratorium testowym",
+        "uk": "додати історію сеансів і продовжити дату аналізу в тестовій лабораторії",
+        "zh-cn": "在测试实验室中添加会话历史记录并延长分析日期"
+      },
       "0.0.6": {
         "en": "fix tests and deployment",
         "de": "Fixtests und Einsatz",

@@ -109,6 +109,10 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
+### 0.0.7 (2026-11-12)
+
+- add session history and extend analyze date in test lab
+
 ### 0.0.6 (2026-11-12)
 
 - fix tests and deployment
