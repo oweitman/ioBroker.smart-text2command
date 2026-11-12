@@ -1,6 +1,8 @@
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
+import type { Language } from '../types/api';
 import type { ActionKind } from '../devices/types';
 import { matchesValueDomain } from '../devices/ValueDomain';
+import { capabilityNameMatches } from '../devices/CapabilityName';
 import type { ValueDomain } from '../devices/ValueDomain';
 import type { ParsedText } from '../nlp/EntityParser';
 import { normalizedValue } from './ValueNormalizer';
@@ -17,6 +19,8 @@ export function planAction(
     deviceId: string,
     action: ActionKind,
     parsed: ParsedText,
+    language: Language,
+    text: string,
     domain?: ValueDomain,
     selectedStateId?: string,
 ): PlanOutcome {
@@ -24,9 +28,12 @@ export function planAction(
     if (!device || device.status === 'missing' || !device.enabled) {
         return { error: 'DEVICE_NOT_FOUND' };
     }
-    const capabilities = device.discoveredCapabilities.filter(
-        capability => catalog.isAllowed(deviceId, capability, action) && matchesValueDomain(capability, domain),
+    const available = device.discoveredCapabilities.filter(
+        capability =>
+            catalog.isAllowed(deviceId, capability, action) && matchesValueDomain(capability, domain, language),
     );
+    const named = available.filter(capability => capabilityNameMatches(capability, text, language));
+    const capabilities = !selectedStateId && named.length ? named : available;
     if (selectedStateId && !capabilities.some(capability => capability.stateId === selectedStateId)) {
         return { error: 'INVALID_SELECTION' };
     }
@@ -42,7 +49,9 @@ export function planAction(
     const operation = action === 'getState' || action === 'getValue' ? 'read' : 'write';
     const value = normalizedValue(action, capability, parsed);
     if (operation === 'write' && value === undefined) {
-        return { clarification: 'value' };
+        return parsed.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))
+            ? { error: 'INVALID_VALUE' }
+            : { clarification: 'value' };
     }
     return {
         plan: {

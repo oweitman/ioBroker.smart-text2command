@@ -3,6 +3,8 @@ import { validateCommandRequest } from './RequestValidator';
 import type { CommandController } from '../commands/CommandController';
 import type { DeviceCatalog } from '../devices/DeviceCatalog';
 import type { ActionKind } from '../devices/types';
+import { capabilityName } from '../devices/CapabilityName';
+import { defaultLanguage, isSupportedLanguage } from '../i18n/LanguageConfig';
 import type { IntentRepository } from '../nlp/IntentRepository';
 import type { ModelRepository } from '../nlp/ModelRepository';
 import { TrainingManager } from '../nlp/TrainingManager';
@@ -73,6 +75,7 @@ export class MessageRouter {
                 const room = typeof payload.room === 'string' ? payload.room.slice(0, 200) : '';
                 const functionId = typeof payload.functionId === 'string' ? payload.functionId.slice(0, 200) : '';
                 const capability = typeof payload.capability === 'string' ? payload.capability.slice(0, 100) : '';
+                const language = isSupportedLanguage(payload.language) ? payload.language : defaultLanguage();
                 const current = this.options.catalog
                     .list()
                     .filter(device => device.status !== 'missing' && device.discoveredCapabilities.length > 0);
@@ -80,7 +83,10 @@ export class MessageRouter {
                     device =>
                         (!filter ||
                             device.displayName.toLocaleLowerCase().includes(filter) ||
-                            device.id.toLocaleLowerCase().includes(filter)) &&
+                            device.id.toLocaleLowerCase().includes(filter) ||
+                            device.discoveredCapabilities.some(item =>
+                                capabilityName(item, language).toLocaleLowerCase(language).includes(filter),
+                            )) &&
                         (!room ||
                             (room === '__none__' ? device.roomIds.length === 0 : device.roomIds.includes(room))) &&
                         (!functionId ||
@@ -90,7 +96,11 @@ export class MessageRouter {
                         (!capability ||
                             (capability === '__none__'
                                 ? device.discoveredCapabilities.length === 0
-                                : device.discoveredCapabilities.some(item => item.kind === capability))),
+                                : device.discoveredCapabilities.some(
+                                      item =>
+                                          capabilityName(item, language).toLocaleLowerCase(language) ===
+                                          capability.toLocaleLowerCase(language),
+                                  ))),
                 );
                 const enumOptions = (
                     kind: 'roomIds' | 'functionIds',
@@ -104,6 +114,16 @@ export class MessageRouter {
                     devices: devices.slice(offset, offset + limit),
                     rooms: enumOptions('roomIds'),
                     functions: enumOptions('functionIds'),
+                    capabilities: [
+                        ...new Map(
+                            current
+                                .flatMap(device => device.discoveredCapabilities)
+                                .map(item => {
+                                    const name = capabilityName(item, language);
+                                    return [name.toLocaleLowerCase(language), name] as const;
+                                }),
+                        ).values(),
+                    ].sort((a, b) => a.localeCompare(b, language)),
                 };
             }
             if (command === 'getDiagnostics') {

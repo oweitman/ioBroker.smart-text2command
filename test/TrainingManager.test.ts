@@ -31,11 +31,29 @@ describe('NLP model training and persistence', function () {
                 ).to.be.at.least(0.12);
             }
             for (const [text, language] of [
+                ['Welche Temperatur', 'de'],
+                ['What temperature', 'en'],
                 ['Welche Temperatur hat die Heizung im Wohnzimmer', 'de'],
                 ['What temperature does the heater in the living room have', 'en'],
             ] as const) {
                 const result = await trained.engine.analyze(text, language);
                 expect(result.intent).to.equal('device.getValue');
+                expect(result.confidence).to.be.at.least(0.65);
+                expect(
+                    result.confidence -
+                        (result.alternatives.find(item => item.intent !== result.intent)?.confidence ?? 0),
+                ).to.be.at.least(0.12);
+            }
+            for (const [text, language] of [
+                ['Stelle den Rollladen im Wohnzimmer auf 25 Prozent', 'de'],
+                ['Stelle die Lamellen im Wohnzimmer auf 75 Prozent', 'de'],
+                ['Stelle die Stellung auf 65 Prozent', 'de'],
+                ['Set the blind in the living room to 25 percent', 'en'],
+                ['Set the slats in the living room to 75 percent', 'en'],
+                ['Set the position to 35 percent', 'en'],
+            ] as const) {
+                const result = await trained.engine.analyze(text, language);
+                expect(result.intent).to.equal('device.setValue');
                 expect(result.confidence).to.be.at.least(0.65);
                 expect(
                     result.confidence -

@@ -15,7 +15,7 @@ interface Envelope {
     data: IntentStore;
 }
 
-const OPERATIONS = new Set(['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue']);
+const OPERATIONS = new Set(['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue']);
 
 function digest(value: string): string {
     return createHash('sha256').update(value).digest('hex');

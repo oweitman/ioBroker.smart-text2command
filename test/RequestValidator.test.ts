@@ -24,4 +24,18 @@ describe('request schema', () => {
             .to.throw(RequestError)
             .with.property('code', 'INVALID_REQUEST');
     });
+
+    it('accepts text-only answers with a clarification ID and rejects a selection without one', () => {
+        const answer = {
+            requestId: 'answer-1',
+            sessionId: 'speaker-a',
+            text: 'Wohnzimmer',
+            mode: 'execute',
+            clarificationId: 'clarification-1',
+        };
+        expect(validateCommandRequest(answer)).to.deep.equal(answer);
+        expect(() => validateCommandRequest({ ...answer, clarificationId: undefined, selection: 'room-1' })).to.throw(
+            'Selection requires clarificationId',
+        );
+    });
 });

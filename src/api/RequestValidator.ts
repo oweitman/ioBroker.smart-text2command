@@ -41,8 +41,8 @@ export function validateCommandRequest(input: unknown): CommandRequest {
     ) {
         throw new RequestError('INVALID_REQUEST', 'Invalid selection');
     }
-    if ((value.clarificationId === undefined) !== (value.selection === undefined)) {
-        throw new RequestError('INVALID_REQUEST', 'Clarification and selection must be provided together');
+    if (value.selection !== undefined && value.clarificationId === undefined) {
+        throw new RequestError('INVALID_REQUEST', 'Selection requires clarificationId');
     }
     return value as unknown as CommandRequest;
 }

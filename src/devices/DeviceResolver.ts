@@ -1,6 +1,9 @@
 import type { Language } from '../types/api';
 import type { ActionKind, Capability, DeviceRecord } from './types';
 import { inferValueDomain, matchesValueDomain } from './ValueDomain';
+import type { ValueDomain } from './ValueDomain';
+import { capabilityNameMatches } from './CapabilityName';
+import { languageRules } from '../i18n/LanguageConfig';
 
 export interface DeviceCatalogView {
     list(): DeviceRecord[];
@@ -73,9 +76,11 @@ function hasApprovedAction(
     action: ActionKind,
     registry: DeviceCatalogView,
     domain: ReturnType<typeof inferValueDomain>,
+    language: Language,
 ): boolean {
     return device.discoveredCapabilities.some(
-        capability => registry.isAllowed(device.id, capability, action) && matchesValueDomain(capability, domain),
+        capability =>
+            registry.isAllowed(device.id, capability, action) && matchesValueDomain(capability, domain, language),
     );
 }
 
@@ -96,20 +101,60 @@ export class DeviceResolver {
         return [...rooms].map(([id, label]) => ({ id, label }));
     }
 
-    public resolve(text: string, language: Language, action: ActionKind, forcedRoomId?: string): Resolution {
+    public resolve(
+        text: string,
+        language: Language,
+        action: ActionKind,
+        forcedRoomId?: string,
+        requestedDomain?: ValueDomain,
+    ): Resolution {
         const normalized = normalize(text);
-        const domain = action === 'getValue' ? inferValueDomain(text, language) : undefined;
+        const domain =
+            requestedDomain ??
+            (action === 'getValue' || action === 'setValue' ? inferValueDomain(text, language) : undefined);
         const requestedRooms = new Set(
             forcedRoomId ? [forcedRoomId] : this.roomMatches(text, language).map(room => room.id),
         );
+        const explicitPhrase = new RegExp(languageRules(language).deviceBeforeRoom, 'iu').exec(text)?.groups?.device;
+        const namedDevices = explicitPhrase
+            ? this.registry
+                  .list()
+                  .filter(device =>
+                      [device.displayName, ...(device.aliases[language] ?? [])].some(
+                          name => matchScore(normalize(explicitPhrase), name) > 0,
+                      ),
+                  )
+            : [];
+        const namedDeviceIds = new Set(namedDevices.map(device => device.id));
         const candidates: Candidate[] = [];
         for (const device of this.registry.list()) {
             if (requestedRooms.size && !device.roomIds.some(id => requestedRooms.has(id))) {
                 continue;
             }
-            if (!hasApprovedAction(device, action, this.registry, domain)) {
+            if (!hasApprovedAction(device, action, this.registry, domain, language)) {
                 continue;
             }
+            if (explicitPhrase) {
+                if (namedDeviceIds.size && !namedDeviceIds.has(device.id)) {
+                    continue;
+                }
+                if (!namedDeviceIds.size) {
+                    const functionNamed = device.functionIds.some(id =>
+                        [id.split('.').at(-1) ?? '', device.enumNames?.[id]]
+                            .flatMap(name => (typeof name === 'string' ? [name] : Object.values(name ?? {})))
+                            .some(name => matchScore(normalize(explicitPhrase), name) > 0),
+                    );
+                    if (!functionNamed) {
+                        continue;
+                    }
+                }
+            }
+            const functionMatched = device.discoveredCapabilities.some(
+                capability =>
+                    this.registry.isAllowed(device.id, capability, action) &&
+                    matchesValueDomain(capability, domain, language) &&
+                    capabilityNameMatches(capability, text, language),
+            );
             const names = [device.displayName, ...(device.aliases[language] ?? [])];
             let score = 0;
             const reasons: string[] = [];
@@ -130,14 +175,22 @@ export class DeviceResolver {
                 }
             }
             if (!score) {
-                if (!roomMatched) {
+                if (functionMatched) {
+                    score = 85;
+                    reasons.push('function name');
+                } else if (!roomMatched) {
                     continue;
+                } else {
+                    score = 65;
+                    reasons.push('room');
                 }
-                score = 65;
-                reasons.push('room');
             } else if (roomMatched) {
                 score += 15;
                 reasons.push('room');
+            }
+            if (functionMatched && !reasons.includes('function name')) {
+                score += 20;
+                reasons.push('function name');
             }
             candidates.push({ deviceId: device.id, score, reasons });
         }

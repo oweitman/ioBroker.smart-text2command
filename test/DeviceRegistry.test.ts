@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { discoverDevices } from '../src/devices/DeviceDiscovery';
 import { mapCapability } from '../src/devices/CapabilityMapper';
+import { capabilityName } from '../src/devices/CapabilityName';
 import { DeviceRegistry } from '../src/devices/DeviceRegistry';
 import type { ObjectSnapshot } from '../src/devices/types';
 
@@ -15,6 +16,75 @@ const base: ObjectSnapshot[] = [
 ];
 
 describe('device discovery and approvals', () => {
+    it('discovers writable buttons as press only, without on/off or read actions', () => {
+        const id = 'test.0.blind';
+        const states: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Rollladen' } },
+            {
+                id: `${id}.AUF`,
+                type: 'state',
+                common: { role: 'button.open.blind', type: 'boolean', read: false, write: true },
+            },
+            { id: `${id}.STOP`, type: 'state', common: { role: 'button', type: 'boolean', read: false, write: true } },
+            {
+                id: `${id}.UNSCHREIBBAR`,
+                type: 'state',
+                common: { role: 'button', type: 'boolean', read: true, write: false },
+            },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(states));
+        const device = registry.list()[0];
+        expect(device.discoveredCapabilities.map(item => item.stateId)).to.deep.equal([`${id}.AUF`, `${id}.STOP`]);
+        expect(device.discoveredCapabilities.every(item => item.kind === 'button')).to.equal(true);
+        registry.setEnabled(id, true);
+        registry.approve(id, `${id}.AUF`, 'press');
+        expect(registry.isAllowed(id, device.discoveredCapabilities[0], 'press')).to.equal(true);
+        expect(registry.isAllowed(id, device.discoveredCapabilities[0], 'turnOn')).to.equal(false);
+        expect(registry.isAllowed(id, device.discoveredCapabilities[0], 'turnOff')).to.equal(false);
+        expect(registry.isAllowed(id, device.discoveredCapabilities[0], 'getState')).to.equal(false);
+    });
+    it('uses read and write flags independently for a generic numeric value role', () => {
+        const id = 'test.0.blind';
+        const stateId = `${id}.POSITION`;
+        const state: ObjectSnapshot = {
+            id: stateId,
+            type: 'state',
+            common: { role: 'value.blind', type: 'number', read: true, write: true, min: 0, max: 100, unit: '%' },
+        };
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices([{ id, type: 'channel', common: { name: 'Rollladen' } }, state]));
+        const capability = registry.list()[0].discoveredCapabilities[0];
+        expect(capability.kind).to.equal('genericValue');
+        expect(capability.role).to.equal('value.blind');
+        expect(capabilityName(capability, 'de')).to.equal('POSITION');
+        expect(mapCapability({ ...state, common: { ...state.common, role: 'value' } })?.kind).to.equal('genericValue');
+        expect(
+            capabilityName(
+                mapCapability({ ...state, common: { ...state.common, name: { de: 'Stellung', en: 'Position' } } })!,
+                'de',
+            ),
+        ).to.equal('Stellung');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'getValue');
+        registry.approve(id, stateId, 'setValue');
+        expect(registry.isAllowed(id, capability, 'getValue')).to.equal(true);
+        expect(registry.isAllowed(id, capability, 'setValue')).to.equal(true);
+        registry.reconcile(
+            discoverDevices([
+                { id, type: 'channel', common: { name: 'Rollladen' } },
+                { ...state, common: { ...state.common, name: 'Position' } },
+            ]),
+        );
+        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(true);
+        registry.reconcile(
+            discoverDevices([
+                { id, type: 'channel', common: { name: 'Rollladen' } },
+                { ...state, common: { ...state.common, role: 'value.tilt' } },
+            ]),
+        );
+        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(false);
+    });
     it('maps roles offered by Admin to the intended actions', () => {
         const brightness = mapCapability({
             id: '0_userdata.0.test.HELLIGKEIT',
@@ -31,16 +101,18 @@ describe('device discovery and approvals', () => {
             type: 'state',
             common: { role: 'level.temperature', type: 'number', read: true, write: true, min: 5, max: 30, unit: '°C' },
         });
-        expect(brightness?.kind).to.equal('brightness');
-        expect(actual?.kind).to.equal('readTemperature');
-        expect(setpoint?.kind).to.equal('temperatureSetpoint');
+        expect(brightness?.kind).to.equal('genericValue');
+        expect(actual?.kind).to.equal('genericValue');
+        expect(setpoint?.kind).to.equal('genericValue');
+        expect(actual?.writable).to.equal(false);
+        expect(setpoint?.writable).to.equal(true);
         expect(
             mapCapability({
                 id: '0_userdata.0.test.SOLL',
                 type: 'state',
                 common: { role: 'level.temperature', type: 'number', read: true, write: false, min: 5, max: 30 },
             })?.kind,
-        ).to.equal('readTemperature');
+        ).to.equal('genericValue');
     });
     it('discovers a device and keeps it disabled by default', () => {
         const devices = discoverDevices(base);
@@ -68,9 +140,9 @@ describe('device discovery and approvals', () => {
         );
         registry.reconcile(discoverDevices(changed));
         expect(registry.list()[0].status).to.equal('needsReview');
-        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setLevel')).to.equal(false);
-        registry.approve(id, stateId, 'setLevel');
-        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setLevel')).to.equal(true);
+        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(false);
+        registry.approve(id, stateId, 'setValue');
+        expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(true);
     });
     it('keeps supported capabilities available beside an unmapped state', () => {
         const extra: ObjectSnapshot = {
@@ -157,7 +229,7 @@ describe('device discovery and approvals', () => {
         const devices = discoverDevices(objects);
         expect(devices).to.have.length(3);
         const temperature = devices.find(device => device.id === 'sensor.0.TEMP');
-        expect(temperature?.discoveredCapabilities[0].kind).to.equal('readTemperature');
+        expect(temperature?.discoveredCapabilities[0].kind).to.equal('genericValue');
         expect(temperature?.discoveredCapabilities[0].writable).to.equal(false);
         expect(devices.filter(device => device.status === 'needsReview')).to.have.length(2);
         expect(

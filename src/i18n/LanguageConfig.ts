@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { Language } from '../types/api';
 
 export interface LanguageRules {
+    cancelPhrases: string[];
     unsupported: Record<'group' | 'exception' | 'time' | 'multipleActions' | 'unit', string>;
     actionVerbs: string;
     negation: string;
@@ -13,9 +14,17 @@ export interface LanguageRules {
     quoted: string;
     valueDomainTemperature: string;
     valueDomainBrightness: string;
+    valueDomainPosition: string;
+    valueDomainTilt: string;
     setpointVerb: string;
     setpointTarget: string;
+    buttonPressVerb: string;
+    buttonActivationVerb: string;
+    buttonSwitchVerb: string;
+    buttonStateQualifier: string;
+    buttonTarget: string;
     roomReference: string;
+    deviceBeforeRoom: string;
 }
 
 export const supportedLanguages = languages as Array<{

@@ -1,5 +1,6 @@
 import type { CommandRequest, Language } from '../types/api';
-import type { ActionKind } from '../devices/types';
+import type { ActionKind, Capability } from '../devices/types';
+import { capabilityName, capabilityNameMatches } from '../devices/CapabilityName';
 import { DeviceResolver, roomNames } from '../devices/DeviceResolver';
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
 import { inferValueDomain, matchesValueDomain } from '../devices/ValueDomain';
@@ -7,6 +8,7 @@ import { parseEntities } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
 import type { IntentDefinition } from '../nlp/types';
 import { SessionStore } from '../dialog/SessionStore';
+import type { PendingClarification } from '../dialog/SessionStore';
 import type { AuditRepository } from '../storage/AuditRepository';
 import { CommandExecutor } from './CommandExecutor';
 import { PolicyEngine } from './PolicyEngine';
@@ -22,8 +24,10 @@ import {
 const SYSTEM_ACTIONS: Record<string, ActionKind> = {
     'device.turnOn': 'turnOn',
     'device.turnOff': 'turnOff',
-    'device.setLevel': 'setLevel',
-    'device.setTemperature': 'setTemperature',
+    'device.setLevel': 'setValue',
+    'device.setTemperature': 'setValue',
+    'device.setValue': 'setValue',
+    'device.press': 'press',
     'device.getState': 'getState',
     'device.getValue': 'getValue',
 };
@@ -33,12 +37,66 @@ function isExplicitSetpointWrite(text: string, language: Language): boolean {
     return new RegExp(rules.setpointVerb, 'iu').test(text) && new RegExp(rules.setpointTarget, 'iu').test(text);
 }
 
+function isExplicitButtonPress(text: string, language: Language, catalog: DeviceCatalogView): boolean {
+    const rules = languageRules(language);
+    const resolver = new DeviceResolver(catalog);
+    const namedCandidate = (action: ActionKind): boolean =>
+        resolver
+            .resolve(text, language, action)
+            .candidates.some(candidate =>
+                candidate.reasons.some(reason => reason === 'exact name or alias' || reason === 'fuzzy name'),
+            );
+    return (
+        new RegExp(rules.buttonPressVerb, 'iu').test(text) ||
+        (new RegExp(rules.buttonSwitchVerb, 'iu').test(text) &&
+            !new RegExp(rules.buttonStateQualifier, 'iu').test(text) &&
+            namedCandidate('press') &&
+            !namedCandidate('turnOn')) ||
+        (new RegExp(rules.buttonActivationVerb, 'iu').test(text) &&
+            (new RegExp(rules.buttonTarget, 'iu').test(text) ||
+                catalog
+                    .list()
+                    .some(device =>
+                        device.discoveredCapabilities.some(
+                            capability =>
+                                capability.kind === 'button' && capabilityNameMatches(capability, text, language),
+                        ),
+                    ) ||
+                namedCandidate('press')))
+    );
+}
+
 function responseText(language: Language, key: string, values: Record<string, string> = {}): string {
     return languageMessage(language, key)
         .replace(/\{([a-z]+)\}/g, (_match, name: string) => values[name] ?? '')
         .replace(/\s+([.,!?])/g, '$1')
         .replace(/\s{2,}/g, ' ')
         .trim();
+}
+
+function capabilityLabel(language: Language, capability: Capability): string {
+    return capabilityName(capability, language);
+}
+
+function normalizeReply(value: string): string {
+    return value
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
+}
+
+function matchingOptionIds(reply: string, options: Array<{ id: string; label: string }>): string[] {
+    const normalized = normalizeReply(reply);
+    return options
+        .filter(option => normalized === normalizeReply(option.id) || normalized === normalizeReply(option.label))
+        .map(option => option.id);
+}
+
+function isCancellation(text: string, language: Language): boolean {
+    const normalized = normalizeReply(text);
+    return languageRules(language).cancelPhrases.some(phrase => normalizeReply(phrase) === normalized);
 }
 
 function hasUnsupportedSyntax(
@@ -87,6 +145,7 @@ function planResponse(
     const values = {
         device: deviceName,
         context,
+        function: capabilityLabel(language, plan.capability),
         value: formattedValue,
         unit: requested?.type === 'percent' ? '%' : (plan.capability.unit ?? ''),
     };
@@ -114,7 +173,6 @@ interface CachedRequest {
 }
 
 export class CommandController {
-    private readonly sessions = new SessionStore();
     private readonly recent = new Map<string, CachedRequest>();
 
     public constructor(
@@ -124,6 +182,7 @@ export class CommandController {
         private readonly getUserIntents: () => IntentDefinition[],
         private readonly audit: AuditRepository,
         private readonly defaultLanguage: Language = primaryLanguage(),
+        private readonly sessions = new SessionStore(),
     ) {}
 
     public process(request: CommandRequest, clientKey: string): Promise<CommandResult> {
@@ -195,6 +254,9 @@ export class CommandController {
         language: Language,
         details: NonNullable<CommandResult['analysis']>,
     ): Promise<CommandResult> {
+        if (!request.clarificationId) {
+            this.sessions.clear(clientKey, request.sessionId);
+        }
         const model = this.getModel();
         if (!model) {
             return this.reject(request, language, 'MODEL_UNAVAILABLE');
@@ -210,44 +272,112 @@ export class CommandController {
         ];
         const resolver = new DeviceResolver(this.catalog);
         let text = request.text;
+        let sourceRequest = request;
         let forcedDeviceId: string | undefined;
         let forcedRoomId: string | undefined;
         let selectedStateId: string | undefined;
         let intent: string;
         let action: ActionKind;
         let confidence: number;
-        if (request.clarificationId && request.selection) {
-            const pending = this.sessions.consume(request.clarificationId, clientKey, request.sessionId);
+        if (request.clarificationId) {
+            const pending = this.sessions.get(request.clarificationId, clientKey, request.sessionId);
             if (!pending || pending.request.mode !== request.mode) {
                 return this.reject(request, language, 'CLARIFICATION_EXPIRED');
             }
             language = pending.language;
+            if (isCancellation(request.text, language)) {
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return {
+                    requestId: request.requestId,
+                    status: 'cancelled',
+                    language,
+                    response: languageMessage(language, 'clarificationCancelled'),
+                };
+            }
             intent = pending.intent;
             action = pending.action;
             confidence = pending.confidence;
-            text = pending.key === 'value' ? `${pending.request.text} ${request.selection}` : pending.request.text;
+            text = pending.request.text;
+            sourceRequest = pending.request;
             forcedRoomId = pending.selectedRoomId;
+            const answer = request.selection ?? request.text;
             if (pending.key === 'room') {
-                if (!pending.roomIds?.includes(request.selection)) {
-                    return this.reject(request, language, 'INVALID_SELECTION');
+                const matches = request.selection
+                    ? (pending.roomIds?.filter(id => id === request.selection) ?? [])
+                    : [
+                          ...new Set([
+                              ...matchingOptionIds(answer, pending.options ?? []),
+                              ...resolver.roomMatches(answer, language).map(room => room.id),
+                          ]),
+                      ].filter(id => pending.roomIds?.includes(id));
+                if (matches.length !== 1) {
+                    return this.repeatClarification(request, pending, model.version);
                 }
-                forcedRoomId = request.selection;
+                forcedRoomId = matches[0];
             }
             if (pending.key === 'device') {
-                if (!pending.deviceIds.includes(request.selection)) {
-                    return this.reject(request, language, 'INVALID_SELECTION');
+                const devices = this.catalog.list().filter(device => pending.deviceIds.includes(device.id));
+                const normalized = normalizeReply(answer);
+                const named = request.selection
+                    ? devices.filter(device => device.id === request.selection)
+                    : devices.filter(
+                          device =>
+                              matchingOptionIds(answer, pending.options ?? []).includes(device.id) ||
+                              [device.displayName, ...(device.aliases[language] ?? [])].some(
+                                  name => normalizeReply(name) === normalized,
+                              ),
+                      );
+                const rooms = request.selection
+                    ? []
+                    : resolver
+                          .roomMatches(answer, language)
+                          .map(room => room.id)
+                          .filter(id => devices.some(device => device.roomIds.includes(id)));
+                const matchingDevices = rooms.length
+                    ? (named.length ? named : devices).filter(device => device.roomIds.some(id => rooms.includes(id)))
+                    : named;
+                if (matchingDevices.length === 1) {
+                    forcedDeviceId = matchingDevices[0].id;
+                    forcedRoomId = rooms[0] ?? forcedRoomId;
+                } else if (rooms.length === 1 && matchingDevices.length > 1) {
+                    forcedRoomId = rooms[0];
+                } else {
+                    return this.repeatClarification(request, pending, model.version);
                 }
-                forcedDeviceId = request.selection;
             } else if (pending.key === 'capability') {
-                if (!pending.stateIds?.includes(request.selection)) {
-                    return this.reject(request, language, 'INVALID_SELECTION');
+                const device = this.catalog.list().find(item => item.id === pending.selectedDeviceId);
+                const matches = request.selection
+                    ? (pending.stateIds?.filter(id => id === request.selection) ?? [])
+                    : [
+                          ...new Set([
+                              ...matchingOptionIds(answer, pending.options ?? []),
+                              ...(device?.discoveredCapabilities
+                                  .filter(
+                                      capability =>
+                                          pending.stateIds?.includes(capability.stateId) &&
+                                          [
+                                              capabilityLabel(language, capability),
+                                              capability.stateId.split('.').at(-1) ?? '',
+                                          ].some(label => normalizeReply(label) === normalizeReply(answer)),
+                                  )
+                                  .map(capability => capability.stateId) ?? []),
+                          ]),
+                      ];
+                if (matches.length !== 1) {
+                    return this.repeatClarification(request, pending, model.version);
                 }
                 forcedDeviceId = pending.selectedDeviceId;
-                selectedStateId = request.selection;
+                selectedStateId = matches[0];
             } else if (pending.key === 'value') {
+                const parsedAnswer = parseEntities(answer, language, rooms);
+                if (!parsedAnswer.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
                 forcedDeviceId = pending.selectedDeviceId;
                 selectedStateId = pending.stateIds?.[0];
+                text = `${pending.request.text} ${answer}`;
             }
+            this.sessions.consume(pending.id, clientKey, request.sessionId);
         } else {
             const parsed = parseEntities(text, language, rooms);
             const roomMatches = resolver.roomMatches(text, language);
@@ -263,11 +393,20 @@ export class CommandController {
             }
             const analysis = await model.engine.analyze(text, language);
             const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
-            intent = explicitSetpointWrite ? 'device.setTemperature' : (analysis.intent ?? '');
-            confidence = explicitSetpointWrite ? 1 : analysis.confidence;
-            details.alternatives = explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
+            const explicitButtonPress = isExplicitButtonPress(text, language, this.catalog);
+            intent = explicitButtonPress
+                ? 'device.press'
+                : explicitSetpointWrite
+                  ? 'device.setTemperature'
+                  : (analysis.intent ?? '');
+            confidence = explicitButtonPress || explicitSetpointWrite ? 1 : analysis.confidence;
+            details.alternatives =
+                explicitButtonPress || explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
-            if (!intent || (!explicitSetpointWrite && (confidence < 0.65 || confidence - second < 0.12))) {
+            if (
+                !intent ||
+                (!explicitButtonPress && !explicitSetpointWrite && (confidence < 0.65 || confidence - second < 0.12))
+            ) {
                 return this.reject(request, language, 'UNCLEAR_INTENT');
             }
             const configured = this.getUserIntents().find(item => item.id === intent && item.enabled);
@@ -293,13 +432,17 @@ export class CommandController {
                     key: 'room',
                     clientKey,
                     sessionId: request.sessionId,
-                    request,
+                    request: sourceRequest,
                     language,
                     action,
                     intent,
                     confidence,
                     deviceIds: [],
                     roomIds: roomMatches.map(room => room.id),
+                    options: roomMatches,
+                    question: responseText(language, 'roomChoices', {
+                        options: roomMatches.map(room => room.label).join(', '),
+                    }),
                 });
                 return {
                     requestId: request.requestId,
@@ -329,22 +472,29 @@ export class CommandController {
         ) {
             return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
         }
+        const domain =
+            intent === 'device.setLevel'
+                ? 'brightness'
+                : intent === 'device.setTemperature'
+                  ? 'temperature'
+                  : action === 'getValue' || action === 'setValue'
+                    ? inferValueDomain(text, language)
+                    : undefined;
         let deviceId = forcedDeviceId;
         let candidates;
         if (!deviceId) {
-            const resolution = resolver.resolve(text, language, action, forcedRoomId);
+            const resolution = resolver.resolve(text, language, action, forcedRoomId, domain);
             candidates = resolution.candidates;
             details.candidates = resolution.candidates;
             if (!resolution.candidates.length) {
                 if (!forcedRoomId && !resolver.roomMatches(text, language).length) {
-                    const domain = action === 'getValue' ? inferValueDomain(text, language) : undefined;
                     const eligible = this.catalog
                         .list()
                         .filter(device =>
                             device.discoveredCapabilities.some(
                                 capability =>
                                     this.catalog.isAllowed(device.id, capability, action) &&
-                                    matchesValueDomain(capability, domain),
+                                    matchesValueDomain(capability, domain, language),
                             ),
                         );
                     if (eligible.length) {
@@ -361,12 +511,16 @@ export class CommandController {
                             key: 'device',
                             clientKey,
                             sessionId: request.sessionId,
-                            request,
+                            request: sourceRequest,
                             language,
                             action,
                             intent,
                             confidence,
                             deviceIds: eligible.map(device => device.id),
+                            options,
+                            question: responseText(language, 'deviceChoices', {
+                                options: options.map(item => item.label).join(', '),
+                            }),
                         });
                         return {
                             requestId: request.requestId,
@@ -408,13 +562,17 @@ export class CommandController {
                             key: 'room',
                             clientKey,
                             sessionId: request.sessionId,
-                            request,
+                            request: sourceRequest,
                             language,
                             action,
                             intent,
                             confidence,
                             deviceIds: resolution.candidates.map(item => item.deviceId),
                             roomIds: options.map(item => item.id),
+                            options,
+                            question: responseText(language, 'roomChoices', {
+                                options: options.map(item => item.label).join(', '),
+                            }),
                         });
                         return {
                             requestId: request.requestId,
@@ -443,13 +601,17 @@ export class CommandController {
                     key: 'device',
                     clientKey,
                     sessionId: request.sessionId,
-                    request,
+                    request: sourceRequest,
                     language,
                     action,
                     intent,
                     confidence,
                     deviceIds: resolution.candidates.map(item => item.deviceId),
                     selectedRoomId: forcedRoomId,
+                    options,
+                    question: responseText(language, 'deviceChoices', {
+                        options: options.map(item => item.label).join(', '),
+                    }),
                 });
                 return {
                     requestId: request.requestId,
@@ -471,14 +633,7 @@ export class CommandController {
             }
             deviceId = resolution.selected.deviceId;
         }
-        const outcome = planAction(
-            this.catalog,
-            deviceId,
-            action,
-            parsed,
-            action === 'getValue' ? inferValueDomain(text, language) : undefined,
-            selectedStateId,
-        );
+        const outcome = planAction(this.catalog, deviceId, action, parsed, language, text, domain, selectedStateId);
         if ('error' in outcome) {
             return this.reject(request, language, outcome.error, intent, confidence);
         }
@@ -487,14 +642,14 @@ export class CommandController {
                 const device = this.catalog.list().find(item => item.id === deviceId);
                 const options = outcome.stateIds.map(id => {
                     const capability = device?.discoveredCapabilities.find(item => item.stateId === id);
-                    const kind = capability ? languageMessage(language, `capability.${capability.kind}`) : id;
+                    const kind = capability ? capabilityLabel(language, capability) : id;
                     return { id, label: `${kind} (${id.split('.').at(-1)})` };
                 });
                 const pending = this.sessions.create({
                     key: 'capability',
                     clientKey,
                     sessionId: request.sessionId,
-                    request,
+                    request: sourceRequest,
                     language,
                     action,
                     intent,
@@ -503,6 +658,10 @@ export class CommandController {
                     selectedDeviceId: deviceId,
                     selectedRoomId: forcedRoomId,
                     stateIds: outcome.stateIds,
+                    options,
+                    question: responseText(language, 'capabilityChoices', {
+                        options: options.map(item => item.label).join(', '),
+                    }),
                 });
                 return {
                     requestId: request.requestId,
@@ -521,7 +680,7 @@ export class CommandController {
                 key: 'value',
                 clientKey,
                 sessionId: request.sessionId,
-                request,
+                request: sourceRequest,
                 language,
                 action,
                 intent,
@@ -530,6 +689,7 @@ export class CommandController {
                 selectedDeviceId: deviceId,
                 selectedRoomId: forcedRoomId,
                 stateIds: selectedStateId ? [selectedStateId] : undefined,
+                question: languageMessage(language, 'valueClarification'),
             });
             return {
                 requestId: request.requestId,
@@ -592,6 +752,26 @@ export class CommandController {
             errorCode: executed.status === 'rejected' || executed.status === 'failed' ? executed.message : undefined,
             actions: [executed],
             modelVersion: model.version,
+        };
+    }
+
+    private repeatClarification(
+        request: CommandRequest,
+        pending: PendingClarification,
+        modelVersion?: string,
+    ): CommandResult {
+        return {
+            requestId: request.requestId,
+            status: 'clarification',
+            language: pending.language,
+            intent: pending.intent,
+            confidence: pending.confidence,
+            response: [languageMessage(pending.language, 'clarificationMismatch'), pending.question]
+                .filter(Boolean)
+                .join(' '),
+            errorCode: 'INVALID_SELECTION',
+            clarification: { id: pending.id, key: pending.key, options: pending.options },
+            modelVersion,
         };
     }
 

@@ -10,6 +10,8 @@ const VALID_INTENTS = new Set([
     'device.turnOff',
     'device.setLevel',
     'device.setTemperature',
+    'device.setValue',
+    'device.press',
     'device.getState',
     'device.getValue',
     'None',

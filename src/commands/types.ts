@@ -20,7 +20,7 @@ export interface ActionResult {
 
 export interface CommandResult {
     requestId: string;
-    status: 'success' | 'clarification' | 'rejected' | 'error';
+    status: 'success' | 'clarification' | 'cancelled' | 'rejected' | 'error';
     intent?: string;
     confidence?: number;
     language: Language;

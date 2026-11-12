@@ -44,14 +44,16 @@ Die zwei Kanäle mit dem Namen **Lampe** sind absichtlich gleich benannt. Damit 
 
 | Gerät                         | Freigaben                                                                            |
 | ----------------------------- | ------------------------------------------------------------------------------------ |
-| Lampe Wohnzimmer              | `turnOn`, `turnOff`, `getState` für `POWER`; `setLevel`, `getValue` für `HELLIGKEIT` |
+| Lampe Wohnzimmer              | `turnOn`, `turnOff`, `getState` für `POWER`; `setValue`, `getValue` für `HELLIGKEIT` |
 | Lampe Schlafzimmer            | `turnOn`, `turnOff`, `getState` für `POWER`                                          |
-| Heizung Wohnzimmer            | `setTemperature` für `SOLL`; `getValue` für `IST`                                     |
+| Heizung Wohnzimmer            | `setValue` für `SOLL`; `getValue` für `IST`                                     |
 | Temperatursensor Schlafzimmer | `getValue` für `IST`                                                                 |
 
 Vor der Freigabe im Dialog Ziel-State, Rolle, Datentyp, Wertebereich und Lese-/Schreibbarkeit prüfen. Falls ein State nach einer Metadatenänderung `needsReview` zeigt, die betroffene Aktion erneut prüfen und freigeben.
 
 Im Geräte-Tab zeigen die Raum- und Funktionsfilter die Namen der ioBroker-Aufzählungen an. Hinter dem Gerätenamen steht die technische Geräte-ID in Klammern. Jede Gerätekarte trennt Aliase von Aktionsfreigaben. Aliase stehen in einer zweispaltigen Tabelle mit Sprachwahl und Eingabefeld; mit dem Plus kann eine weitere unterstützte Sprache ergänzt werden.
+
+Jede Gerätekarte lässt sich über den Pfeil am Kartenkopf einzeln auf- und zuklappen. **Alle aufklappen/Alle zuklappen** steuert die gesamte gefilterte Geräteliste, auch über mehrere Seiten hinweg.
 
 Für die Formulierung **„könntest du freundlicherweise die Leuchte im Wohnzimmer deaktivieren“** bei beiden Lampen den deutschen Alias `Leuchte` eintragen und speichern. Der Raum unterscheidet die Geräte. Ohne Raum fragt der Adapter bei mehreren passenden Räumen zuerst nach dem Raum. Die Aktion `turnOff` muss für die jeweilige Lampe freigegeben und das Gerät aktiv sein.
 
@@ -84,3 +86,38 @@ Für einen erfolgreichen Helligkeitslesetest `Wie hell ist die Lampe im Wohnzimm
 Die mitgelieferten Trainingssätze enthalten Schreibbefehle für Solltemperaturen auf Deutsch und Englisch, auch ohne Zahlenwert. Nach einem Adapter-Neustart wird ein vorhandenes Modell neu trainiert, wenn sich die Trainingssätze geändert haben. Erst bei `info.modelStatus = ready` erneut testen.
 
 Ein `0_userdata.0`-State simuliert nur den ioBroker-Datenpunkt. Dieser Test bestätigt Erkennung, Freigabe und State-Zugriff; ein echter Geräteadapter muss später separat getestet werden.
+
+## 6. Rollladen im Wohnzimmer testen
+
+Unter **Objekte → 0_userdata.0** einen weiteren Kanal `test_rollladen_wohnzimmer` mit dem Namen **Rollladen** anlegen. Den **Kanal** dem Raum **Wohnzimmer** und einer neuen Funktion **Beschattung** zuordnen. Die folgenden States darunter anlegen:
+
+| State-ID | Rolle | Typ | read | write | Min | Max | Einheit | Anfangswert |
+| -------- | ----- | --- | ---- | ----- | --: | --: | ------- | ----------- |
+| `POSITION_SOLL` | `level.blind` | number | ja | ja | 0 | 100 | `%` | `50` |
+| `POSITION_IST` | `value.blind` | number | ja | nein | 0 | 100 | `%` | `50` |
+| `LAMELLEN_SOLL` | `level.tilt` | number | ja | ja | 0 | 100 | `%` | `50` |
+| `LAMELLEN_IST` | `value.tilt` | number | ja | nein | 0 | 100 | `%` | `50` |
+
+Eine vollständige ID lautet beispielsweise `0_userdata.0.test_rollladen_wohnzimmer.POSITION_SOLL`. Für diese Rollen bedeutet `0 %` geschlossen beziehungsweise unten und `100 %` vollständig geöffnet beziehungsweise oben. **Hochfahren** entspricht somit `100 %`, **Herunterfahren** `0 %`; `25 %` und `75 %` sind direkte Zielpositionen. Die Lamellenposition hat ihren eigenen Soll- und Istwert.
+
+In der Geräteansicht zeigt der Adapter für jede Capability zuerst den im State unter `common.name` eingetragenen Namen. Fehlt er, erscheint der letzte Teil der State-ID, zum Beispiel `POSITION_SOLL`. Über diesen Namen kann die Funktion im Testlabor angesprochen werden. Der Capability-Filter zeigt gleiche Namen nur einmal; ein geänderter State-Name allein widerruft keine Aktionsfreigabe.
+
+Falls Admin für einen **IST**-State keinen Anfangswert bei `write = nein` zulässt, `write` kurzzeitig aktivieren, den Wert setzen und anschließend wieder auf **nein** stellen. Bei den **SOLL**-States bleibt `write = ja`. Ein Schreibzugriff auf `POSITION_SOLL` oder `LAMELLEN_SOLL` verändert die zugehörigen **IST**-States in `0_userdata.0` nicht automatisch. Zum Simulieren einer Bewegung die Istwerte später manuell ändern oder ein eigenes Testskript verwenden.
+
+Optional lassen sich drei Taster für getrennte Fahrbefehle ergänzen:
+
+| State-ID | Rolle | Typ | read | write | Befehl |
+| -------- | ----- | --- | ---- | ----- | ------- |
+| `AUF` | `button.open.blind` | boolean | nein | ja | `true` fährt hoch |
+| `AB` | `button.close.blind` | boolean | nein | ja | `true` fährt herunter |
+| `STOP` | `button.stop.blind` | boolean | nein | ja | `true` stoppt |
+
+Diese Taster benötigen keinen Anfangswert. Auch sie bewegen in `0_userdata.0` keinen Rollladen und ändern keinen Istwert. Die Rollen und ihre Bedeutung sind in den [ioBroker-State-Rollen](https://github.com/ioBroker/ioBroker.docs/blob/master/docs/en/dev/stateroles.md) beschrieben.
+
+Nach dem erneuten Einlesen für `AUF`, `AB` und `STOP` jeweils die Aktion `press` freigeben. Im Testlabor etwa `Drücke AUF am Rollladen im Wohnzimmer`, `Betätige die Taste AB am Rollladen im Wohnzimmer` und `Drücke STOP am Rollladen im Wohnzimmer` testen. Im Modus **Ausführen** wird jeweils `true` auf den gewählten Taster geschrieben. `Aktiviere die Taste AUF am Rollladen im Wohnzimmer` ist ebenfalls möglich. Bei einem benannten Gerät mit genau einem freigegebenen Taster kann auch `Schalte <Gerät> im <Raum>` diesen Taster auslösen. Bei mehreren passenden Tastern folgt eine Rückfrage. Ein Button besitzt keine getrennten Ein- und Ausschaltaktionen und keinen lesbaren Schaltzustand; ausdrücklich `ein` oder `aus` wird daher nicht als Tastendruck behandelt.
+
+Nach **Geräte neu einlesen** sollte der Rollladen im Geräte-Tab erscheinen. Das Gerät aktivieren und `setValue` für `POSITION_SOLL` und `LAMELLEN_SOLL` sowie `getValue` für `POSITION_IST` und `LAMELLEN_IST` freigeben. Im Testlabor dann `Stelle den Rollladen im Wohnzimmer auf 25 Prozent`, `Stelle die Lamellen im Wohnzimmer auf 75 Prozent`, `Welche Position hat der Rollladen im Wohnzimmer` und `Wie stehen die Lamellen im Wohnzimmer` prüfen. Die Schreibbefehle ändern nur die Soll-States; für eine geänderte Leseantwort die Istwerte manuell setzen.
+
+Die Rollen `value.*` und `level.*` legen allein keine Zugriffsrechte fest. Der Adapter nutzt `common.read` und `common.write`; ein lesbarer und schreibbarer `value.blind`-State kann nach Freigabe sowohl `getValue` als auch `setValue` anbieten. Semantische Fahrbefehle wie „Fahre hoch“ und „Fahre runter“ sind noch nicht implementiert; die Button-Namen `AUF` und `AB` können mit „Drücke“ oder „Betätige“ angesprochen werden.
+
+Für einen Test mit der ganz allgemeinen Rolle `value` können die vier Zahlen-States alternativ alle diese Rolle erhalten. Dann jedem State einen unterscheidbaren Namen wie **Position Soll**, **Position Ist**, **Lamellen Soll** beziehungsweise **Lamellen Ist** geben. Der Adapter nutzt diese Namen und die State-IDs zur Funktionsauswahl; wenn er mehrere passende States findet, fragt er nach. Die Lese- und Schreibrechte sowie die Freigaben bleiben wie oben beschrieben.

@@ -117,7 +117,7 @@ describe('message API', () => {
                     deviceId: 'plug.0.lamp',
                     approvals: [
                         { stateId: 'plug.0.lamp.POWER', action: 'turnOff' },
-                        { stateId: 'plug.0.lamp.POWER', action: 'setLevel' },
+                        { stateId: 'plug.0.lamp.POWER', action: 'setValue' },
                     ],
                 },
                 admin,
@@ -173,7 +173,7 @@ describe('message API', () => {
         }
         expect(await router.handle('listDevices', { capability: '__none__' }, admin)).to.include({ total: 0 });
         expect(await router.handle('listDevices', {}, admin)).to.include({ total: 1 });
-        expect(await router.handle('listDevices', { capability: 'onOff' }, admin)).to.include({ total: 1 });
+        expect(await router.handle('listDevices', { capability: 'POWER' }, admin)).to.include({ total: 1 });
         await catalog.reconcile([]);
         expect(catalog.list().every(item => item.status === 'missing')).to.equal(true);
         expect(await router.handle('listDevices', { limit: 1 }, admin)).to.deep.equal({
@@ -181,7 +181,39 @@ describe('message API', () => {
             devices: [],
             rooms: [],
             functions: [],
+            capabilities: [],
         });
+        await catalog.reconcile(
+            discoverDevices([
+                { id: 'test.0.heating', type: 'channel', common: { name: 'Heizung' } },
+                {
+                    id: 'test.0.heating.IST',
+                    type: 'state',
+                    common: { name: 'Temperatur', role: 'value.temperature', type: 'number', read: true, write: false },
+                },
+                {
+                    id: 'test.0.heating.SOLL',
+                    type: 'state',
+                    common: {
+                        name: 'Temperatur',
+                        role: 'level.temperature',
+                        type: 'number',
+                        read: true,
+                        write: true,
+                        min: 5,
+                        max: 30,
+                    },
+                },
+                {
+                    id: 'test.0.heating.POSITION',
+                    type: 'state',
+                    common: { role: 'value', type: 'number', read: true, write: false },
+                },
+            ]),
+        );
+        const named = (await router.handle('listDevices', { language: 'de' }, admin)) as { capabilities: string[] };
+        expect(named.capabilities).to.deep.equal(['POSITION', 'Temperatur']);
+        expect(await router.handle('listDevices', { capability: 'Temperatur' }, admin)).to.include({ total: 1 });
         expect(await router.handle('getDiagnostics', {}, admin)).to.deep.equal({ status: 'ready' });
         const imported: IntentDefinition[] = [
             {

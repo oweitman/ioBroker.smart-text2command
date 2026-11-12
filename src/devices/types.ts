@@ -1,11 +1,13 @@
 import type { Language } from '../types/api';
 
-export type CapabilityKind = 'onOff' | 'brightness' | 'temperatureSetpoint' | 'readTemperature' | 'position';
-export type ActionKind = 'turnOn' | 'turnOff' | 'setLevel' | 'setTemperature' | 'getState' | 'getValue';
+export type CapabilityKind = 'onOff' | 'genericValue' | 'button';
+export type ActionKind = 'turnOn' | 'turnOff' | 'setValue' | 'press' | 'getState' | 'getValue';
 export type ValueKind = 'boolean' | 'number' | 'string';
 
 export interface Capability {
     kind: CapabilityKind;
+    role?: string;
+    name?: string | Record<string, string>;
     stateId: string;
     readStateId?: string;
     readable: boolean;

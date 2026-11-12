@@ -1,4 +1,5 @@
 {
+  "cancelPhrases": ["stop", "cancel", "never mind", "forget it"],
   "unsupported": {
     "group": "\\b(all|every)\\b",
     "exception": "\\b(except|excluding)\\b",
@@ -6,7 +7,7 @@
     "multipleActions": "\\b(and|then)\\b",
     "unit": "\\b(fahrenheit|kelvin)\\b|°\\s*[fFkK]\\b"
   },
-  "actionVerbs": "\\b(turn|switch|set|dim|activate|deactivate)\\b",
+  "actionVerbs": "\\b(turn|switch|set|dim|activate|deactivate|press|push|trigger)\\b",
   "negation": "\\b(not|don't|do not|never)\\b",
   "numeric": "(?<![\\p{L}\\d])[-+]?\\d+(?:[.,]\\d+)?\\s*(?:%|percent|°\\s*c|degrees?|celsius)?",
   "numericPercent": "%|percent",
@@ -14,7 +15,15 @@
   "quoted": "[\"„“]([^\"„“]{2,100})[\"„“]",
   "valueDomainTemperature": "\\b(warm|temperature|degrees?|cold|hot)\\b",
   "valueDomainBrightness": "\\b(bright|brightness|dimming)\\b",
+  "valueDomainPosition": "\\b(blind|blinds|shutter|shutters|position)\\b",
+  "valueDomainTilt": "\\b(slat|slats|tilt)\\b",
   "setpointVerb": "\\b(?:write|set|adjust)\\b",
   "setpointTarget": "\\b(?:target\\s+temperature|setpoint)\\b",
-  "roomReference": "\\bin\\s+the\\s+[\\p{L}][\\p{L}\\p{N}-]*"
+  "buttonPressVerb": "\\b(?:press|push|trigger)\\b",
+  "buttonActivationVerb": "\\b(?:activate)\\b",
+  "buttonSwitchVerb": "\\b(?:turn|switch)\\b",
+  "buttonStateQualifier": "\\b(?:on|off|deactivate)\\b",
+  "buttonTarget": "\\b(?:button|key|control)\\b",
+  "roomReference": "\\bin\\s+the\\s+[\\p{L}][\\p{L}\\p{N}-]*",
+  "deviceBeforeRoom": "\\b(?:turn|switch|activate|deactivate|press|push|trigger)\\s+(?:(?:on|off)\\s+)?(?:(?:the|a|an)\\s+)?(?<device>[\\p{L}][\\p{L}\\p{N}\\s-]*?)\\s+in\\s+the\\s+[\\p{L}]"
 }

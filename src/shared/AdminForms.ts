@@ -2,7 +2,7 @@ import type { ActionKind, DeviceRecord } from '../devices/types';
 import type { IntentDefinition } from '../nlp/types';
 import languages from '../../resources/languages.json';
 
-const ACTIONS = new Set<ActionKind>(['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue']);
+const ACTIONS = new Set<ActionKind>(['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue']);
 
 export function parseAliases(input: string): string[] {
     const aliases = input

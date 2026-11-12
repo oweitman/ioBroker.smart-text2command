@@ -10,6 +10,18 @@ NLP.js classifies German and English requests using a versioned local model. Tra
 
 The `sendTo` API accepts `processText` with `mode: "analyze"` or `mode: "execute"`. Execution requires a current per-action approval and rechecks the target object immediately before access. `input.text` only analyzes; it cannot execute. Results appear in `output.response`, `output.result`, and `output.status`. Admin-only message commands manage devices, typed user intents, model training, rollback and diagnostics. Admin mutation requires an authenticated admin sender and an administrator group member.
 
+### Follow-up questions from another adapter
+
+The complete contract and an adapter-side `sendTo` example are in [documentation/SENDTO_API.md](documentation/SENDTO_API.md).
+
+Send a new `requestId` for every turn. A request containing only `text` (with or without `sessionId`) starts a new command. When the result has `status: "clarification"`, keep its `clarification.id` and send it with the next short answer, using the same `sessionId` and `mode`:
+
+```json
+{"requestId":"turn-2","sessionId":"speaker-1","clarificationId":"<id from clarification>","text":"Wohnzimmer","mode":"execute"}
+```
+
+The caller supplies a distinct session ID for each independent conversation and keeps the clarification ID private to that conversation. `selection` may optionally contain the ID of a displayed option; spoken answers need only `text`. An answer that does not match repeats the question with the same ID. A clarification expires after five minutes; the next answer then receives a spoken expiry response. Whole-phrase replies such as `Stopp`, `Abbrechen`, `Stop`, or `Cancel` end the open question with `status: "cancelled"` and a spoken acknowledgement. The question itself does not announce cancellation words. Omitting `clarificationId` deliberately starts a new command and clears the old question for that session.
+
 The React 19/MUI 9 Admin page provides a dashboard, device approvals and aliases, custom intents, background training, an analysis-first test lab, and diagnostics. Custom intents can be exported and imported as JSON; device approvals are excluded from imports. Admin 8 or later is required. After editing intents, start training to activate them.
 
 ## Trainingsbeispiele für eigene Intents
@@ -62,7 +74,7 @@ Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`.
 }
 ```
 
-Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setLevel`, `setTemperature`, `getState` und `getValue`. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
+Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setValue`, `press`, `getState` und `getValue`. `press` löst einen freigegebenen booleschen `button`-State mit `true` aus. Die System-Intents für Helligkeit und Temperatur verwenden `setValue` und wählen den passenden numerischen State anhand von Name und Rolle. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
 
 ## Development
 

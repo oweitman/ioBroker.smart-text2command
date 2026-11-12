@@ -106,6 +106,43 @@ describe('device resolver', () => {
         registry.approve('test.0.sensor2', 'test.0.sensor2.IST', 'getValue');
         expect(resolver.resolve('Wie warm ist es im Schlafzimmer', 'de', 'getValue').clarification).to.equal(true);
     });
+    it('does not operate the only approved room device when another device is named', () => {
+        const source: ObjectSnapshot[] = [
+            { id: 'test.0.lamp', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lamp.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'test.0.climate', type: 'channel', common: { name: 'Klima' } },
+            {
+                id: 'test.0.climate.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: 'enum.rooms.schlafzimmer',
+                type: 'enum',
+                common: { members: ['test.0.lamp', 'test.0.climate'] },
+            },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        registry.setEnabled('test.0.lamp', true);
+        registry.approve('test.0.lamp', 'test.0.lamp.POWER', 'turnOn');
+        const resolver = new DeviceResolver(registry);
+        expect(resolver.resolve('Schalte im Schlafzimmer ein', 'de', 'turnOn').selected?.deviceId).to.equal(
+            'test.0.lamp',
+        );
+        expect(resolver.resolve('Schalte Klima im Schlafzimmer', 'de', 'turnOn').candidates).to.be.empty;
+        expect(resolver.resolve('Schalte Klimaanlage im Schlafzimmer', 'de', 'turnOn').candidates).to.be.empty;
+        registry.setEnabled('test.0.climate', true);
+        registry.approve('test.0.climate', 'test.0.climate.POWER', 'turnOn');
+        expect(resolver.resolve('Schalte Klima im Schlafzimmer', 'de', 'turnOn').selected?.deviceId).to.equal(
+            'test.0.climate',
+        );
+        expect(resolver.resolve('Switch the climate in the bedroom', 'en', 'turnOn').candidates).to.be.empty;
+    });
     it('does not read brightness from another room when the named lamp has no brightness state', () => {
         const source: ObjectSnapshot[] = [
             { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },
@@ -156,12 +193,12 @@ describe('device resolver', () => {
         registry.reconcile(discoverDevices(source));
         for (const id of ['test.0.first', 'test.0.second']) {
             registry.setEnabled(id, true);
-            registry.approve(id, `${id}.SOLL`, 'setTemperature');
+            registry.approve(id, `${id}.SOLL`, 'setValue');
         }
         const result = new DeviceResolver(registry).resolve(
             'Stelle im Wohnzimmer die Temperatur auf 25 Grad',
             'de',
-            'setTemperature',
+            'setValue',
         );
         expect(result.candidates).to.have.length(2);
         expect(result.clarification).to.equal(true);

@@ -12,7 +12,10 @@ export function normalizedValue(
     if (action === 'turnOff') {
         return capability.mapping?.off ?? false;
     }
-    if (action !== 'setLevel' && action !== 'setTemperature') {
+    if (action === 'press') {
+        return true;
+    }
+    if (action !== 'setValue') {
         return undefined;
     }
     const candidates = parsed.entities.filter(
@@ -22,21 +25,29 @@ export function normalizedValue(
         return undefined;
     }
     const entity = candidates[0];
-    if (action === 'setLevel' && entity.type === 'temperature') {
-        return undefined;
-    }
-    if (action === 'setTemperature' && entity.type === 'percent') {
+    if (
+        entity.type === 'temperature' &&
+        !(capability.unit === '°C' || (!capability.unit && capability.role?.endsWith('.temperature') === true))
+    ) {
         return undefined;
     }
     if (typeof entity.value !== 'number' || !Number.isFinite(entity.value)) {
         return undefined;
     }
     let value = entity.value;
-    if (action === 'setLevel' && entity.type === 'percent') {
-        if (value < 0 || value > 100 || capability.min === undefined || capability.max === undefined) {
+    if (entity.type === 'percent') {
+        const percentageRole = /\.(?:brightness|dimmer|blind|tilt)$/.test(capability.role ?? '');
+        if (capability.unit !== '%' && !percentageRole) {
             return undefined;
         }
-        value = capability.min + ((capability.max - capability.min) * value) / 100;
+        if (value < 0 || value > 100) {
+            return undefined;
+        }
+        if (capability.min !== undefined && capability.max !== undefined) {
+            value = capability.min + ((capability.max - capability.min) * value) / 100;
+        } else if (capability.unit !== '%') {
+            return undefined;
+        }
     }
     if (capability.mapping?.scale !== undefined) {
         value *= capability.mapping.scale;

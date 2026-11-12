@@ -5,6 +5,7 @@ const criticalRole = /lock|alarm|garage|door|gate|security|schloss|tor/i;
 export function capabilityFingerprint(capability: Omit<Capability, 'fingerprint' | 'needsReview'>): string {
     const relevant = {
         kind: capability.kind,
+        role: capability.role,
         stateId: capability.stateId,
         readStateId: capability.readStateId,
         readable: capability.readable,
@@ -52,40 +53,25 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
     }
 
     let kind: CapabilityKind | undefined;
-    if (role === 'switch' && valueKind === 'boolean' && common.write === true) {
+    if ((role === 'button' || role.startsWith('button.')) && valueKind === 'boolean' && common.write === true) {
+        kind = 'button';
+    } else if (role === 'switch' && valueKind === 'boolean' && common.write === true) {
         kind = 'onOff';
     } else if (
-        (role === 'level.dimmer' || role === 'level.brightness') &&
-        valueKind === 'number' &&
-        common.write === true &&
-        Number.isFinite(common.min) &&
-        Number.isFinite(common.max) &&
-        common.min! < common.max!
+        (role === 'value' || role.startsWith('value.') || role === 'level' || role.startsWith('level.')) &&
+        (valueKind === 'number' || common.read === true) &&
+        (common.read === true || common.write === true)
     ) {
-        kind = 'brightness';
-    } else if (
-        (role === 'value.temperature' || role === 'level.temperature') &&
-        valueKind === 'number' &&
-        common.read === true &&
-        common.write !== true
-    ) {
-        kind = 'readTemperature';
-    } else if (
-        role === 'level.temperature' &&
-        valueKind === 'number' &&
-        common.write === true &&
-        Number.isFinite(common.min) &&
-        Number.isFinite(common.max) &&
-        common.min! < common.max!
-    ) {
-        kind = 'temperatureSetpoint';
+        kind = 'genericValue';
     }
-    // Position remains reserved until an explicit direction and scale are defined.
+    // Directional blind commands need separate semantics; numeric positions use generic values.
     if (!kind) {
         return undefined;
     }
     const candidate: Omit<Capability, 'fingerprint' | 'needsReview'> = {
         kind,
+        ...(kind === 'genericValue' || kind === 'button' ? { role } : {}),
+        ...(common.name ? { name: common.name } : {}),
         stateId: object.id,
         readable: common.read === true,
         writable: common.write === true,

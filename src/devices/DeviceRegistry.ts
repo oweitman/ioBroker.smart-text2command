@@ -10,19 +10,14 @@ function supports(capability: Capability, action: ActionKind): boolean {
         case 'turnOn':
         case 'turnOff':
             return capability.kind === 'onOff' && capability.writable;
-        case 'setLevel':
-            return capability.kind === 'brightness' && capability.writable;
-        case 'setTemperature':
-            return capability.kind === 'temperatureSetpoint' && capability.writable;
+        case 'setValue':
+            return capability.kind === 'genericValue' && capability.valueKind === 'number' && capability.writable;
+        case 'press':
+            return capability.kind === 'button' && capability.valueKind === 'boolean' && capability.writable;
         case 'getState':
             return capability.kind === 'onOff' && capability.readable;
         case 'getValue':
-            return (
-                (capability.kind === 'readTemperature' ||
-                    capability.kind === 'brightness' ||
-                    capability.kind === 'temperatureSetpoint') &&
-                capability.readable
-            );
+            return capability.kind === 'genericValue' && capability.readable;
     }
 }
 

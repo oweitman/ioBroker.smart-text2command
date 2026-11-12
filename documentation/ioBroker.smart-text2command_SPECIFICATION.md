@@ -14,7 +14,7 @@ Ein eigenständiger ioBroker-Adapter interpretiert natürlichsprachliche Texte m
 ### 1.1 MVP-Funktionen
 
 - Deutsche und englische Befehle mit expliziter Sprache oder konfigurierter Standardsprache.
-- System-Intents: `device.turnOn`, `device.turnOff`, `device.setLevel`, `device.setTemperature`, `device.getState`, `device.getValue`.
+- System-Intents: `device.turnOn`, `device.turnOff`, `device.setLevel`, `device.setTemperature`, `device.setValue`, `device.press`, `device.getState`, `device.getValue`.
 - Eigene Intents und Trainingsbeispiele; eigene Intents werden zunächst **nur** mit ausdrücklich konfigurierten, typisierten Aktionen oder Antwortvorlagen verknüpft, nicht mit frei ausführbarem JavaScript.
 - Discovery von States, Channels, Devices, Raum- und Funktions-Enums; Capability-Zuordnung.
 - Gerätefreigaben und Aliase im Admin; Analysemodus ohne Seiteneffekte.
@@ -69,11 +69,13 @@ Ein erfolgreiches `setState(..., ack:false)` bedeutet zunächst nur, dass der Be
 
 ```typescript
 type Language = 'de' | 'en';
-type CapabilityKind = 'onOff' | 'brightness' | 'temperatureSetpoint' | 'readTemperature' | 'position';
+type CapabilityKind = 'onOff' | 'genericValue' | 'button';
 type ValueKind = 'boolean' | 'number' | 'string';
 
 interface Capability {
   kind: CapabilityKind;
+  role?: string;
+  name?: string | Record<Language, string>;
   stateId: string;
   readStateId?: string;
   readable: boolean;
@@ -106,7 +108,7 @@ interface IntentDefinition {
   source: 'system' | 'user';
   enabled: boolean;
   utterances: Partial<Record<Language, string[]>>;
-  action?: { kind: 'capability' | 'response'; operation?: 'turnOn' | 'turnOff' | 'setLevel' | 'setTemperature' | 'getState' | 'getValue'; response?: Partial<Record<Language,string>> };
+  action?: { kind: 'capability' | 'response'; operation?: 'turnOn' | 'turnOff' | 'setValue' | 'press' | 'getState' | 'getValue'; response?: Partial<Record<Language,string>> };
 }
 
 interface CommandRequest {
@@ -116,7 +118,7 @@ interface CommandRequest {
   text: string;
   mode: 'analyze' | 'execute';
   clarificationId?: string; // Antwort auf eine offene Rückfrage
-  selection?: string;       // eindeutige Option aus der Rückfrage
+  selection?: string;       // optional: eindeutige technische Option aus der Rückfrage
 }
 
 interface Candidate { deviceId: string; score: number; reasons: string[] }
@@ -124,14 +126,14 @@ interface PlannedAction { deviceId: string; capability: CapabilityKind; operatio
 interface ActionResult { deviceId: string; stateId: string; status: 'planned' | 'accepted' | 'confirmed' | 'rejected' | 'failed'; message?: string }
 interface CommandResult {
   requestId: string;
-  status: 'success' | 'partial' | 'clarification' | 'rejected' | 'error';
+  status: 'success' | 'partial' | 'clarification' | 'cancelled' | 'rejected' | 'error';
   intent?: string;
   confidence?: number;
   language: Language;
   response: string;
   candidates?: Candidate[];
   actions?: ActionResult[];
-  clarification?: { id: string; key: 'device' | 'room' | 'value' | 'confirmation'; options?: Array<{ id: string; label: string }> };
+  clarification?: { id: string; key: 'device' | 'room' | 'capability' | 'value'; options?: Array<{ id: string; label: string }> };
   modelVersion?: string;
   durationMs?: number;
 }
@@ -139,7 +141,7 @@ interface CommandResult {
 
 **Regeln:** Konfidenz ist eine Modellschätzung, keine garantierte Wahrscheinlichkeit. Keine Ausführung allein aufgrund einer hohen Konfidenz. Gerät und Capability müssen separat eindeutig identifiziert und autorisiert sein. Exakte Namen und Aliase höher gewichten als Fuzzy-Matches; Gleichstand oder geringer Score-Abstand führt zur Rückfrage.
 
-**MVP-Aktionskatalog:** `turnOn`, `turnOff`, `setLevel`, `setTemperature`, `getState`, `getValue`. Benutzerdefinierte Intents können nur eine vom Admin konfigurierte typisierte Aktion aus diesem Katalog oder eine Antwortvorlage auslösen. Die Aktion legt Operation und Capability eindeutig fest; Gerät und Wert werden nach denselben Auflösungs- und Validierungsregeln wie bei System-Intents ermittelt. `position` ist für eine spätere Erweiterung reserviert und im MVP nicht ausführbar.
+**MVP-Aktionskatalog:** `turnOn`, `turnOff`, `setValue`, `press`, `getState`, `getValue`. Benutzerdefinierte Intents können nur eine vom Admin konfigurierte typisierte Aktion aus diesem Katalog oder eine Antwortvorlage auslösen. Die System-Intents für Helligkeit und Temperatur bleiben für die Erkennung erhalten und führen beide die freigegebene Aktion `setValue` auf einem passenden numerischen State aus. `press` schreibt `true` auf einen freigegebenen booleschen `button`-State. Die Aktion legt Operation und Capability eindeutig fest; Gerät und Wert werden nach denselben Auflösungs- und Validierungsregeln wie bei System-Intents ermittelt. Numerische `value`- und `level`-States können anhand von `common.read` und `common.write` generisch gelesen oder gesetzt werden. Semantische Richtungsbefehle für Rollläden sind weiterhin für eine spätere Erweiterung vorgesehen.
 
 ## 5. NLP.js und Training
 
@@ -187,12 +189,11 @@ Beim Start `device`-, `channel`- und `state`-Objekte einlesen, `common`-Metadate
 | ioBroker-Rolle / Merkmale | Capability | Voraussetzung |
 |---|---|---|
 | `switch`, boolescher schreibbarer State | `onOff` | verifiziertes On/Off-Mapping |
-| `level.dimmer` oder `level.brightness`, numerisch | `brightness` | schreibbar, Min/Max oder explizite Skalierung |
-| `value.temperature` | `readTemperature` | lesbarer Messwert, nicht schreibbar |
-| `level.temperature` | `temperatureSetpoint` | schreibbar, mit Min/Max; Admin-Freigabe erforderlich |
-| `level.blind` o. ä. | `position` | Richtung/Skala explizit geklärt |
+| `value`/`value.*` oder `level`/`level.*`, numerisch | `genericValue` | `common.read` erlaubt Lesen, `common.write` erlaubt Schreiben; jede Aktion benötigt eine Admin-Freigabe |
+| `value`/`value.*` oder `level`/`level.*`, String oder Boolean | `genericValue` | nur lesbar, wenn `common.read=true`; Schreiben wird noch nicht angeboten |
+| `button`/`button.*`, boolesch | `button` | `common.write=true`; Aktion `press` schreibt `true`, keine Ein/Aus-Aktion |
 
-`level.temperature` wird nur mit `common.write=true` und gültigem Min/Max-Bereich als Sollwert erkannt. Ein nicht schreibbarer `level.temperature`-State kann als Messwert gelesen werden. Eine Capability kann verschiedene Lese- und Schreib-States besitzen. Alias-Objekte und gerätespezifische Mappings sind auf Zielreferenzen und Wertebereich zu prüfen.
+Der State-Name aus `common.name` oder ersatzweise der letzte Teil seiner ID dient als Funktionsbezeichnung. Rolle und Name helfen, passende Zustände für Temperatur, Helligkeit, Position und Lamellenstellung zu wählen; die Lese- und Schreibbarkeit ergibt sich aus `common.read` und `common.write`. Alias-Objekte und gerätespezifische Mappings sind auf Zielreferenzen und Wertebereich zu prüfen.
 
 ### 6.2 Freigaben und Änderungen
 
@@ -201,6 +202,8 @@ Discovery erstellt neue Geräte mit `enabled:false` und leerer `approvedCapabili
 ## 7. API und Datenpunkte
 
 ### 7.1 `sendTo`-Nachrichten
+
+Der konkrete Vertrag für aufrufende Adapter mit Callback-Beispiel und Gesprächsfortsetzung steht in [SENDTO_API.md](SENDTO_API.md).
 
 - `processText`: `{requestId, sessionId?, language?, text, mode}` → `CommandResult`
 - `listDevices`: paginierte, gefilterte Geräteübersicht für Admin
@@ -244,7 +247,9 @@ Bei gleichzeitigen State-Eingaben ist `output.*` nur ein globaler Letztwert; Meh
 
 ## 8. Dialoge
 
-`SessionStore` hält pro Session einen begrenzten Kontext: offene Absicht, erkannte Werte, Kandidaten, Ablaufzeit und letzten Bezug. Standard-TTL 5 Minuten, maximale Sessions konfigurierbar. Eine Rückfrage liefert eine kurzlebige `clarificationId` und eindeutige Optionen. Eine Antwort über `clarificationId` und `selection` muss zur offenen Anfrage und Session passen; nach Ablauf oder Adapterneustart ist die vollständige Eingabe erneut nötig. Vor Ausführung werden Gerät, State und Freigabe erneut geprüft. Keine langfristige Speicherung persönlicher Chattexte im MVP. Rückfragen dürfen keine impliziten Schreibrechte erzeugen. Bestätigungstokens müssen serverseitig gebunden, einmalig und kurzlebig sein; im MVP sind kritische Aktionsarten standardmäßig gesperrt.
+`SessionStore` hält pro Session einen begrenzten Kontext: offene Absicht, erkannte Werte, Kandidaten und Ablaufzeit. Standard-TTL 5 Minuten, maximal 100 offene Sessions. Eine Rückfrage liefert eine kurzlebige `clarificationId` und eindeutige Optionen. Jede Antwort erhält eine neue `requestId`, dieselbe `sessionId` und die `clarificationId`; der kurze Antworttext steht in `text`. `selection` kann weiterhin optional eine technische Options-ID übermitteln. Ohne `clarificationId` ist der Text immer eine neue Anfrage und beendet die bisherige Rückfrage dieser Session. Eine unbekannte, abgelaufene oder fremde ID liefert eine sprechbare Ablaufantwort und startet keinen neuen Befehl. Eine Antwort, die nicht zur Frage passt, wiederholt die Rückfrage mit derselben ID. Nach Adapterneustart ist die vollständige Eingabe erneut nötig. Vor Ausführung werden Gerät, State und Freigabe erneut geprüft. Keine langfristige Speicherung persönlicher Chattexte im MVP. Rückfragen dürfen keine impliziten Schreibrechte erzeugen. Bestätigungstokens müssen serverseitig gebunden, einmalig und kurzlebig sein; im MVP sind kritische Aktionsarten standardmäßig gesperrt.
+
+Ganze Abbruchantworten wie „Stopp“, „Abbrechen“ oder „Vergiss es“ beenden nur die offene Rückfrage des jeweiligen Absenders und der jeweiligen Session. Die Antwort bestätigt den Abbruch mit `status: "cancelled"` und einem sprechbaren `response`-Text. Weitere Formulierungen stehen in den Sprachdateien. Die Rückfrage selbst enthält keinen Abbruchhinweis. Eine abgelaufene Rückfrage wird erst bei der nächsten Antwort angesagt; für eine Ansage genau beim Ablauf wäre ein zusätzlicher Rückkanal zum aufrufenden Adapter nötig.
 
 Fehlt der Raum, wird er nur erfragt, wenn mehrere geeignete Geräte in unterschiedlichen Räumen übrig bleiben. Mehrere erkannte Räume führen zu einer Auswahl. Ein eindeutiges, freigegebenes Gerät kann auch allein durch Raum und Aktion gewählt werden. Fehlt ein Gerätename, aber es gibt geeignete freigegebene Geräte, werden diese zur Auswahl angeboten. „Funktion“ bezeichnet hier eine freigegebene Capability beziehungsweise ihren Datenpunkt; bei mehreren passenden Datenpunkten wird danach gefragt. Ohne passenden freigegebenen Datenpunkt wird die Aktion abgelehnt. Rückfrageoptionen verwenden stabile IDs und sprechbare Anzeigenamen.
 

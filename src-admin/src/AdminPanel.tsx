@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Box,
@@ -7,6 +7,7 @@ import {
     Card,
     CardContent,
     Chip,
+    Collapse,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -31,18 +32,19 @@ import AddCircleOutlinedIcon from '@mui/icons-material/AddCircleOutlined';
 import CategoryIcon from '@mui/icons-material/Category';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeviceHubIcon from '@mui/icons-material/DeviceHub';
-import LightModeIcon from '@mui/icons-material/LightMode';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import TouchAppIcon from '@mui/icons-material/TouchApp';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import SensorsIcon from '@mui/icons-material/Sensors';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import type { AdminApi } from '../../src/shared/AdminApi';
 import { parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
+import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
 import type { IntentDefinition } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
 import type { Language } from '../../src/types/api';
@@ -67,7 +69,13 @@ type Training = {
     error?: string;
 };
 type EnumOption = { id: string; name: string | Record<string, string> };
-type DeviceList = { total: number; devices: DeviceRecord[]; rooms?: EnumOption[]; functions?: EnumOption[] };
+type DeviceList = {
+    total: number;
+    devices: DeviceRecord[];
+    rooms?: EnumOption[];
+    functions?: EnumOption[];
+    capabilities?: string[];
+};
 
 const pages: Page[] = ['dashboard', 'devices', 'intents', 'training', 'test', 'settings'];
 const localeFiles = import.meta.glob<Record<string, string>>('./i18n/*.json', { eager: true, import: 'default' });
@@ -76,12 +84,10 @@ const dictionaries: Record<Language, Record<string, string>> = Object.fromEntrie
 );
 const actions: Record<Capability['kind'], ActionKind[]> = {
     onOff: ['turnOn', 'turnOff', 'getState'],
-    brightness: ['setLevel', 'getValue'],
-    temperatureSetpoint: ['setTemperature', 'getValue'],
-    readTemperature: ['getValue'],
-    position: [],
+    genericValue: ['setValue', 'getValue'],
+    button: ['press'],
 };
-const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setLevel', 'setTemperature', 'getState', 'getValue'];
+const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue'];
 function languageName(language: Language): string {
     return languageOptions.find(item => item.code === language)?.name ?? language;
 }
@@ -90,20 +96,12 @@ function actionName(action: ActionKind, language: Language): string {
     return labels(language)(`action.${action}`);
 }
 
-function capabilityName(kind: Capability['kind'], language: Language): string {
-    return labels(language)(`capability.${kind}`);
-}
-
 function capabilityIcon(kind: Capability['kind']): React.JSX.Element {
     switch (kind) {
         case 'onOff':
             return <PowerSettingsNewIcon fontSize="small" />;
-        case 'brightness':
-            return <LightModeIcon fontSize="small" />;
-        case 'temperatureSetpoint':
-            return <ThermostatIcon fontSize="small" />;
-        case 'readTemperature':
-            return <SensorsIcon fontSize="small" />;
+        case 'button':
+            return <TouchAppIcon fontSize="small" />;
         default:
             return <DeviceHubIcon fontSize="small" />;
     }
@@ -111,6 +109,16 @@ function capabilityIcon(kind: Capability['kind']): React.JSX.Element {
 
 function isReadAction(action: ActionKind): boolean {
     return action === 'getState' || action === 'getValue';
+}
+
+function availableActions(capability: Capability): ActionKind[] {
+    return actions[capability.kind].filter(action =>
+        action === 'setValue' && capability.valueKind !== 'number'
+            ? false
+            : isReadAction(action)
+              ? capability.readable
+              : capability.writable,
+    );
 }
 
 function BulkActionIcon({ scope, revoke }: { scope: 'read' | 'write' | 'all'; revoke: boolean }): React.JSX.Element {
@@ -151,11 +159,15 @@ function enumLabel(name: string | Record<string, string> | undefined, id: string
 function DeviceCard({
     device,
     language,
+    expanded,
+    onToggle,
     update,
     onError,
 }: {
     device: DeviceRecord;
     language: Language;
+    expanded: boolean;
+    onToggle: () => void;
     update: (payload: Record<string, unknown>) => Promise<void>;
     onError: (message: string) => void;
 }): React.JSX.Element {
@@ -171,9 +183,7 @@ function DeviceCard({
     const [batchOperation, setBatchOperation] = useState<'grant' | 'revoke'>('grant');
     const [batchSelected, setBatchSelected] = useState<string[]>([]);
     const eligibleApprovals = device.discoveredCapabilities.flatMap(capability =>
-        actions[capability.kind]
-            .filter(action => (action.startsWith('get') ? capability.readable : capability.writable))
-            .map(action => ({ capability, action, key: approvalKey(action, capability) })),
+        availableActions(capability).map(action => ({ capability, action, key: approvalKey(action, capability) })),
     );
     const availableApprovals = eligibleApprovals.filter(
         item => device.approvedCapabilities[item.key] !== item.capability.fingerprint || item.capability.needsReview,
@@ -288,6 +298,14 @@ function DeviceCard({
                         spacing={1}
                         sx={{ alignItems: 'center' }}
                     >
+                        <IconButton
+                            size="small"
+                            aria-label={expanded ? t('ui.collapse_device') : t('ui.expand_device')}
+                            aria-expanded={expanded}
+                            onClick={onToggle}
+                        >
+                            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
                         <Chip
                             size="small"
                             label={
@@ -318,210 +336,214 @@ function DeviceCard({
                         />
                     </Stack>
                 </Stack>
-                <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
+                <Collapse
+                    in={expanded}
+                    unmountOnExit
                 >
-                    {device.roomIds.map(id => (
-                        <Chip
-                            key={id}
-                            size="small"
-                            icon={<MeetingRoomIcon />}
-                            label={enumLabel(device.enumNames?.[id], id, language)}
-                        />
-                    ))}
-                    {device.functionIds.map(id => (
-                        <Chip
-                            key={id}
-                            size="small"
-                            icon={<CategoryIcon />}
-                            label={enumLabel(device.enumNames?.[id], id, language)}
-                        />
-                    ))}
-                </Stack>
-                {!device.enabled && Object.keys(device.approvedCapabilities).length > 0 && (
-                    <Alert
-                        severity="info"
-                        sx={{ mt: 1 }}
-                    >
-                        {t('ui.actions_are_approved_but_this_device_is_still_disabled_turn_on_e')}
-                    </Alert>
-                )}
-                {reviewCapabilities.length > 0 && (
-                    <Alert
-                        severity="warning"
-                        sx={{ mt: 1 }}
-                    >
-                        {t('ui.a_capability_changed_review_the_mapping_before_approving_again')}
-                        <Box
-                            component="ul"
-                            sx={{ mt: 1, mb: 0, pl: 2.5 }}
-                        >
-                            {reviewCapabilities.map(capability => {
-                                const affectedActions = Object.entries(device.approvedCapabilities)
-                                    .filter(
-                                        ([key, fingerprint]) =>
-                                            key.endsWith(`:${capability.stateId}`) &&
-                                            fingerprint !== capability.fingerprint,
-                                    )
-                                    .map(([key]) => actionName(key.slice(0, key.indexOf(':')) as ActionKind, language));
-                                return (
-                                    <Box
-                                        component="li"
-                                        key={capability.stateId}
-                                        sx={{ overflowWrap: 'anywhere' }}
-                                    >
-                                        {capability.stateId} ({affectedActions.join(', ')})
-                                    </Box>
-                                );
-                            })}
-                        </Box>
-                    </Alert>
-                )}
-                <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Typography variant="subtitle1">{t('ui.device_names_and_aliases')}</Typography>
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 1 }}
-                    >
-                        {t('ui.for_example_add_light_as_an_alias_for_a_lamp_separate_aliases_wi')}
-                    </Typography>
-                    <Stack spacing={1}>
-                        <LanguageValueTable
-                            rows={aliasRows}
-                            onChange={setAliasRows}
-                            languageHeader={t('ui.language')}
-                            valueHeader={t('ui.aliases')}
-                            valueLabel={t('ui.alias_names')}
-                            addLabel={t('ui.add_language')}
-                            removeLabel={t('ui.remove_language')}
-                        />
-                        <Button
-                            variant="outlined"
-                            onClick={saveAliases}
-                            sx={{ alignSelf: 'flex-start' }}
-                        >
-                            {t('ui.save_aliases')}
-                        </Button>
-                    </Stack>
-                </Box>
-                <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle1">{t('ui.action_approvals')}</Typography>
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mb: 1 }}
-                    >
-                        {t('ui.each_bulk_approval_shows_all_affected_actions_and_states_before_')}
-                    </Typography>
                     <Stack
                         direction="row"
-                        spacing={2}
-                        sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
+                        spacing={1}
+                        sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
                     >
-                        {[
-                            { scope: 'read' as const, label: t('ui.read'), show: hasReadActions },
-                            { scope: 'write' as const, label: t('ui.write'), show: hasWriteActions },
-                            {
-                                scope: 'all' as const,
-                                label: t('ui.read_and_write'),
-                                show: hasReadActions && hasWriteActions,
-                            },
-                        ]
-                            .filter(item => item.show)
-                            .map(item => (
-                                <Stack
-                                    key={item.scope}
-                                    direction="row"
-                                    spacing={0.5}
-                                    sx={{ alignItems: 'center' }}
-                                >
-                                    <Typography variant="body2">{item.label}</Typography>
-                                    {(['grant', 'revoke'] as const).map(operation => {
-                                        const count = countBatch(item.scope, operation);
-                                        const title =
-                                            operation === 'grant'
-                                                ? `${t('ui.approve_together')}: ${item.label} (${count})`
-                                                : `${t('ui.revoke_together')}: ${item.label} (${count})`;
-                                        return (
-                                            <Tooltip
-                                                key={operation}
-                                                title={title}
-                                            >
-                                                <span>
-                                                    <IconButton
-                                                        size="small"
-                                                        aria-label={title}
-                                                        disabled={count === 0}
-                                                        onClick={() => openBatch(item.scope, operation)}
-                                                    >
-                                                        <BulkActionIcon
-                                                            scope={item.scope}
-                                                            revoke={operation === 'revoke'}
-                                                        />
-                                                    </IconButton>
-                                                </span>
-                                            </Tooltip>
-                                        );
-                                    })}
-                                </Stack>
-                            ))}
+                        {device.roomIds.map(id => (
+                            <Chip
+                                key={id}
+                                size="small"
+                                icon={<MeetingRoomIcon />}
+                                label={enumLabel(device.enumNames?.[id], id, language)}
+                            />
+                        ))}
+                        {device.functionIds.map(id => (
+                            <Chip
+                                key={id}
+                                size="small"
+                                icon={<CategoryIcon />}
+                                label={enumLabel(device.enumNames?.[id], id, language)}
+                            />
+                        ))}
                     </Stack>
-                </Box>
-                {device.discoveredCapabilities.map(capability => (
-                    <Box
-                        key={capability.stateId}
-                        sx={{ mb: 1, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-                    >
-                        <Stack
-                            direction="row"
-                            spacing={1}
-                            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                    {!device.enabled && Object.keys(device.approvedCapabilities).length > 0 && (
+                        <Alert
+                            severity="info"
+                            sx={{ mt: 1 }}
                         >
-                            {capabilityIcon(capability.kind)}
-                            <Typography variant="subtitle2">{capabilityName(capability.kind, language)}</Typography>
-                            {capability.needsReview && (
-                                <Chip
-                                    size="small"
-                                    color="warning"
-                                    label={t('ui.review_needed')}
-                                />
-                            )}
-                        </Stack>
+                            {t('ui.actions_are_approved_but_this_device_is_still_disabled_turn_on_e')}
+                        </Alert>
+                    )}
+                    {reviewCapabilities.length > 0 && (
+                        <Alert
+                            severity="warning"
+                            sx={{ mt: 1 }}
+                        >
+                            {t('ui.a_capability_changed_review_the_mapping_before_approving_again')}
+                            <Box
+                                component="ul"
+                                sx={{ mt: 1, mb: 0, pl: 2.5 }}
+                            >
+                                {reviewCapabilities.map(capability => {
+                                    const affectedActions = Object.entries(device.approvedCapabilities)
+                                        .filter(
+                                            ([key, fingerprint]) =>
+                                                key.endsWith(`:${capability.stateId}`) &&
+                                                fingerprint !== capability.fingerprint,
+                                        )
+                                        .map(([key]) =>
+                                            actionName(key.slice(0, key.indexOf(':')) as ActionKind, language),
+                                        );
+                                    return (
+                                        <Box
+                                            component="li"
+                                            key={capability.stateId}
+                                            sx={{ overflowWrap: 'anywhere' }}
+                                        >
+                                            {capability.stateId} ({affectedActions.join(', ')})
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+                        </Alert>
+                    )}
+                    <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <Typography variant="subtitle1">{t('ui.device_names_and_aliases')}</Typography>
                         <Typography
                             variant="body2"
-                            sx={{ wordBreak: 'break-all' }}
-                        >
-                            {capability.stateId}
-                        </Typography>
-                        <Typography
-                            variant="caption"
                             color="text.secondary"
+                            sx={{ mb: 1 }}
                         >
-                            {capability.valueKind} ·{' '}
-                            {[
-                                capability.readable ? t('ui.read') : undefined,
-                                capability.writable ? t('ui.write') : undefined,
-                            ]
-                                .filter(Boolean)
-                                .join(' / ')}
-                            {capability.min !== undefined ? ` · ${t('ui.minimum')} ${capability.min}` : ''}
-                            {capability.max !== undefined ? ` · ${t('ui.maximum')} ${capability.max}` : ''}
-                            {capability.unit ? ` · ${capability.unit}` : ''}
-                            {capability.mapping ? ` · ${JSON.stringify(capability.mapping)}` : ''}
+                            {t('ui.for_example_add_light_as_an_alias_for_a_lamp_separate_aliases_wi')}
+                        </Typography>
+                        <Stack spacing={1}>
+                            <LanguageValueTable
+                                rows={aliasRows}
+                                onChange={setAliasRows}
+                                languageHeader={t('ui.language')}
+                                valueHeader={t('ui.aliases')}
+                                valueLabel={t('ui.alias_names')}
+                                addLabel={t('ui.add_language')}
+                                removeLabel={t('ui.remove_language')}
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={saveAliases}
+                                sx={{ alignSelf: 'flex-start' }}
+                            >
+                                {t('ui.save_aliases')}
+                            </Button>
+                        </Stack>
+                    </Box>
+                    <Box sx={{ mt: 2 }}>
+                        <Typography variant="subtitle1">{t('ui.action_approvals')}</Typography>
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mb: 1 }}
+                        >
+                            {t('ui.each_bulk_approval_shows_all_affected_actions_and_states_before_')}
                         </Typography>
                         <Stack
                             direction="row"
-                            spacing={1}
-                            sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
+                            spacing={2}
+                            sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
                         >
-                            {actions[capability.kind]
-                                .filter(action =>
-                                    action.startsWith('get') ? capability.readable : capability.writable,
-                                )
-                                .map(action => {
+                            {[
+                                { scope: 'read' as const, label: t('ui.read'), show: hasReadActions },
+                                { scope: 'write' as const, label: t('ui.write'), show: hasWriteActions },
+                                {
+                                    scope: 'all' as const,
+                                    label: t('ui.read_and_write'),
+                                    show: hasReadActions && hasWriteActions,
+                                },
+                            ]
+                                .filter(item => item.show)
+                                .map(item => (
+                                    <Stack
+                                        key={item.scope}
+                                        direction="row"
+                                        spacing={0.5}
+                                        sx={{ alignItems: 'center' }}
+                                    >
+                                        <Typography variant="body2">{item.label}</Typography>
+                                        {(['grant', 'revoke'] as const).map(operation => {
+                                            const count = countBatch(item.scope, operation);
+                                            const title =
+                                                operation === 'grant'
+                                                    ? `${t('ui.approve_together')}: ${item.label} (${count})`
+                                                    : `${t('ui.revoke_together')}: ${item.label} (${count})`;
+                                            return (
+                                                <Tooltip
+                                                    key={operation}
+                                                    title={title}
+                                                >
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            aria-label={title}
+                                                            disabled={count === 0}
+                                                            onClick={() => openBatch(item.scope, operation)}
+                                                        >
+                                                            <BulkActionIcon
+                                                                scope={item.scope}
+                                                                revoke={operation === 'revoke'}
+                                                            />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </Stack>
+                                ))}
+                        </Stack>
+                    </Box>
+                    {device.discoveredCapabilities.map(capability => (
+                        <Box
+                            key={capability.stateId}
+                            sx={{ mb: 1, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+                        >
+                            <Stack
+                                direction="row"
+                                spacing={1}
+                                sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                            >
+                                {capabilityIcon(capability.kind)}
+                                <Typography variant="subtitle2">
+                                    {displayCapabilityName(capability, language)}
+                                </Typography>
+                                {capability.needsReview && (
+                                    <Chip
+                                        size="small"
+                                        color="warning"
+                                        label={t('ui.review_needed')}
+                                    />
+                                )}
+                            </Stack>
+                            <Typography
+                                variant="body2"
+                                sx={{ wordBreak: 'break-all' }}
+                            >
+                                {capability.stateId}
+                            </Typography>
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                            >
+                                {capability.valueKind} ·{' '}
+                                {[
+                                    capability.readable ? t('ui.read') : undefined,
+                                    capability.writable ? t('ui.write') : undefined,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' / ')}
+                                {capability.min !== undefined ? ` · ${t('ui.minimum')} ${capability.min}` : ''}
+                                {capability.max !== undefined ? ` · ${t('ui.maximum')} ${capability.max}` : ''}
+                                {capability.unit ? ` · ${capability.unit}` : ''}
+                                {capability.mapping ? ` · ${JSON.stringify(capability.mapping)}` : ''}
+                            </Typography>
+                            <Stack
+                                direction="row"
+                                spacing={1}
+                                sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
+                            >
+                                {availableActions(capability).map(action => {
                                     const approved =
                                         device.approvedCapabilities[approvalKey(action, capability)] ===
                                             capability.fingerprint && !capability.needsReview;
@@ -555,9 +577,10 @@ function DeviceCard({
                                         </Tooltip>
                                     );
                                 })}
-                        </Stack>
-                    </Box>
-                ))}
+                            </Stack>
+                        </Box>
+                    ))}
+                </Collapse>
                 <Dialog
                     open={!!pending}
                     onClose={() => setPending(undefined)}
@@ -635,7 +658,7 @@ function DeviceCard({
                                         <Box sx={{ pt: 1 }}>
                                             <Typography variant="subtitle2">
                                                 {actionName(item.action, language)} ·{' '}
-                                                {capabilityName(item.capability.kind, language)}
+                                                {displayCapabilityName(item.capability, language)}
                                             </Typography>
                                             <Typography
                                                 variant="body2"
@@ -707,6 +730,8 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const [functionId, setFunctionId] = useState('');
     const [capability, setCapability] = useState('');
     const [devicePage, setDevicePage] = useState(1);
+    const [expandAllDevices, setExpandAllDevices] = useState(false);
+    const [expandedOverrides, setExpandedOverrides] = useState<Record<string, boolean>>({});
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
@@ -715,7 +740,15 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const refresh = useCallback(
         async (offset = 0): Promise<void> => {
             const [devices, status, model, listed] = await Promise.all([
-                api.call<DeviceList>('listDevices', { offset, limit: 50, filter, room, functionId, capability }),
+                api.call<DeviceList>('listDevices', {
+                    offset,
+                    limit: 50,
+                    filter,
+                    room,
+                    functionId,
+                    capability,
+                    language: defaultLanguage,
+                }),
                 api.call<Diagnostics>('getDiagnostics'),
                 api.call<Training>('getTrainingStatus'),
                 api.call<{ intents: IntentDefinition[] }>('listIntents'),
@@ -725,7 +758,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
             setTraining(model);
             setIntents(listed.intents);
         },
-        [api, filter, room, functionId, capability],
+        [api, filter, room, functionId, capability, defaultLanguage],
     );
 
     useEffect(() => {
@@ -794,6 +827,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
 
     const roomOptions = useMemo(() => deviceList.rooms ?? [], [deviceList.rooms]);
     const functionOptions = useMemo(() => deviceList.functions ?? [], [deviceList.functions]);
+    const allVisibleExpanded =
+        deviceList.devices.length > 0 &&
+        deviceList.devices.every(device => expandedOverrides[device.id] ?? expandAllDevices);
 
     return (
         <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 }, pb: 16 }}>
@@ -934,12 +970,12 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                             sx={{ minWidth: 170 }}
                         >
                             <MenuItem value="">{t('ui.all')}</MenuItem>
-                            {Object.keys(actions).map(item => (
+                            {(deviceList.capabilities ?? []).map(item => (
                                 <MenuItem
                                     key={item}
                                     value={item}
                                 >
-                                    {capabilityName(item as Capability['kind'], defaultLanguage)}
+                                    {item}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -952,18 +988,41 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         <Typography>
                             {deviceList.total} {t('ui.devices')}
                         </Typography>
-                        <Button
-                            startIcon={<RefreshIcon />}
-                            onClick={() => void mutate('rescanDevices', {}, t('ui.devices_rescanned'))}
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ flexWrap: 'wrap' }}
                         >
-                            {t('ui.rescan_devices')}
-                        </Button>
+                            <Button
+                                startIcon={allVisibleExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                                disabled={deviceList.devices.length === 0}
+                                onClick={() => {
+                                    setExpandAllDevices(!allVisibleExpanded);
+                                    setExpandedOverrides({});
+                                }}
+                            >
+                                {allVisibleExpanded ? t('ui.collapse_all_devices') : t('ui.expand_all_devices')}
+                            </Button>
+                            <Button
+                                startIcon={<RefreshIcon />}
+                                onClick={() => void mutate('rescanDevices', {}, t('ui.devices_rescanned'))}
+                            >
+                                {t('ui.rescan_devices')}
+                            </Button>
+                        </Stack>
                     </Stack>
                     {deviceList.devices.map(device => (
                         <DeviceCard
                             key={device.id}
                             device={device}
                             language={defaultLanguage}
+                            expanded={expandedOverrides[device.id] ?? expandAllDevices}
+                            onToggle={() =>
+                                setExpandedOverrides(current => ({
+                                    ...current,
+                                    [device.id]: !(current[device.id] ?? expandAllDevices),
+                                }))
+                            }
                             onError={setError}
                             update={payload => mutate('updateDevice', payload, t('ui.device_saved'))}
                         />
@@ -1442,26 +1501,43 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
     const [text, setText] = useState('');
     const [selectedLanguage, setSelectedLanguage] = useState<Language>(language);
     const [mode, setMode] = useState<'analyze' | 'execute'>('analyze');
-    const [confirm, setConfirm] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [result, setResult] = useState<CommandResult>();
+    const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'system'; text: string }>>([]);
+    const chatRef = useRef<HTMLDivElement>(null);
     const [sessionId] = useState(() => crypto.randomUUID());
+
+    useEffect(() => {
+        if (chatRef.current) {
+            chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        }
+    }, [messages]);
 
     async function submit(selection?: string): Promise<void> {
         setBusy(true);
         setError('');
         try {
-            if (!selection && (!text.trim() || text.length > 1000)) throw new Error(t('error.text_length'));
+            const answerText = selection
+                ? (result?.clarification?.options?.find(item => item.id === selection)?.label ?? selection)
+                : text.trim();
+            if (!answerText || answerText.length > 1000) throw new Error(t('error.text_length'));
+            setMessages(previous => [...previous, { id: crypto.randomUUID(), role: 'user', text: answerText }]);
             const response = await api.call<CommandResult>('processText', {
                 requestId: crypto.randomUUID(),
                 sessionId,
-                text: text.trim(),
+                text: answerText,
                 language: selectedLanguage,
                 mode,
-                ...(selection && result?.clarification ? { clarificationId: result.clarification.id, selection } : {}),
+                ...(result?.clarification ? { clarificationId: result.clarification.id } : {}),
+                ...(selection ? { selection } : {}),
             });
             setResult(response);
+            setMessages(previous => [
+                ...previous,
+                { id: crypto.randomUUID(), role: 'system', text: response.response },
+            ]);
+            setText('');
         } catch (error) {
             setError(displayError(error));
         } finally {
@@ -1474,10 +1550,64 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
             <CardContent>
                 <Stack spacing={2}>
                     <Typography variant="h6">{t('ui.test_lab')}</Typography>
+                    <Box
+                        ref={chatRef}
+                        role="log"
+                        aria-live="polite"
+                        aria-label={t('ui.conversation')}
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1.5,
+                            minHeight: 220,
+                            maxHeight: 420,
+                            overflowY: 'auto',
+                            p: 2,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 2,
+                            bgcolor: 'background.default',
+                        }}
+                    >
+                        {messages.length === 0 ? (
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                            >
+                                {t('ui.no_messages_yet')}
+                            </Typography>
+                        ) : (
+                            messages.map(message => (
+                                <Box
+                                    key={message.id}
+                                    aria-label={`${message.role === 'user' ? t('ui.you') : t('ui.system')}: ${message.text}`}
+                                    sx={{
+                                        alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
+                                        maxWidth: 'min(82%, 640px)',
+                                        px: 2,
+                                        py: 1.25,
+                                        borderRadius: 2,
+                                        borderTopRightRadius: message.role === 'user' ? 0.5 : 2,
+                                        borderTopLeftRadius: message.role === 'system' ? 0.5 : 2,
+                                        bgcolor: message.role === 'user' ? 'primary.main' : 'action.hover',
+                                        color: message.role === 'user' ? 'primary.contrastText' : 'text.primary',
+                                    }}
+                                >
+                                    <Typography
+                                        variant="body2"
+                                        sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+                                    >
+                                        {message.text}
+                                    </Typography>
+                                </Box>
+                            ))
+                        )}
+                    </Box>
                     <TextField
-                        label={t('ui.command')}
+                        label={result?.clarification ? t('ui.answer') : t('ui.command')}
                         multiline
                         minRows={2}
+                        disabled={busy}
                         value={text}
                         onChange={event => setText(event.target.value)}
                         slotProps={{ htmlInput: { maxLength: 1000 } }}
@@ -1491,8 +1621,12 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             select
                             size="small"
                             label={t('ui.language')}
+                            disabled={busy}
                             value={selectedLanguage}
-                            onChange={event => setSelectedLanguage(event.target.value as Language)}
+                            onChange={event => {
+                                setSelectedLanguage(event.target.value as Language);
+                                setResult(undefined);
+                            }}
                             sx={{ minWidth: 140 }}
                         >
                             {languageOptions.map(item => (
@@ -1509,17 +1643,37 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             control={
                                 <Switch
                                     checked={mode === 'execute'}
-                                    onChange={event => setMode(event.target.checked ? 'execute' : 'analyze')}
+                                    disabled={busy}
+                                    onChange={event => {
+                                        setMode(event.target.checked ? 'execute' : 'analyze');
+                                        setResult(undefined);
+                                    }}
                                 />
                             }
                         />
                         <Button
                             variant="contained"
                             disabled={busy || !text.trim()}
-                            onClick={() => (mode === 'execute' ? setConfirm(true) : void submit())}
+                            onClick={() => void submit()}
                         >
-                            {mode === 'execute' ? t('ui.review_execution') : t('ui.analyze')}
+                            {result?.clarification
+                                ? t('ui.send_answer')
+                                : mode === 'execute'
+                                  ? t('ui.execute')
+                                  : t('ui.analyze')}
                         </Button>
+                        {result?.clarification && (
+                            <Button
+                                variant="outlined"
+                                disabled={busy}
+                                onClick={() => {
+                                    setResult(undefined);
+                                    setText('');
+                                }}
+                            >
+                                {t('ui.new_request')}
+                            </Button>
+                        )}
                     </Stack>
                     {mode === 'execute' && (
                         <Alert severity="warning">{t('ui.execution_uses_only_approved_actions')}</Alert>
@@ -1532,7 +1686,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                 severity={
                                     result.status === 'success'
                                         ? 'success'
-                                        : result.status === 'clarification'
+                                        : result.status === 'clarification' || result.status === 'cancelled'
                                           ? 'info'
                                           : 'warning'
                                 }
@@ -1598,13 +1752,18 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                         <Button
                                             variant="outlined"
                                             key={item.id}
+                                            disabled={busy}
                                             onClick={() => void submit(item.id)}
                                         >
                                             {item.label}
                                         </Button>
                                     ))}
                                     {result.clarification.key === 'value' && (
-                                        <ValueAnswer onSubmit={value => void submit(value)} />
+                                        <ValueAnswer
+                                            disabled={busy}
+                                            label={t('ui.value')}
+                                            onSubmit={value => void submit(value)}
+                                        />
                                     )}
                                 </Stack>
                             )}
@@ -1616,33 +1775,21 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             </Box>
                         </Box>
                     )}
-                    <Dialog
-                        open={confirm}
-                        onClose={() => setConfirm(false)}
-                    >
-                        <DialogTitle>{t('ui.execute_command')}</DialogTitle>
-                        <DialogContent>{text}</DialogContent>
-                        <DialogActions>
-                            <Button onClick={() => setConfirm(false)}>{t('ui.cancel')}</Button>
-                            <Button
-                                color="warning"
-                                variant="contained"
-                                onClick={() => {
-                                    setConfirm(false);
-                                    void submit();
-                                }}
-                            >
-                                {t('ui.execute')}
-                            </Button>
-                        </DialogActions>
-                    </Dialog>
                 </Stack>
             </CardContent>
         </Card>
     );
 }
 
-function ValueAnswer({ onSubmit }: { onSubmit: (value: string) => void }): React.JSX.Element {
+function ValueAnswer({
+    onSubmit,
+    disabled,
+    label,
+}: {
+    onSubmit: (value: string) => void;
+    disabled: boolean;
+    label: string;
+}): React.JSX.Element {
     const [value, setValue] = useState('');
     return (
         <Stack
@@ -1651,12 +1798,13 @@ function ValueAnswer({ onSubmit }: { onSubmit: (value: string) => void }): React
         >
             <TextField
                 size="small"
-                label="Value"
+                label={label}
+                disabled={disabled}
                 value={value}
                 onChange={event => setValue(event.target.value)}
             />
             <Button
-                disabled={!value.trim()}
+                disabled={disabled || !value.trim()}
                 onClick={() => onSubmit(value.trim())}
             >
                 OK
