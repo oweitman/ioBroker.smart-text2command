@@ -2,7 +2,7 @@ import type { Language } from '../types/api';
 import type { ActionKind, Capability, DeviceRecord } from './types';
 import { inferValueDomain, matchesValueDomain } from './ValueDomain';
 import type { ValueDomain } from './ValueDomain';
-import { capabilityNameMatches } from './CapabilityName';
+import { capabilityName, capabilityNameMatches } from './CapabilityName';
 import { languageRules } from '../i18n/LanguageConfig';
 
 export interface DeviceCatalogView {
@@ -20,6 +20,31 @@ export interface Resolution {
     selected?: Candidate;
     candidates: Candidate[];
     clarification: boolean;
+}
+
+export interface ResolutionDiagnostics {
+    functions: Array<{
+        deviceId: string;
+        deviceName: string;
+        functionId: string;
+        name: string;
+        mentioned: boolean;
+        roomMatched?: boolean;
+    }>;
+    dataPoints: Array<{
+        deviceId: string;
+        deviceName: string;
+        stateId: string;
+        name: string;
+        role?: string;
+        kind: string;
+        readable: boolean;
+        writable: boolean;
+        actionAllowed: boolean;
+        domainMatched: boolean;
+        nameMatched: boolean;
+        roomMatched?: boolean;
+    }>;
 }
 
 function normalize(value: string): string {
@@ -86,6 +111,70 @@ function hasApprovedAction(
 
 export class DeviceResolver {
     public constructor(private readonly registry: DeviceCatalogView) {}
+
+    public diagnose(
+        text: string,
+        language: Language,
+        action: ActionKind,
+        forcedRoomId?: string,
+        domain?: ValueDomain,
+    ): ResolutionDiagnostics {
+        const normalized = normalize(text);
+        const rooms = new Set(forcedRoomId ? [forcedRoomId] : this.roomMatches(text, language).map(room => room.id));
+        const nameMatched = (device: DeviceRecord): boolean =>
+            [device.displayName, ...(device.aliases[language] ?? [])].some(name => matchScore(normalized, name) > 0);
+        const inRoom = (device: DeviceRecord): boolean => device.roomIds.some(id => rooms.has(id));
+        const devices = this.registry
+            .list()
+            .filter(device => device.status !== 'missing')
+            .filter(device => !rooms.size || inRoom(device) || nameMatched(device))
+            .sort((a, b) => {
+                const relevance = (device: DeviceRecord): number =>
+                    Number(inRoom(device)) * 2 + Number(nameMatched(device));
+                return relevance(b) - relevance(a) || a.id.localeCompare(b.id);
+            })
+            .slice(0, 40);
+        const functions: ResolutionDiagnostics['functions'] = [];
+        const dataPoints: ResolutionDiagnostics['dataPoints'] = [];
+        for (const device of devices) {
+            const roomMatched = rooms.size ? device.roomIds.some(id => rooms.has(id)) : undefined;
+            for (const functionId of device.functionIds) {
+                const configured = device.enumNames?.[functionId];
+                const name =
+                    typeof configured === 'string'
+                        ? configured
+                        : (configured?.[language] ??
+                          Object.values(configured ?? {})[0] ??
+                          functionId.split('.').at(-1) ??
+                          functionId);
+                functions.push({
+                    deviceId: device.id,
+                    deviceName: device.displayName,
+                    functionId,
+                    name,
+                    mentioned: matchScore(normalized, name) > 0,
+                    roomMatched,
+                });
+            }
+            for (const capability of device.discoveredCapabilities) {
+                dataPoints.push({
+                    deviceId: device.id,
+                    deviceName: device.displayName,
+                    stateId: capability.stateId,
+                    name: capabilityName(capability, language),
+                    role: capability.role ?? (capability.kind === 'onOff' ? 'switch' : undefined),
+                    kind: capability.kind,
+                    readable: capability.readable,
+                    writable: capability.writable,
+                    actionAllowed: this.registry.isAllowed(device.id, capability, action),
+                    domainMatched: matchesValueDomain(capability, domain, language),
+                    nameMatched: capabilityNameMatches(capability, text, language),
+                    roomMatched,
+                });
+            }
+        }
+        return { functions: functions.slice(0, 100), dataPoints: dataPoints.slice(0, 120) };
+    }
 
     public roomMatches(text: string, language: Language): Array<{ id: string; label: string }> {
         const normalized = normalize(text);

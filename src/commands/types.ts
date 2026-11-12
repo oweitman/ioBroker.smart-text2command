@@ -35,10 +35,33 @@ export interface CommandResult {
     };
     modelVersion?: string;
     durationMs?: number;
+    historyError?: string;
     analysis?: {
         alternatives?: Array<{ intent: string; confidence: number }>;
         entities?: Array<{ type: string; value: string | number; start: number; end: number }>;
         candidates?: Array<{ deviceId: string; score: number; reasons: string[] }>;
+        functions?: Array<{
+            deviceId: string;
+            deviceName: string;
+            functionId: string;
+            name: string;
+            mentioned: boolean;
+            roomMatched?: boolean;
+        }>;
+        dataPoints?: Array<{
+            deviceId: string;
+            deviceName: string;
+            stateId: string;
+            name: string;
+            role?: string;
+            kind: string;
+            readable: boolean;
+            writable: boolean;
+            actionAllowed: boolean;
+            domainMatched: boolean;
+            nameMatched: boolean;
+            roomMatched?: boolean;
+        }>;
         policyDecision?: string;
         plan?: { action: ActionKind; operation: 'read' | 'write'; stateId: string; value?: boolean | number | string };
     };

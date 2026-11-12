@@ -11,6 +11,7 @@ import { ModelRepository } from '../src/nlp/ModelRepository';
 import type { IntentDefinition } from '../src/nlp/types';
 import { AuditRepository } from '../src/storage/AuditRepository';
 import { DeviceRepository } from '../src/storage/DeviceRepository';
+import { TestLabHistoryRepository } from '../src/storage/TestLabHistoryRepository';
 import { testAdapterTimers } from './AdapterTimers';
 
 describe('message API', () => {
@@ -58,6 +59,7 @@ describe('message API', () => {
             catalog,
             intentRepository: new IntentRepository(join(directory, 'intents.json')),
             modelRepository: new ModelRepository(join(directory, 'models')),
+            testLabHistory: new TestLabHistoryRepository(join(directory, 'test-lab-history.json')),
             timers: testAdapterTimers,
             getUserIntents: () => userIntents,
             setUserIntents: intents => {
@@ -76,6 +78,27 @@ describe('message API', () => {
         const untrusted = { from: 'system.adapter.web.0', user: 'system.user.admin' };
         const admin = { from: 'system.adapter.admin.0', user: 'system.user.admin' };
         expect(await router.handle('listDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(await router.handle('listTestLabSessions', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        expect(
+            await router.handle(
+                'processTestLab',
+                {
+                    requestId: 'unauthorized-history',
+                    sessionId: 'session-a',
+                    text: 'Schalte Lampe ein',
+                    mode: 'analyze',
+                },
+                untrusted,
+            ),
+        ).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        const testLabResult = await router.handle(
+            'processTestLab',
+            { requestId: 'history-1', sessionId: 'session-a', text: 'Schalte Lampe ein', mode: 'analyze' },
+            admin,
+        );
+        expect(testLabResult).to.have.property('requestId', 'history-1');
+        const savedHistory = await router.handle('getTestLabSession', { sessionId: 'session-a' }, admin);
+        expect(savedHistory).to.have.nested.property('session.exchanges[0].request.text', 'Schalte Lampe ein');
         expect(await router.handle('rescanDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
         expect(await router.handle('rescanDevices', {}, admin)).to.deep.equal({ status: 'updated' });
         expect(rescanCount).to.equal(1);

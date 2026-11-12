@@ -11,6 +11,7 @@ import { TrainingManager } from '../nlp/TrainingManager';
 import { systemIntents } from '../nlp/TrainingData';
 import { NlpJsProvider } from '../nlp/NlpJsProvider';
 import type { IntentDefinition } from '../nlp/types';
+import type { TestLabHistoryRepository } from '../storage/TestLabHistoryRepository';
 import type { AdapterTimers } from '../shared/AdapterTimers';
 
 interface MessageContext {
@@ -23,6 +24,7 @@ interface RouterOptions {
     catalog: DeviceCatalog;
     intentRepository: IntentRepository;
     modelRepository: ModelRepository;
+    testLabHistory: TestLabHistoryRepository;
     timers: AdapterTimers;
     getUserIntents: () => IntentDefinition[];
     setUserIntents: (intents: IntentDefinition[]) => void;
@@ -68,6 +70,32 @@ export class MessageRouter {
             }
             if (!(await this.options.isAdmin(context))) {
                 return { error: 'ADMIN_REQUIRED' };
+            }
+            if (command === 'processTestLab') {
+                if (!this.permit(context.from)) {
+                    return { error: 'RATE_LIMITED' };
+                }
+                const request = validateCommandRequest(message);
+                if (!request.sessionId) {
+                    return { error: 'SESSION_REQUIRED' };
+                }
+                const result = await this.options.controller.process(request, `${context.from}:${context.user ?? ''}`);
+                try {
+                    await this.options.testLabHistory.append(request, result);
+                } catch {
+                    return { ...result, historyError: 'HISTORY_SAVE_FAILED' };
+                }
+                return result;
+            }
+            if (command === 'listTestLabSessions') {
+                return { sessions: await this.options.testLabHistory.list() };
+            }
+            if (command === 'getTestLabSession') {
+                return { session: await this.options.testLabHistory.get(this.string(payload.sessionId)) };
+            }
+            if (command === 'deleteTestLabSession') {
+                await this.options.testLabHistory.delete(this.string(payload.sessionId));
+                return { status: 'deleted' };
             }
             if (command === 'listDevices') {
                 const offset = this.int(payload.offset, 0, 100_000, 0);

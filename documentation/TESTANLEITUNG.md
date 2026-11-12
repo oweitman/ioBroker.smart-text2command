@@ -81,6 +81,8 @@ Warten, bis `smart-text2command.0.info.modelStatus` **ready** meldet. Im **Testl
 
 Die NLP-Erkennung und die Geräteauflösung können bei einzelnen Formulierungen Rückfragen auslösen. Im Testlabor die erkannten Intents, Gerätekandidaten und den geplanten State-Zugriff prüfen. Für einen eindeutigen Lesetest kann auch `Welchen Wert hat der Temperatursensor` verwendet werden.
 
+Das Testlabor speichert seine Sessions im Datenverzeichnis der Adapterinstanz. Über **Session-Historie** lassen sich auch nach einem Neuladen der Admin-Seite frühere Gespräche öffnen. Für jede Nachricht kann die damalige technische Antwort einschließlich Intent, Funktions- und Datenpunktdiagnose sowie geplantem Zugriff angezeigt werden. **Neue Session** beginnt ein separates Gespräch; eine ausgewählte historische Session kann gelöscht werden. Die Historie ist nur für Admin-Aufrufe zugänglich und auf die letzten 30 Sessions mit jeweils 50 Anfragen begrenzt. Aufrufe über die allgemeine `processText`-API anderer Adapter werden nicht in die Testlabor-Historie aufgenommen.
+
 Für einen erfolgreichen Helligkeitslesetest `Wie hell ist die Lampe im Wohnzimmer` verwenden. Soll die Schlafzimmerlampe ebenfalls einen Helligkeitswert liefern, dort einen lesbaren State mit Rolle `level.brightness` ergänzen, **Geräte neu einlesen** und `getValue` für diesen State freigeben.
 
 Die mitgelieferten Trainingssätze enthalten Schreibbefehle für Solltemperaturen auf Deutsch und Englisch, auch ohne Zahlenwert. Nach einem Adapter-Neustart wird ein vorhandenes Modell neu trainiert, wenn sich die Trainingssätze geändert haben. Erst bei `info.modelStatus = ready` erneut testen.

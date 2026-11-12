@@ -4,6 +4,7 @@ import { capabilityName, capabilityNameMatches } from '../devices/CapabilityName
 import { DeviceResolver, roomNames } from '../devices/DeviceResolver';
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
 import { inferValueDomain, matchesValueDomain } from '../devices/ValueDomain';
+import type { ValueDomain } from '../devices/ValueDomain';
 import { parseEntities } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
 import type { IntentDefinition } from '../nlp/types';
@@ -35,6 +36,48 @@ const SYSTEM_ACTIONS: Record<string, ActionKind> = {
 function isExplicitSetpointWrite(text: string, language: Language): boolean {
     const rules = languageRules(language);
     return new RegExp(rules.setpointVerb, 'iu').test(text) && new RegExp(rules.setpointTarget, 'iu').test(text);
+}
+
+function isExplicitNamedValueWrite(
+    text: string,
+    language: Language,
+    catalog: DeviceCatalogView,
+    resolver: DeviceResolver,
+    hasNumericValue: boolean,
+): boolean {
+    if (!hasNumericValue || !new RegExp(languageRules(language).setpointVerb, 'iu').test(text)) {
+        return false;
+    }
+    const domain = inferValueDomain(text, language);
+    const rooms = new Set(resolver.roomMatches(text, language).map(room => room.id));
+    const named = catalog
+        .list()
+        .flatMap(device =>
+            device.status === 'missing' || (rooms.size && !device.roomIds.some(id => rooms.has(id)))
+                ? []
+                : device.discoveredCapabilities.filter(
+                      capability =>
+                          catalog.isAllowed(device.id, capability, 'setValue') &&
+                          matchesValueDomain(capability, domain, language) &&
+                          capabilityNameMatches(capability, text, language),
+                  ),
+        );
+    return named.length === 1;
+}
+
+function requestedDomain(
+    intent: string,
+    action: ActionKind,
+    text: string,
+    language: Language,
+): ValueDomain | undefined {
+    if (intent === 'device.setLevel') {
+        return 'brightness';
+    }
+    if (intent === 'device.setTemperature') {
+        return 'temperature';
+    }
+    return action === 'getValue' || action === 'setValue' ? inferValueDomain(text, language) : undefined;
 }
 
 function isExplicitButtonPress(text: string, language: Language, catalog: DeviceCatalogView): boolean {
@@ -394,19 +437,53 @@ export class CommandController {
             const analysis = await model.engine.analyze(text, language);
             const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
             const explicitButtonPress = isExplicitButtonPress(text, language, this.catalog);
+            const secondBest = analysis.alternatives.find(item => item.intent !== analysis.intent)?.confidence ?? 0;
+            const uncertainIntent =
+                !analysis.intent || analysis.confidence < 0.65 || analysis.confidence - secondBest < 0.12;
+            const explicitNamedValueWrite =
+                !explicitSetpointWrite &&
+                !explicitButtonPress &&
+                uncertainIntent &&
+                isExplicitNamedValueWrite(
+                    text,
+                    language,
+                    this.catalog,
+                    resolver,
+                    parsed.entities.some(
+                        entity =>
+                            entity.type === 'number' || entity.type === 'percent' || entity.type === 'temperature',
+                    ),
+                );
             intent = explicitButtonPress
                 ? 'device.press'
                 : explicitSetpointWrite
                   ? 'device.setTemperature'
-                  : (analysis.intent ?? '');
+                  : explicitNamedValueWrite
+                    ? 'device.setValue'
+                    : (analysis.intent ?? '');
             confidence = explicitButtonPress || explicitSetpointWrite ? 1 : analysis.confidence;
             details.alternatives =
                 explicitButtonPress || explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
             if (
                 !intent ||
-                (!explicitButtonPress && !explicitSetpointWrite && (confidence < 0.65 || confidence - second < 0.12))
+                (!explicitButtonPress &&
+                    !explicitSetpointWrite &&
+                    !explicitNamedValueWrite &&
+                    (confidence < 0.65 || confidence - second < 0.12))
             ) {
+                const tentativeAction = SYSTEM_ACTIONS[intent];
+                if (request.mode === 'analyze' && tentativeAction) {
+                    const diagnostics = resolver.diagnose(
+                        text,
+                        language,
+                        tentativeAction,
+                        undefined,
+                        requestedDomain(intent, tentativeAction, text, language),
+                    );
+                    details.functions = diagnostics.functions;
+                    details.dataPoints = diagnostics.dataPoints;
+                }
                 return this.reject(request, language, 'UNCLEAR_INTENT');
             }
             const configured = this.getUserIntents().find(item => item.id === intent && item.enabled);
@@ -426,6 +503,17 @@ export class CommandController {
             action = configured?.action?.kind === 'capability' ? configured.action.operation : SYSTEM_ACTIONS[intent];
             if (!action) {
                 return this.reject(request, language, 'UNSUPPORTED_ACTION');
+            }
+            if (request.mode === 'analyze') {
+                const diagnostics = resolver.diagnose(
+                    text,
+                    language,
+                    action,
+                    undefined,
+                    requestedDomain(intent, action, text, language),
+                );
+                details.functions = diagnostics.functions;
+                details.dataPoints = diagnostics.dataPoints;
             }
             if (roomMatches.length > 1) {
                 const pending = this.sessions.create({
@@ -472,14 +560,12 @@ export class CommandController {
         ) {
             return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
         }
-        const domain =
-            intent === 'device.setLevel'
-                ? 'brightness'
-                : intent === 'device.setTemperature'
-                  ? 'temperature'
-                  : action === 'getValue' || action === 'setValue'
-                    ? inferValueDomain(text, language)
-                    : undefined;
+        const domain = requestedDomain(intent, action, text, language);
+        if (request.mode === 'analyze') {
+            const diagnostics = resolver.diagnose(text, language, action, forcedRoomId, domain);
+            details.functions = diagnostics.functions;
+            details.dataPoints = diagnostics.dataPoints;
+        }
         let deviceId = forcedDeviceId;
         let candidates;
         if (!deviceId) {

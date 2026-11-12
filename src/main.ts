@@ -15,6 +15,7 @@ import { TrainingManager, trainingHash } from './nlp/TrainingManager';
 import { systemIntents } from './nlp/TrainingData';
 import type { IntentDefinition } from './nlp/types';
 import { AuditRepository } from './storage/AuditRepository';
+import { TestLabHistoryRepository } from './storage/TestLabHistoryRepository';
 import { defaultLanguage, isSupportedLanguage } from './i18n/LanguageConfig';
 import type { AdapterTimers } from './shared/AdapterTimers';
 
@@ -138,6 +139,7 @@ class SmartText2command extends utils.Adapter {
             catalog: this.catalog!,
             intentRepository: new IntentRepository(join(dataDir, 'training', 'user-intents-v1.json')),
             modelRepository: new ModelRepository(join(dataDir, 'models')),
+            testLabHistory: new TestLabHistoryRepository(join(dataDir, 'test-lab-history-v1.json')),
             timers: this,
             getUserIntents: () => this.userIntents,
             setUserIntents: intents => {

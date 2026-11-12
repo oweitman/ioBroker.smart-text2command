@@ -25,6 +25,7 @@ describe('command pipeline', () => {
         intent = 'device.turnOn',
         stateValue: unknown = true,
         sessions?: SessionStore,
+        nlpConfidence = 0.95,
     ): {
         registry: DeviceRegistry;
         controller: CommandController;
@@ -49,9 +50,15 @@ describe('command pipeline', () => {
             analyze: () =>
                 Promise.resolve({
                     intent,
-                    confidence: 0.95,
+                    confidence: nlpConfidence,
                     entities: [],
-                    alternatives: [{ intent, confidence: 0.95 }],
+                    alternatives:
+                        nlpConfidence < 0.65
+                            ? [
+                                  { intent, confidence: nlpConfidence },
+                                  { intent: 'device.setTemperature', confidence: 1 - nlpConfidence },
+                              ]
+                            : [{ intent, confidence: nlpConfidence }],
                 }),
         };
         const controller = new CommandController(
@@ -232,6 +239,11 @@ describe('command pipeline', () => {
             },
             { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['plug.0.wohnzimmer'] } },
             { id: 'enum.rooms.schlafzimmer', type: 'enum', common: { members: ['plug.0.schlafzimmer'] } },
+            {
+                id: 'enum.functions.licht',
+                type: 'enum',
+                common: { name: 'Licht', members: ['plug.0.wohnzimmer', 'plug.0.schlafzimmer'] },
+            },
         ];
         const { registry, controller, writes } = fixture(objects);
         for (const id of ['plug.0.wohnzimmer', 'plug.0.schlafzimmer']) {
@@ -247,6 +259,13 @@ describe('command pipeline', () => {
         expect(result.analysis?.entities).to.satisfy((entities: Array<{ type: string; value: unknown }>) =>
             entities.some(entity => entity.type === 'room' && entity.value === 'wohnzimmer'),
         );
+        expect(result.analysis?.functions?.find(item => item.deviceId === 'plug.0.wohnzimmer')).to.include({
+            name: 'Licht',
+        });
+        expect(result.analysis?.dataPoints?.find(item => item.deviceId === 'plug.0.wohnzimmer')).to.include({
+            stateId: 'plug.0.wohnzimmer.POWER',
+            actionAllowed: true,
+        });
         expect(writes).to.be.empty;
     });
 
@@ -557,6 +576,14 @@ describe('command pipeline', () => {
         expect(rejected.status).to.equal('rejected');
         expect(rejected.actions).to.be.undefined;
         expect(writes).to.be.empty;
+        const diagnostic = await controller.process(
+            { ...request, requestId: 'climate-diagnostic', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(diagnostic.analysis?.dataPoints?.map(item => item.stateId)).to.include('test.0.climate.boost');
+        expect(
+            diagnostic.analysis?.dataPoints?.find(item => item.stateId === 'test.0.climate.boost')?.actionAllowed,
+        ).to.equal(false);
 
         registry.setEnabled('test.0.climate', true);
         registry.setAliases('test.0.climate', { en: ['climate'] });
@@ -947,6 +974,78 @@ describe('command pipeline', () => {
         expect(result.actions?.[0].stateId).to.equal(`${id}.LAMELLEN`);
         expect(result.response).to.include('Stellung');
         expect(writes).to.deep.equal([{ id: `${id}.LAMELLEN`, value: 65 }]);
+    });
+
+    it('uses a uniquely named approved numeric state when the NLP intent is uncertain', async () => {
+        const id = 'test.0.blind';
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Rolladen' } },
+            {
+                id: `${id}.position`,
+                type: 'state',
+                common: { name: 'Position', role: 'level.tilt', type: 'number', read: true, write: true, unit: '%' },
+            },
+            {
+                id: `${id}.lamellen`,
+                type: 'state',
+                common: {
+                    name: { de: 'Lamellen', en: 'Slats' },
+                    role: 'level.tilt',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    unit: '%',
+                },
+            },
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: { de: 'Wohnzimmer', en: 'Living room' }, members: [id] },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setValue', 0, undefined, 0.594);
+        registry.setEnabled(id, true);
+        registry.approve(id, `${id}.position`, 'setValue');
+        registry.approve(id, `${id}.lamellen`, 'setValue');
+
+        const result = await controller.process(
+            { requestId: 'low-confidence-slats', text: 'stelle die lamellen in wohnzimmer auf 50%', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(result.intent).to.equal('device.setValue');
+        expect(result.confidence).to.equal(0.594);
+        expect(result.actions?.[0].stateId).to.equal(`${id}.lamellen`);
+        expect(writes).to.deep.equal([{ id: `${id}.lamellen`, value: 50 }]);
+
+        const english = await controller.process(
+            {
+                requestId: 'low-confidence-slats-en',
+                text: 'set the slats in the living room to 35%',
+                language: 'en',
+                mode: 'analyze',
+            },
+            'admin.0',
+        );
+        expect(english.status).to.equal('success');
+        expect(english.actions?.[0].stateId).to.equal(`${id}.lamellen`);
+
+        const ambiguous = await controller.process(
+            { requestId: 'low-confidence-ambiguous', text: 'stelle im wohnzimmer auf 50%', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(ambiguous.errorCode).to.equal('UNCLEAR_INTENT');
+
+        registry.revoke(id, `${id}.lamellen`, 'setValue');
+        const unapproved = await controller.process(
+            {
+                requestId: 'low-confidence-unapproved',
+                text: 'stelle die lamellen in wohnzimmer auf 50%',
+                mode: 'analyze',
+            },
+            'admin.0',
+        );
+        expect(unapproved.errorCode).to.equal('UNCLEAR_INTENT');
     });
 
     it('continues a device question with only a room while keeping callers and sessions separate', async () => {

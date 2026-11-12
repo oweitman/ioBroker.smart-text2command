@@ -22,6 +22,11 @@ import {
     Snackbar,
     Stack,
     Switch,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
     Tab,
     Tabs,
     TextField,
@@ -47,6 +52,7 @@ import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/typ
 import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
 import type { IntentDefinition } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
+import type { TestLabSession, TestLabSessionSummary } from '../../src/storage/TestLabHistoryRepository';
 import type { Language } from '../../src/types/api';
 import LanguageValueTable, { languageOptions, rowsFromValues, valuesFromRows } from './LanguageValueTable';
 import type { LanguageRow } from './LanguageValueTable';
@@ -94,6 +100,16 @@ function languageName(language: Language): string {
 
 function actionName(action: ActionKind, language: Language): string {
     return labels(language)(`action.${action}`);
+}
+
+function candidateReason(reason: string, language: Language): string {
+    const keys: Record<string, string> = {
+        'exact name or alias': 'ui.reason_exact_name',
+        'fuzzy name': 'ui.reason_fuzzy_name',
+        'function name': 'ui.reason_function_name',
+        room: 'ui.reason_room',
+    };
+    return keys[reason] ? labels(language)(keys[reason]) : reason;
 }
 
 function capabilityIcon(kind: Capability['kind']): React.JSX.Element {
@@ -1506,13 +1522,52 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
     const [result, setResult] = useState<CommandResult>();
     const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'system'; text: string }>>([]);
     const chatRef = useRef<HTMLDivElement>(null);
-    const [sessionId] = useState(() => crypto.randomUUID());
+    const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+    const [sessions, setSessions] = useState<TestLabSessionSummary[]>([]);
+    const [historySession, setHistorySession] = useState<TestLabSession>();
+    const [historyIndex, setHistoryIndex] = useState(0);
+    const visibleMessages = historySession
+        ? historySession.exchanges.flatMap(exchange => [
+              { id: `${exchange.result.requestId}-user`, role: 'user' as const, text: exchange.request.text },
+              { id: `${exchange.result.requestId}-system`, role: 'system' as const, text: exchange.result.response },
+          ])
+        : messages;
+    const visibleResult = historySession ? historySession.exchanges[historyIndex]?.result : result;
+
+    useEffect(() => {
+        void api
+            .call<{ sessions: TestLabSessionSummary[] }>('listTestLabSessions')
+            .then(data => setSessions(data.sessions))
+            .catch(problem => setError(displayError(problem)));
+    }, [api]);
 
     useEffect(() => {
         if (chatRef.current) {
             chatRef.current.scrollTop = chatRef.current.scrollHeight;
         }
-    }, [messages]);
+    }, [visibleMessages.length, historySession]);
+
+    async function openSession(id: string): Promise<void> {
+        if (!id) {
+            setHistorySession(undefined);
+            return;
+        }
+        try {
+            const data = await api.call<{ session?: TestLabSession }>('getTestLabSession', { sessionId: id });
+            setHistorySession(data.session);
+            setHistoryIndex(Math.max(0, (data.session?.exchanges.length ?? 1) - 1));
+        } catch (problem) {
+            setError(displayError(problem));
+        }
+    }
+
+    function startSession(): void {
+        setSessionId(crypto.randomUUID());
+        setHistorySession(undefined);
+        setMessages([]);
+        setResult(undefined);
+        setText('');
+    }
 
     async function submit(selection?: string): Promise<void> {
         setBusy(true);
@@ -1523,7 +1578,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                 : text.trim();
             if (!answerText || answerText.length > 1000) throw new Error(t('error.text_length'));
             setMessages(previous => [...previous, { id: crypto.randomUUID(), role: 'user', text: answerText }]);
-            const response = await api.call<CommandResult>('processText', {
+            const response = await api.call<CommandResult>('processTestLab', {
                 requestId: crypto.randomUUID(),
                 sessionId,
                 text: answerText,
@@ -1538,6 +1593,14 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                 { id: crypto.randomUUID(), role: 'system', text: response.response },
             ]);
             setText('');
+            if (response.historyError) {
+                setError(t('ui.history_save_failed'));
+            } else {
+                void api
+                    .call<{ sessions: TestLabSessionSummary[] }>('listTestLabSessions')
+                    .then(saved => setSessions(saved.sessions))
+                    .catch(problem => setError(displayError(problem)));
+            }
         } catch (error) {
             setError(displayError(error));
         } finally {
@@ -1550,6 +1613,55 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
             <CardContent>
                 <Stack spacing={2}>
                     <Typography variant="h6">{t('ui.test_lab')}</Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        sx={{ alignItems: { sm: 'center' } }}
+                    >
+                        <TextField
+                            select
+                            size="small"
+                            label={t('ui.session_history')}
+                            value={historySession?.id ?? ''}
+                            onChange={event => void openSession(event.target.value)}
+                            sx={{ minWidth: 300, maxWidth: 520 }}
+                        >
+                            <MenuItem value="">{t('ui.current_session')}</MenuItem>
+                            {sessions.map(session => (
+                                <MenuItem
+                                    key={session.id}
+                                    value={session.id}
+                                >
+                                    {new Date(session.startedAt).toLocaleString(selectedLanguage)} ·{' '}
+                                    {session.firstText.slice(0, 60)}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                        <Button
+                            onClick={startSession}
+                            disabled={busy}
+                        >
+                            {t('ui.new_session')}
+                        </Button>
+                        {historySession && (
+                            <Button
+                                color="error"
+                                onClick={() =>
+                                    void api
+                                        .call('deleteTestLabSession', { sessionId: historySession.id })
+                                        .then(() => {
+                                            setSessions(current =>
+                                                current.filter(item => item.id !== historySession.id),
+                                            );
+                                            setHistorySession(undefined);
+                                        })
+                                        .catch(problem => setError(displayError(problem)))
+                                }
+                            >
+                                {t('ui.delete_session')}
+                            </Button>
+                        )}
+                    </Stack>
                     <Box
                         ref={chatRef}
                         role="log"
@@ -1569,7 +1681,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             bgcolor: 'background.default',
                         }}
                     >
-                        {messages.length === 0 ? (
+                        {visibleMessages.length === 0 ? (
                             <Typography
                                 variant="body2"
                                 color="text.secondary"
@@ -1577,7 +1689,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                 {t('ui.no_messages_yet')}
                             </Typography>
                         ) : (
-                            messages.map(message => (
+                            visibleMessages.map(message => (
                                 <Box
                                     key={message.id}
                                     aria-label={`${message.role === 'user' ? t('ui.you') : t('ui.system')}: ${message.text}`}
@@ -1603,137 +1715,284 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             ))
                         )}
                     </Box>
-                    <TextField
-                        label={result?.clarification ? t('ui.answer') : t('ui.command')}
-                        multiline
-                        minRows={2}
-                        disabled={busy}
-                        value={text}
-                        onChange={event => setText(event.target.value)}
-                        slotProps={{ htmlInput: { maxLength: 1000 } }}
-                    />
-                    <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={2}
-                        sx={{ alignItems: { sm: 'center' } }}
-                    >
-                        <TextField
-                            select
-                            size="small"
-                            label={t('ui.language')}
-                            disabled={busy}
-                            value={selectedLanguage}
-                            onChange={event => {
-                                setSelectedLanguage(event.target.value as Language);
-                                setResult(undefined);
-                            }}
-                            sx={{ minWidth: 140 }}
+                    {historySession && (
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                            sx={{ flexWrap: 'wrap' }}
                         >
-                            {languageOptions.map(item => (
-                                <MenuItem
-                                    key={item.code}
-                                    value={item.code}
+                            {historySession.exchanges.map((exchange, index) => (
+                                <Button
+                                    key={exchange.result.requestId}
+                                    size="small"
+                                    variant={index === historyIndex ? 'contained' : 'outlined'}
+                                    onClick={() => setHistoryIndex(index)}
                                 >
-                                    {item.name}
-                                </MenuItem>
+                                    {index + 1}. {exchange.request.text.slice(0, 40)}
+                                </Button>
                             ))}
-                        </TextField>
-                        <FormControlLabel
-                            label={t('ui.execute')}
-                            control={
-                                <Switch
-                                    checked={mode === 'execute'}
-                                    disabled={busy}
-                                    onChange={event => {
-                                        setMode(event.target.checked ? 'execute' : 'analyze');
-                                        setResult(undefined);
-                                    }}
-                                />
-                            }
+                        </Stack>
+                    )}
+                    {!historySession && (
+                        <TextField
+                            label={result?.clarification ? t('ui.answer') : t('ui.command')}
+                            multiline
+                            minRows={2}
+                            disabled={busy}
+                            value={text}
+                            onChange={event => setText(event.target.value)}
+                            slotProps={{ htmlInput: { maxLength: 1000 } }}
                         />
-                        <Button
-                            variant="contained"
-                            disabled={busy || !text.trim()}
-                            onClick={() => void submit()}
+                    )}
+                    {!historySession && (
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={2}
+                            sx={{ alignItems: { sm: 'center' } }}
                         >
-                            {result?.clarification
-                                ? t('ui.send_answer')
-                                : mode === 'execute'
-                                  ? t('ui.execute')
-                                  : t('ui.analyze')}
-                        </Button>
-                        {result?.clarification && (
-                            <Button
-                                variant="outlined"
+                            <TextField
+                                select
+                                size="small"
+                                label={t('ui.language')}
                                 disabled={busy}
-                                onClick={() => {
+                                value={selectedLanguage}
+                                onChange={event => {
+                                    setSelectedLanguage(event.target.value as Language);
                                     setResult(undefined);
-                                    setText('');
                                 }}
+                                sx={{ minWidth: 140 }}
                             >
-                                {t('ui.new_request')}
+                                {languageOptions.map(item => (
+                                    <MenuItem
+                                        key={item.code}
+                                        value={item.code}
+                                    >
+                                        {item.name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                            <FormControlLabel
+                                label={t('ui.execute')}
+                                control={
+                                    <Switch
+                                        checked={mode === 'execute'}
+                                        disabled={busy}
+                                        onChange={event => {
+                                            setMode(event.target.checked ? 'execute' : 'analyze');
+                                            setResult(undefined);
+                                        }}
+                                    />
+                                }
+                            />
+                            <Button
+                                variant="contained"
+                                disabled={busy || !text.trim()}
+                                onClick={() => void submit()}
+                            >
+                                {result?.clarification
+                                    ? t('ui.send_answer')
+                                    : mode === 'execute'
+                                      ? t('ui.execute')
+                                      : t('ui.analyze')}
                             </Button>
-                        )}
-                    </Stack>
-                    {mode === 'execute' && (
+                            {result?.clarification && (
+                                <Button
+                                    variant="outlined"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setResult(undefined);
+                                        setText('');
+                                    }}
+                                >
+                                    {t('ui.new_request')}
+                                </Button>
+                            )}
+                        </Stack>
+                    )}
+                    {!historySession && mode === 'execute' && (
                         <Alert severity="warning">{t('ui.execution_uses_only_approved_actions')}</Alert>
                     )}
                     {busy && <CircularProgress size={24} />}
                     {error && <Alert severity="error">{error}</Alert>}
-                    {result && (
+                    {visibleResult && (
                         <Box>
                             <Alert
                                 severity={
-                                    result.status === 'success'
+                                    visibleResult.status === 'success'
                                         ? 'success'
-                                        : result.status === 'clarification' || result.status === 'cancelled'
+                                        : visibleResult.status === 'clarification' ||
+                                            visibleResult.status === 'cancelled'
                                           ? 'info'
                                           : 'warning'
                                 }
                             >
-                                {result.response} {result.errorCode ? `(${result.errorCode})` : ''}
+                                {visibleResult.response} {visibleResult.errorCode ? `(${visibleResult.errorCode})` : ''}
                             </Alert>
                             <Stack
                                 direction="row"
                                 spacing={1}
                                 sx={{ mt: 2, flexWrap: 'wrap' }}
                             >
-                                <Chip label={`${t('ui.intent')}: ${result.intent ?? '—'}`} />
-                                <Chip label={`${t('ui.confidence')}: ${result.confidence?.toFixed(3) ?? '—'}`} />
-                                <Chip label={`${t('ui.model')}: ${result.modelVersion ?? '—'}`} />
+                                <Chip label={`${t('ui.intent')}: ${visibleResult.intent ?? '—'}`} />
+                                <Chip label={`${t('ui.confidence')}: ${visibleResult.confidence?.toFixed(3) ?? '—'}`} />
+                                <Chip label={`${t('ui.model')}: ${visibleResult.modelVersion ?? '—'}`} />
                             </Stack>
-                            {result.candidates?.length ? (
+                            {(visibleResult.analysis?.candidates ?? visibleResult.candidates)?.length ? (
                                 <Typography sx={{ mt: 2 }}>
                                     {t('ui.device_candidates')}:{' '}
-                                    {result.candidates
-                                        .map(item => `${item.deviceId} (${item.score.toFixed(2)})`)
+                                    {(visibleResult.analysis?.candidates ?? visibleResult.candidates ?? [])
+                                        .map(
+                                            item =>
+                                                `${item.deviceId} (${item.score.toFixed(2)}: ${item.reasons.map(reason => candidateReason(reason, selectedLanguage)).join(', ')})`,
+                                        )
                                         .join(', ')}
                                 </Typography>
                             ) : null}
-                            {result.analysis?.alternatives?.length ? (
+                            {visibleResult.analysis?.alternatives?.length ? (
                                 <Typography sx={{ mt: 1 }}>
                                     {t('ui.intent_ranking')}:{' '}
-                                    {result.analysis.alternatives
+                                    {visibleResult.analysis.alternatives
                                         .slice(0, 5)
                                         .map(item => `${item.intent} (${item.confidence.toFixed(2)})`)
                                         .join(', ')}
                                 </Typography>
                             ) : null}
-                            {result.analysis?.entities?.length ? (
+                            {visibleResult.analysis?.entities?.length ? (
                                 <Typography sx={{ mt: 1 }}>
                                     {t('ui.entities')}:{' '}
-                                    {result.analysis.entities.map(item => `${item.type}=${item.value}`).join(', ')}
+                                    {visibleResult.analysis.entities
+                                        .map(item => `${item.type}=${item.value}`)
+                                        .join(', ')}
                                 </Typography>
                             ) : null}
-                            {result.analysis?.plan && (
+                            {visibleResult.analysis?.functions?.length ? (
+                                <Box sx={{ mt: 2, overflowX: 'auto' }}>
+                                    <Typography variant="subtitle2">{t('ui.recognized_functions')}</Typography>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>{t('ui.device')}</TableCell>
+                                                <TableCell>{t('ui.function')}</TableCell>
+                                                <TableCell>{t('ui.mentioned')}</TableCell>
+                                                <TableCell>{t('ui.room_match')}</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleResult.analysis.functions.map(item => (
+                                                <TableRow key={`${item.deviceId}:${item.functionId}`}>
+                                                    <TableCell>
+                                                        {item.deviceName}
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{ display: 'block' }}
+                                                            color="text.secondary"
+                                                        >
+                                                            {item.deviceId}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.name}
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{ display: 'block' }}
+                                                            color="text.secondary"
+                                                        >
+                                                            {item.functionId}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>{item.mentioned ? t('ui.yes') : t('ui.no')}</TableCell>
+                                                    <TableCell>
+                                                        {item.roomMatched === undefined
+                                                            ? '—'
+                                                            : item.roomMatched
+                                                              ? t('ui.yes')
+                                                              : t('ui.no')}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </Box>
+                            ) : null}
+                            {visibleResult.analysis?.dataPoints?.length ? (
+                                <Box sx={{ mt: 2, overflowX: 'auto' }}>
+                                    <Typography variant="subtitle2">{t('ui.recognized_data_points')}</Typography>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>{t('ui.device')}</TableCell>
+                                                <TableCell>{t('ui.data_point')}</TableCell>
+                                                <TableCell>{t('ui.role')}</TableCell>
+                                                <TableCell>{t('ui.name_mentioned')}</TableCell>
+                                                <TableCell>{t('ui.domain_match')}</TableCell>
+                                                <TableCell>{t('ui.action_approved')}</TableCell>
+                                                <TableCell>{t('ui.room_match')}</TableCell>
+                                                <TableCell>{t('ui.selected')}</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleResult.analysis.dataPoints.map(item => (
+                                                <TableRow key={item.stateId}>
+                                                    <TableCell>
+                                                        {item.deviceName}
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{ display: 'block' }}
+                                                            color="text.secondary"
+                                                        >
+                                                            {item.deviceId}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.name}
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{ display: 'block' }}
+                                                            color="text.secondary"
+                                                        >
+                                                            {item.stateId}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.role ?? item.kind} · {item.readable ? 'R' : '–'}
+                                                        {item.writable ? 'W' : '–'}
+                                                    </TableCell>
+                                                    <TableCell>{item.nameMatched ? t('ui.yes') : t('ui.no')}</TableCell>
+                                                    <TableCell>
+                                                        {item.domainMatched ? t('ui.yes') : t('ui.no')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.actionAllowed ? t('ui.yes') : t('ui.no')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {item.roomMatched === undefined
+                                                            ? '—'
+                                                            : item.roomMatched
+                                                              ? t('ui.yes')
+                                                              : t('ui.no')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {visibleResult.analysis?.plan?.stateId === item.stateId
+                                                            ? t('ui.yes')
+                                                            : t('ui.no')}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </Box>
+                            ) : null}
+                            {visibleResult.analysis?.plan && (
                                 <Typography sx={{ mt: 1 }}>
-                                    {t('ui.planned_access')}: {result.analysis.plan.operation}{' '}
-                                    {result.analysis.plan.stateId}{' '}
-                                    {result.analysis.plan.value !== undefined ? `= ${result.analysis.plan.value}` : ''}{' '}
-                                    · {t('ui.policy')}: {result.analysis.policyDecision ?? '—'}
+                                    {t('ui.planned_access')}: {visibleResult.analysis.plan.operation}{' '}
+                                    {visibleResult.analysis.plan.stateId}{' '}
+                                    {visibleResult.analysis.plan.value !== undefined
+                                        ? `= ${visibleResult.analysis.plan.value}`
+                                        : ''}{' '}
+                                    · {t('ui.policy')}: {visibleResult.analysis.policyDecision ?? '—'}
                                 </Typography>
                             )}
-                            {result.actions?.map(item => (
+                            {visibleResult.actions?.map(item => (
                                 <Typography
                                     key={item.stateId}
                                     sx={{ mt: 1 }}
@@ -1742,13 +2001,13 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                     {item.value !== undefined ? ` = ${item.value}` : ''}
                                 </Typography>
                             ))}
-                            {result.clarification && (
+                            {!historySession && visibleResult.clarification && (
                                 <Stack
                                     direction="row"
                                     spacing={1}
                                     sx={{ mt: 2 }}
                                 >
-                                    {result.clarification.options?.map(item => (
+                                    {visibleResult.clarification.options?.map(item => (
                                         <Button
                                             variant="outlined"
                                             key={item.id}
@@ -1758,7 +2017,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                             {item.label}
                                         </Button>
                                     ))}
-                                    {result.clarification.key === 'value' && (
+                                    {visibleResult.clarification.key === 'value' && (
                                         <ValueAnswer
                                             disabled={busy}
                                             label={t('ui.value')}
@@ -1771,7 +2030,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                 component="pre"
                                 sx={{ mt: 2, p: 2, bgcolor: 'action.hover', overflowX: 'auto' }}
                             >
-                                {JSON.stringify(result, null, 2)}
+                                {JSON.stringify(visibleResult, null, 2)}
                             </Box>
                         </Box>
                     )}
