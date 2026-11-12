@@ -1,6 +1,6 @@
 {
   "name": "iobroker.smart-text2command",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "smart-text2command",
   "author": {
     "name": "oweitman",
@@ -61,7 +61,7 @@
     "check": "tsc --noEmit",
     "check:admin": "npm run check --prefix src-admin",
     "build": "npm run check && npm run build:admin",
-    "build:admin": "npm run build --prefix src-admin",
+    "build:admin": "node scripts/ensure-admin-deps.mjs && npm run build --prefix src-admin",
     "lint": "eslint -c eslint.config.mjs src test/*.test.ts",
     "format:check": "prettier --check src test/*.test.ts eslint.config.mjs prettier.config.mjs",
     "format:check:admin": "prettier --check src-admin/src src-admin/vite.config.ts src-admin/index_m.html src-admin/scripts",
