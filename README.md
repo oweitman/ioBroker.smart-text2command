@@ -109,7 +109,7 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
-### 0.0.4 (2026-11-12)
+### 0.0.5 (2026-11-12)
 
 - fix tests and deployment
 

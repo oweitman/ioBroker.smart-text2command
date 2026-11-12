@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "news": {
+      "0.0.5": {
+        "en": "fix tests and deployment",
+        "de": "Fixtests und Einsatz",
+        "ru": "исправления, тесты и развертывание",
+        "pt": "fixe testes e uso",
+        "nl": "tests en implementatie repareren",
+        "fr": "fix tests et déploiement",
+        "it": "fix test e uso",
+        "es": "arreglar pruebas y despliegue",
+        "pl": "naprawa testów i wdrażania",
+        "uk": "виправлення тестів і розгортання",
+        "zh-cn": "修复测试和部署"
+      },
       "0.0.4": {
         "en": "fix tests and deployment",
         "de": "Fixtests und Einsatz",
