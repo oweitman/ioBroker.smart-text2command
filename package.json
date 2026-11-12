@@ -68,6 +68,7 @@
     "format": "prettier --write src test/*.test.ts eslint.config.mjs prettier.config.mjs",
     "format:admin": "prettier --write src-admin/src src-admin/vite.config.ts src-admin/index_m.html src-admin/scripts",
     "test:ts": "mocha --config test/mocharc.custom.json test/**/*.test.ts",
+    "test:js": "mocha --config test/mocharc.custom.json test/**/*.test.ts",
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:ts && npm run test:package",
