@@ -17,7 +17,13 @@ The complete contract and an adapter-side `sendTo` example are in [documentation
 Send a new `requestId` for every turn. A request containing only `text` (with or without `sessionId`) starts a new command. When the result has `status: "clarification"`, keep its `clarification.id` and send it with the next short answer, using the same `sessionId` and `mode`:
 
 ```json
-{"requestId":"turn-2","sessionId":"speaker-1","clarificationId":"<id from clarification>","text":"Wohnzimmer","mode":"execute"}
+{
+    "requestId": "turn-2",
+    "sessionId": "speaker-1",
+    "clarificationId": "<id from clarification>",
+    "text": "Wohnzimmer",
+    "mode": "execute"
+}
 ```
 
 The caller supplies a distinct session ID for each independent conversation and keeps the clarification ID private to that conversation. `selection` may optionally contain the ID of a displayed option; spoken answers need only `text`. An answer that does not match repeats the question with the same ID. A clarification expires after five minutes; the next answer then receives a spoken expiry response. Whole-phrase replies such as `Stopp`, `Abbrechen`, `Stop`, or `Cancel` end the open question with `status: "cancelled"` and a spoken acknowledgement. The question itself does not announce cancellation words. Omitting `clarificationId` deliberately starts a new command and clears the old question for that session.
@@ -55,22 +61,22 @@ Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`.
 
 ```json
 {
-  "schemaVersion": 1,
-  "intents": [
-    {
-      "id": "user.greeting",
-      "source": "user",
-      "enabled": true,
-      "utterances": {
-        "de": ["Sag Hallo", "Begrüße mich"],
-        "en": ["Say hello", "Greet me"]
-      },
-      "action": {
-        "kind": "response",
-        "response": { "de": "Hallo!", "en": "Hello!" }
-      }
-    }
-  ]
+    "schemaVersion": 1,
+    "intents": [
+        {
+            "id": "user.greeting",
+            "source": "user",
+            "enabled": true,
+            "utterances": {
+                "de": ["Sag Hallo", "Begrüße mich"],
+                "en": ["Say hello", "Greet me"]
+            },
+            "action": {
+                "kind": "response",
+                "response": { "de": "Hallo!", "en": "Hello!" }
+            }
+        }
+    ]
 }
 ```
 
@@ -95,6 +101,18 @@ npm run test:integration
 TypeScript tests live under `test/`. The instance data directory contains `devices-v1.json`, `training/user-intents-v1.json`, `audit-v1.json`, and versioned files under `models/`. Corrupt registry or intent data stops the respective initialization. A damaged active NLP model falls back to the previous validated version when available.
 
 See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, validation and open work.
+
+## Changelog
+
+<!--
+  Placeholder for the next version (at the beginning of the line):
+   ### **WORK IN PROGRESS**
+
+-->
+
+### **WORK IN PROGRESS**
+
+- first alpha release
 
 ## License
 
