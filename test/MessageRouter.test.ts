@@ -258,5 +258,34 @@ describe('message API', () => {
         });
         expect(await new IntentRepository(join(directory, 'intents.json')).load()).to.deep.equal(imported);
         expect(await router.handle('exportIntents', {}, admin)).to.deep.equal({ schemaVersion: 1, intents: imported });
+        const fixedSendTo: IntentDefinition = {
+            id: 'user.fixedSendTo',
+            source: 'user',
+            enabled: true,
+            utterances: { de: ['Sende Test', 'Starte Test'], en: ['Send test', 'Start test'] },
+            action: {
+                kind: 'sendTo',
+                instance: 'javascript.0',
+                command: 'toScript',
+                payloadTemplate: {
+                    script: 'script.js.testsendto',
+                    message: 'meinBefehl',
+                    data: { wert: 42, text: 'Hallo' },
+                },
+                parameters: [],
+            },
+        };
+        expect(await router.handle('saveIntent', { intent: fixedSendTo }, admin)).to.deep.equal({
+            status: 'saved',
+            intentId: fixedSendTo.id,
+        });
+        expect((await new IntentRepository(join(directory, 'intents.json')).load()).at(-1)).to.deep.equal(fixedSendTo);
+        const invalid = {
+            ...fixedSendTo,
+            action: { ...fixedSendTo.action, instance: 'invalid-target' },
+        };
+        expect(await router.handle('saveIntent', { intent: invalid }, admin)).to.deep.equal({
+            error: 'Invalid sendTo instance',
+        });
     });
 });

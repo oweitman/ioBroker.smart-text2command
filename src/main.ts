@@ -133,6 +133,25 @@ class SmartText2command extends utils.Adapter {
             isSupportedLanguage((this.config as { defaultLanguage?: string }).defaultLanguage)
                 ? (this.config as { defaultLanguage: string }).defaultLanguage
                 : defaultLanguage(),
+            undefined,
+            (instance, command, payload) =>
+                new Promise((resolve, reject) => {
+                    const timer = this.setTimeout(() => reject(new Error('SENDTO_TIMEOUT')), 20_000);
+                    try {
+                        this.sendTo(instance, command, payload, reply => {
+                            this.clearTimeout(timer);
+                            resolve(reply);
+                        });
+                    } catch (error) {
+                        this.clearTimeout(timer);
+                        reject(error instanceof Error ? error : new Error(String(error)));
+                    }
+                }),
+            (error, requestId) => {
+                const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+                this.lastError = detail;
+                this.log.error(`Command ${requestId} failed: ${detail}`);
+            },
         );
         this.router = new MessageRouter({
             controller,

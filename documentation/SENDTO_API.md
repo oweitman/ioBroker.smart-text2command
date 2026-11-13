@@ -82,7 +82,7 @@ Ein verarbeitetes Ergebnis enthält mindestens `requestId`, `status`, `language`
 
 | `status`        | Bedeutung für den Aufrufer                                                                                                                                                                                                                                                                                           |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clarification` | `response` ausgeben oder ansagen; `clarification.id` zusammen mit `sessionId` und `mode` für die nächste Antwort speichern. `clarification.key` ist `room`, `device`, `capability` oder `value`; `options` enthält gegebenenfalls technische IDs und Anzeigenamen.                                                   |
+| `clarification` | `response` ausgeben oder ansagen; `clarification.id` zusammen mit `sessionId` und `mode` für die nächste Antwort speichern. `clarification.key` ist `room`, `device`, `capability`, `value` oder `parameter`; bei `parameter` nennt `clarification.parameter` den fehlenden Parameter. `options` enthält gegebenenfalls technische IDs und Anzeigenamen. |
 | `success`       | `response` ausgeben oder ansagen. Im Analysemodus beschreibt `actions[].status: "planned"` nur den Plan. Im Ausführungsmodus bedeutet `accepted` bei Schreibaktionen, dass der Befehl übergeben wurde; ein bestätigter Gerätezustand wird damit nicht behauptet. Leseaktionen können einen bestätigten Wert liefern. |
 | `cancelled`     | Abbruchbestätigung aus `response` ausgeben; gespeicherte Rückfrage-ID löschen.                                                                                                                                                                                                                                       |
 | `rejected`      | `response` ausgeben; `errorCode` für technische Behandlung auswerten. Keine Aktion wurde ausgeführt.                                                                                                                                                                                                                 |
@@ -321,10 +321,43 @@ Bei einem freigegebenen booleschen State mit Rolle `button` oder `button.*` verw
 }
 ```
 
+### Eigener Intent mit ausgehender `sendTo`-Aktion
+
+Wenn ein eigener Intent einen vom Admin konfigurierten `sendTo`-Aufruf auslöst, bleibt das äußere `processText`-Ergebnis ein `CommandResult`. Fehlende Parameter werden wie andere Rückfragen fortgesetzt:
+
+```json
+{
+  "requestId": "req-2001",
+  "status": "clarification",
+  "language": "de",
+  "intent": "sendeWert",
+  "response": "Bitte gib den Wert an.",
+  "clarification": {
+    "id": "clarification-2001",
+    "key": "parameter",
+    "parameter": "wert"
+  }
+}
+```
+
+Nach vollständiger Eingabe übernimmt der Adapter den sprechbaren `text` aus dem versionierten Empfängerobjekt als `response`:
+
+```json
+{
+  "requestId": "req-2002",
+  "status": "success",
+  "language": "de",
+  "intent": "sendeWert",
+  "response": "Der Befehl wurde ausgeführt."
+}
+```
+
+Die Konfiguration und das Antwortobjekt des Empfängers beschreibt [SENDTO_INTENT_ACTION_SPECIFICATION.md](SENDTO_INTENT_ACTION_SPECIFICATION.md).
+
 ## Parallele Nutzer und Berechtigungen
 
 Der Adapter bindet Rückfragen an den ioBroker-Absender `message.from`, den optionalen Benutzer `message.user` und die `sessionId`. Der aufrufende Adapter muss für gleichzeitig laufende Gespräche unterschiedliche `sessionId`s vergeben und die zugehörige `clarificationId` je Gespräch getrennt speichern. Wenn er eine **verlässlich authentifizierte** ioBroker-Benutzer-ID besitzt, kann er diese über die `sendTo`-Option `user` mitsenden; ein Adapter kann diese Angabe technisch selbst setzen. Sie ersetzt daher keine Prüfung im aufrufenden Adapter. Zwei Personen an demselben Sprachgerät lassen sich ohne Identitätsinformation des aufrufenden Dienstes nicht zuverlässig trennen.
 
-`processText` verlangt keine Admin-Anmeldung des Absenders. Der Admin gibt Geräte und konkrete Aktionen dauerhaft frei; `execute` prüft diese Freigaben und das aktuelle Ziel vor der Ausführung. Wenn der aufrufende Adapter Texte von externen oder nicht vertrauenswürdigen Nutzern annimmt, muss **er** entscheiden, wer `execute` verwenden darf. `sessionId` und `clarificationId` sind keine Berechtigungsnachweise. `input.text` ist eine separate, nur analysierende State-Schnittstelle und eignet sich nicht für unabhängige Mehrbenutzergespräche.
+`processText` verlangt keine Admin-Anmeldung des Absenders. Der Admin gibt Geräte und konkrete Aktionen dauerhaft frei oder konfiguriert für eigene Intents einen festen `sendTo`-Empfänger mit Befehl und Nachrichtenrahmen. `execute` prüft Gerätefreigaben; beim eigenen `sendTo`-Intent werden ausschließlich die konfigurierten Ziele und geprüften Parameter verwendet. Wenn der aufrufende Adapter Texte von externen oder nicht vertrauenswürdigen Nutzern annimmt, muss **er** entscheiden, wer `execute` verwenden darf. `sessionId` und `clarificationId` sind keine Berechtigungsnachweise. `input.text` ist eine separate, nur analysierende State-Schnittstelle und eignet sich nicht für unabhängige Mehrbenutzergespräche.
 
 Der Router begrenzt `processText` derzeit auf 30 Aufrufe pro Minute **je sendendem Adapter** (`message.from`), also gemeinsam für dessen Nutzer. Der aufrufende Adapter sollte bei parallelen Nutzern diese Grenze berücksichtigen und `RATE_LIMITED` behandeln.

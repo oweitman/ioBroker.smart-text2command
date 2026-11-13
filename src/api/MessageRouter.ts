@@ -79,7 +79,11 @@ export class MessageRouter {
                 if (!request.sessionId) {
                     return { error: 'SESSION_REQUIRED' };
                 }
-                const result = await this.options.controller.process(request, `${context.from}:${context.user ?? ''}`);
+                const result = await this.options.controller.process(
+                    request,
+                    `${context.from}:${context.user ?? ''}`,
+                    true,
+                );
                 try {
                     await this.options.testLabHistory.append(request, result);
                 } catch {
@@ -182,10 +186,10 @@ export class MessageRouter {
                 return { intents: [...systemIntents(), ...this.options.getUserIntents()] };
             }
             if (command === 'saveIntent') {
-                return this.saveIntent(payload);
+                return await this.saveIntent(payload);
             }
             if (command === 'deleteIntent') {
-                return this.deleteIntent(payload);
+                return await this.deleteIntent(payload);
             }
             if (command === 'exportIntents') {
                 return { schemaVersion: 1, intents: this.options.getUserIntents() };

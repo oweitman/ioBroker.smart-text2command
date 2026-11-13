@@ -143,6 +143,8 @@ interface CommandResult {
 
 **MVP-Aktionskatalog:** `turnOn`, `turnOff`, `setValue`, `press`, `getState`, `getValue`. Benutzerdefinierte Intents können nur eine vom Admin konfigurierte typisierte Aktion aus diesem Katalog oder eine Antwortvorlage auslösen. Die System-Intents für Helligkeit und Temperatur bleiben für die Erkennung erhalten und führen beide die freigegebene Aktion `setValue` auf einem passenden numerischen State aus. `press` schreibt `true` auf einen freigegebenen booleschen `button`-State. Die Aktion legt Operation und Capability eindeutig fest; Gerät und Wert werden nach denselben Auflösungs- und Validierungsregeln wie bei System-Intents ermittelt. Numerische und String-Datenpunkte mit Rolle `value` oder `level` können anhand von `common.read` und `common.write` generisch gelesen oder gesetzt werden. Bei einem eigenen `setValue`-Intent kann der Text nach einem passenden Trainingsbeispiel als String-Wert an einen freigegebenen String-Datenpunkt übergeben werden. Semantische Richtungsbefehle für Rollläden sind weiterhin für eine spätere Erweiterung vorgesehen.
 
+**Erweiterung nach dem MVP:** Eigene Intents können einen fest vom Admin konfigurierten `sendTo`-Aufruf mit typisierten Textparametern auslösen. Der vollständige Vertrag steht in [SENDTO_INTENT_ACTION_SPECIFICATION.md](SENDTO_INTENT_ACTION_SPECIFICATION.md).
+
 ## 5. NLP.js und Training
 
 ### 5.1 Engine-Abstraktion
@@ -267,7 +269,7 @@ Antworten sind lokalisiert und für Text- oder Sprachausgabe formuliert. Im Anal
 ## 10. Sicherheit und Ausführungsregeln
 
 1. **Default Deny:** neue Geräte und Capabilities nicht freigegeben.
-2. **Keine Arbitrary Execution:** kein `eval`, keine Shell, keine dynamischen State-IDs aus Rohtext, keine beliebigen Skripte aus Benutzer-Intents.
+2. **Keine Arbitrary Execution:** kein `eval`, keine Shell, keine dynamischen State-IDs oder Skriptziele aus Rohtext. Die `sendTo`-Intent-Aktion darf ausschließlich einen vom Admin fest konfigurierten Empfänger, Befehl und Nachrichtenrahmen verwenden; Sprachtext füllt nur definierte Parameter.
    Betriebssystem-`exec` ist für den MVP nicht erforderlich und wird nicht angeboten. Eine spätere konkrete Funktion mit `exec` benötigt eine eigene, standardmäßig deaktivierte Konfigurationsfreigabe.
 3. **Schreib-Whitelist:** Ziel-State muss aus der genehmigten Capability stammen, aktuell existieren und schreibbar sein.
 4. **Validierung zur Ausführungszeit:** Datentyp, Einheit, Grenzwerte, Enum-Werte und Mapping unmittelbar vor dem Schreiben erneut prüfen.

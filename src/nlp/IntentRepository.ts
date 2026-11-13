@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { IntentDefinition } from './types';
+import { validateSendToAction } from './SendToAction';
 import { supportedLanguages } from '../i18n/LanguageConfig';
 
 interface IntentStore {
@@ -50,12 +51,17 @@ function validate(intents: IntentDefinition[]): void {
         }
         if (
             !intent.action ||
-            (intent.action.kind !== 'capability' && intent.action.kind !== 'response') ||
+            (intent.action.kind !== 'capability' &&
+                intent.action.kind !== 'response' &&
+                intent.action.kind !== 'sendTo') ||
             (intent.action.kind === 'capability' && !OPERATIONS.has(intent.action.operation)) ||
             (intent.action.kind === 'response' &&
                 !Object.values(intent.action.response).some(text => typeof text === 'string' && !!text.trim()))
         ) {
             throw new Error('Invalid intent action');
+        }
+        if (intent.action.kind === 'sendTo') {
+            validateSendToAction(intent.action);
         }
     }
 }

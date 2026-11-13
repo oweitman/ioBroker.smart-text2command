@@ -38,6 +38,10 @@ Die Trainingsbeispiele steuern die **Intent-Erkennung**. Welches konkrete Gerät
 
 Für einen schreibbaren String-Datenpunkt wie `0_userdata.0.test_musik_wohnzimmer.Favorit` wähle beim eigenen Intent **Geräteaktion → Wert setzen**. Gib kurze Befehle ohne den späteren Wert als Trainingsbeispiele ein, etwa `Spiele Favorit` und `Starte Favorit` sowie entsprechende englische Beispiele. Aktiviere das Gerät und gib für den Datenpunkt die Schreibaktion frei. Nach dem Training schreibt `Spiele Favorit SWR` genau `SWR` in den Datenpunkt. Der Text nach einem passenden Trainingsbeispiel ist der Schreibwert; ohne Text fragt der Adapter nach dem Wert. Bei mehreren passenden Geräten oder Datenpunkten folgt eine Rückfrage. Auch String-Datenpunkte bleiben ohne ausdrückliche Freigabe gesperrt.
 
+### Eigenen Intent mit `sendTo` ausführen
+
+Wähle im Intent-Editor den Aktionstyp **sendTo-Aufruf**. Trage die feste Empfängerinstanz, den Befehl und eine gültige JSON-Nachricht ein. **Wenn die Nachricht nur feste Werte enthält, brauchst du weder Parameter noch Erkennungsmuster:** Die Trainingsbeispiele lösen den Aufruf aus. Für dynamische Werte steht ein Platzhalter als ganzes Objekt im JSON, zum Beispiel `{"$param":"wert"}`. Lege dann für `wert` den Typ **Number** und eine Rückfrage je Sprache fest. Ergänze Erkennungsmuster wie `Sende Wert {wert} mit Text {text}`. Bei fehlenden Parametern fragt der Adapter nacheinander nach. Eine gültige Antwort des Empfängers ist beispielsweise `{"version":1,"status":"success","text":"Fertig."}`; für Fehler ist `"status":"error"` vorgesehen. Die ausführliche Konfiguration und der Antwortvertrag stehen in [documentation/SENDTO_INTENT_ACTION_SPECIFICATION.md](documentation/SENDTO_INTENT_ACTION_SPECIFICATION.md). Nach dem Speichern das Modell auf **Training** neu trainieren.
+
 Ein Prompt zum Erzeugen kopierbarer Varianten:
 
 ```text
@@ -59,7 +63,7 @@ Die Sprachliste und die benötigten NLP-Pakete stehen in `resources/languages.js
 
 ## Eigene Intents als JSON importieren
 
-Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`. Jeder Eintrag hat eine eindeutige `id` (Buchstabe am Anfang; danach Buchstaben, Ziffern, `_`, `-` oder `.`), `source: "user"`, `enabled`, Beispiele unter `utterances.de` und `utterances.en` sowie eine typisierte `action`. IDs mit `device.` am Anfang und `None` sind reserviert. Die Admin-Oberfläche verlangt bei Importen mindestens zwei Beispiele je derzeit unterstützter Sprache. Eine `response` enthält Antworttexte je Sprache; eine `capability` enthält eine Operation. Gerätefreigaben sind nicht Teil der Datei.
+Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`. Jeder Eintrag hat eine eindeutige `id` (Buchstabe am Anfang; danach Buchstaben, Ziffern, `_`, `-` oder `.`), `source: "user"`, `enabled`, Beispiele unter `utterances.de` und `utterances.en` sowie eine typisierte `action`. IDs mit `device.` am Anfang und `None` sind reserviert. Die Admin-Oberfläche verlangt bei Importen mindestens zwei Beispiele je derzeit unterstützter Sprache. Eine `response` enthält Antworttexte je Sprache; eine `capability` enthält eine Operation. Für `sendTo` sind `instance`, `command`, `payloadTemplate` und `parameters` erforderlich; `extractionPatterns` wird nur bei Parametern benötigt. Ein vollständiges Beispiel steht in der [sendTo-Aktionsspezifikation](documentation/SENDTO_INTENT_ACTION_SPECIFICATION.md). Gerätefreigaben sind nicht Teil der Datei.
 
 ```json
 {

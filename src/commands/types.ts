@@ -30,7 +30,8 @@ export interface CommandResult {
     actions?: ActionResult[];
     clarification?: {
         id: string;
-        key: 'room' | 'device' | 'capability' | 'value';
+        key: 'room' | 'device' | 'capability' | 'value' | 'parameter';
+        parameter?: string;
         options?: Array<{ id: string; label: string }>;
     };
     modelVersion?: string;
@@ -64,6 +65,15 @@ export interface CommandResult {
         }>;
         policyDecision?: string;
         plan?: { action: ActionKind; operation: 'read' | 'write'; stateId: string; value?: boolean | number | string };
+        sendTo?: {
+            instance: string;
+            command: string;
+            parameters: Record<string, string | number>;
+            missing: string[];
+            rawCallback?: unknown;
+            message?: unknown;
+            transportError?: string;
+        };
     };
 }
 

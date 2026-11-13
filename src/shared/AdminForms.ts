@@ -1,5 +1,6 @@
 import type { ActionKind, DeviceRecord } from '../devices/types';
 import type { IntentDefinition } from '../nlp/types';
+import { validateSendToAction } from '../nlp/SendToAction';
 import languages from '../../resources/languages.json';
 
 const ACTIONS = new Set<ActionKind>(['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue']);
@@ -61,9 +62,13 @@ export function validateIntentDraft(draft: IntentDefinition): void {
     }
     if (
         !draft.action ||
+        !['capability', 'response', 'sendTo'].includes(draft.action.kind) ||
         (draft.action.kind === 'capability' && !ACTIONS.has(draft.action.operation)) ||
         (draft.action.kind === 'response' && !Object.values(draft.action.response).some(text => !!text?.trim()))
     ) {
         throw new Error('Select a valid action');
+    }
+    if (draft.action.kind === 'sendTo') {
+        validateSendToAction(draft.action);
     }
 }

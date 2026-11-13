@@ -45,5 +45,8 @@
   "error.INVALID_READ": "The state cannot be read.",
   "error.INVALID_VALUE": "That value is not valid for the state.",
   "error.STATE_UNAVAILABLE": "The state currently has no value.",
-  "error.INVALID_STATE_VALUE": "The state returned an invalid value."
+  "error.INVALID_STATE_VALUE": "The state returned an invalid value.",
+  "error.SENDTO_UNAVAILABLE": "The configured recipient is unavailable.",
+  "error.SENDTO_INVALID_RESPONSE": "The recipient did not send a valid response.",
+  "error.SENDTO_FAILED": "The recipient did not respond in time or the call failed."
 }

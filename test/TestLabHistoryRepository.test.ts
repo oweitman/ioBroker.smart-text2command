@@ -64,6 +64,28 @@ describe('test lab session history', () => {
                 { sessionId: 'session-c', requestId: 'c1', text: 'Wohnzimmer', mode: 'analyze' },
                 { requestId: 'c1', status: 'success', language: 'de', response: '21 Grad' },
             );
+            await reloaded.append(
+                { sessionId: 'session-c', requestId: 'c2', text: 'Sende Test', mode: 'execute' },
+                {
+                    requestId: 'c2',
+                    status: 'error',
+                    language: 'de',
+                    response: 'Ungültige Antwort',
+                    analysis: {
+                        sendTo: {
+                            instance: 'javascript.0',
+                            command: 'toScript',
+                            parameters: {},
+                            missing: [],
+                            rawCallback: { message: { version: 2 } },
+                            message: { version: 2 },
+                        },
+                    },
+                },
+            );
+            expect((await reloaded.get('session-c'))?.exchanges[1].result.analysis?.sendTo?.rawCallback).to.deep.equal({
+                message: { version: 2 },
+            });
             expect((await reloaded.list()).map(item => item.id)).to.deep.equal(['session-c', 'session-b']);
             expect(await reloaded.get('session-a')).to.be.undefined;
             await reloaded.delete('session-b');

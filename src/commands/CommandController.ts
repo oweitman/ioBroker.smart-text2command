@@ -7,7 +7,8 @@ import { inferValueDomain, matchesValueDomain } from '../devices/ValueDomain';
 import type { ValueDomain } from '../devices/ValueDomain';
 import { parseEntities } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
-import type { IntentDefinition } from '../nlp/types';
+import type { IntentDefinition, SendToIntentAction } from '../nlp/types';
+import { extractParameters, fillPayload, matchesSendToPattern, parseParameter } from '../nlp/SendToAction';
 import { SessionStore } from '../dialog/SessionStore';
 import type { PendingClarification } from '../dialog/SessionStore';
 import type { AuditRepository } from '../storage/AuditRepository';
@@ -170,6 +171,36 @@ function normalizeReply(value: string): string {
         .trim();
 }
 
+function diagnosticSnapshot(value: unknown): unknown {
+    try {
+        const seen = new WeakSet<object>();
+        const serialized = JSON.stringify(value, (_key, item: unknown) => {
+            if (item instanceof Error) {
+                return { name: item.name, message: item.message };
+            }
+            if (typeof item === 'bigint') {
+                return String(item);
+            }
+            if (item && typeof item === 'object') {
+                if (seen.has(item)) {
+                    return '[Circular]';
+                }
+                seen.add(item);
+            }
+            return item;
+        });
+        if (serialized === undefined) {
+            return String(value);
+        }
+        if (serialized.length > 8_192) {
+            return { truncated: true, preview: serialized.slice(0, 8_192) };
+        }
+        return JSON.parse(serialized) as unknown;
+    } catch {
+        return { serializationError: String(value).slice(0, 500) };
+    }
+}
+
 function matchingOptionIds(reply: string, options: Array<{ id: string; label: string }>): string[] {
     const normalized = normalizeReply(reply);
     return options
@@ -266,11 +297,17 @@ export class CommandController {
         private readonly audit: AuditRepository,
         private readonly defaultLanguage: Language = primaryLanguage(),
         private readonly sessions = new SessionStore(),
+        private readonly sendOutbound?: (instance: string, command: string, payload: unknown) => Promise<unknown>,
+        private readonly reportError?: (error: unknown, requestId: string) => void,
     ) {}
 
-    public process(request: CommandRequest, clientKey: string): Promise<CommandResult> {
+    public process(
+        request: CommandRequest,
+        clientKey: string,
+        includeExecutionDiagnostics = false,
+    ): Promise<CommandResult> {
         const key = `${clientKey}:${request.requestId}`;
-        const fingerprint = JSON.stringify(request);
+        const fingerprint = JSON.stringify({ request, includeExecutionDiagnostics });
         const now = Date.now();
         for (const [id, cached] of this.recent) {
             if (cached.expiresAt <= now) {
@@ -286,7 +323,7 @@ export class CommandController {
             }
             return existing.result;
         }
-        const result = this.run(request, clientKey);
+        const result = this.run(request, clientKey, includeExecutionDiagnostics);
         this.recent.set(key, { fingerprint, expiresAt: now + 5 * 60_000, result });
         if (this.recent.size > 1000) {
             this.recent.delete(this.recent.keys().next().value!);
@@ -294,7 +331,11 @@ export class CommandController {
         return result;
     }
 
-    private async run(request: CommandRequest, clientKey: string): Promise<CommandResult> {
+    private async run(
+        request: CommandRequest,
+        clientKey: string,
+        includeExecutionDiagnostics: boolean,
+    ): Promise<CommandResult> {
         const started = Date.now();
         let language = request.language ?? this.defaultLanguage;
         let result: CommandResult;
@@ -302,7 +343,8 @@ export class CommandController {
         try {
             result = await this.resolve(request, clientKey, language, details);
             language = result.language;
-        } catch {
+        } catch (error) {
+            this.reportError?.(error, request.requestId);
             result = {
                 requestId: request.requestId,
                 status: 'error',
@@ -311,7 +353,7 @@ export class CommandController {
                 errorCode: 'PROCESSING_ERROR',
             };
         }
-        if (request.mode === 'analyze') {
+        if (request.mode === 'analyze' || includeExecutionDiagnostics) {
             result.analysis = details;
         }
         result.durationMs = Date.now() - started;
@@ -379,8 +421,34 @@ export class CommandController {
                     response: languageMessage(language, 'clarificationCancelled'),
                 };
             }
+            if (pending.key === 'parameter') {
+                const configured = userIntents.find(item => item.id === pending.intent && item.enabled);
+                if (configured?.action?.kind !== 'sendTo') {
+                    return this.reject(request, language, 'UNSUPPORTED_ACTION');
+                }
+                const parameter = configured.action.parameters.find(item => item.name === pending.parameterName);
+                if (!parameter) {
+                    return this.reject(request, language, 'UNSUPPORTED_ACTION');
+                }
+                const value = parseParameter(request.text, parameter.type, language);
+                if (value === undefined) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return this.processSendTo(
+                    request,
+                    clientKey,
+                    language,
+                    configured.action,
+                    pending.intent,
+                    pending.confidence,
+                    model.version,
+                    { ...pending.parameterValues, [parameter.name]: value },
+                    details,
+                );
+            }
             intent = pending.intent;
-            action = pending.action;
+            action = pending.action as ActionKind;
             confidence = pending.confidence;
             text = pending.request.text;
             sourceRequest = pending.request;
@@ -481,15 +549,6 @@ export class CommandController {
             const parsed = parseEntities(text, language, rooms);
             const roomMatches = resolver.roomMatches(text, language);
             details.entities = parsed.entities;
-            if (parsed.negated || hasUnsupportedSyntax(text, language, parsed.unsupported, roomMatches.length)) {
-                return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
-            }
-            if (
-                !parsed.entities.some(entity => entity.type === 'room') &&
-                new RegExp(languageRules(language).roomReference, 'iu').test(text)
-            ) {
-                return this.reject(request, language, 'UNKNOWN_ROOM');
-            }
             const analysis = await model.engine.analyze(text, language);
             const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
             const explicitButtonPress = isExplicitButtonPress(text, language, this.catalog);
@@ -497,6 +556,18 @@ export class CommandController {
             const uncertainIntent =
                 !analysis.intent || analysis.confidence < 0.65 || analysis.confidence - secondBest < 0.12;
             const stringIntentMatch = matchingStringIntent(text, language, userIntents);
+            const sendToMatches = userIntents.filter(
+                item =>
+                    item.enabled &&
+                    item.action?.kind === 'sendTo' &&
+                    (matchesSendToPattern(item.action, text, language) ||
+                        (item.utterances[language] ?? []).some(example => {
+                            const phrase = example.trim().toLocaleLowerCase(language);
+                            const requestText = text.trim().toLocaleLowerCase(language);
+                            return requestText === phrase || requestText.startsWith(`${phrase} `);
+                        })),
+            );
+            const explicitSendToIntent = sendToMatches.length === 1 ? sendToMatches[0].id : undefined;
             const explicitStringIntent =
                 stringIntentMatch !== undefined && analysis.intent === stringIntentMatch.intent;
             const explicitNamedValueWrite =
@@ -513,23 +584,28 @@ export class CommandController {
                             entity.type === 'number' || entity.type === 'percent' || entity.type === 'temperature',
                     ),
                 );
-            intent = explicitButtonPress
-                ? 'device.press'
-                : explicitSetpointWrite
-                  ? 'device.setTemperature'
-                  : explicitStringIntent
-                    ? stringIntentMatch.intent
-                    : explicitNamedValueWrite
-                      ? 'device.setValue'
-                      : (analysis.intent ?? '');
-            confidence = explicitButtonPress || explicitSetpointWrite ? 1 : analysis.confidence;
+            intent = explicitSendToIntent
+                ? explicitSendToIntent
+                : explicitButtonPress
+                  ? 'device.press'
+                  : explicitSetpointWrite
+                    ? 'device.setTemperature'
+                    : explicitStringIntent
+                      ? stringIntentMatch.intent
+                      : explicitNamedValueWrite
+                        ? 'device.setValue'
+                        : (analysis.intent ?? '');
+            confidence = explicitSendToIntent || explicitButtonPress || explicitSetpointWrite ? 1 : analysis.confidence;
             details.alternatives =
-                explicitButtonPress || explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
+                explicitSendToIntent || explicitButtonPress || explicitSetpointWrite
+                    ? [{ intent, confidence }]
+                    : analysis.alternatives;
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
             if (
                 !intent ||
                 (!explicitButtonPress &&
                     !explicitSetpointWrite &&
+                    !explicitSendToIntent &&
                     !explicitStringIntent &&
                     !explicitNamedValueWrite &&
                     (confidence < 0.65 || confidence - second < 0.12))
@@ -561,6 +637,28 @@ export class CommandController {
                         responses[language] ?? supportedLanguages.map(item => responses[item.code]).find(Boolean) ?? '',
                     modelVersion: model.version,
                 };
+            }
+            if (configured?.action?.kind === 'sendTo') {
+                return this.processSendTo(
+                    request,
+                    clientKey,
+                    language,
+                    configured.action,
+                    intent,
+                    confidence,
+                    model.version,
+                    extractParameters(configured.action, text, language),
+                    details,
+                );
+            }
+            if (parsed.negated || hasUnsupportedSyntax(text, language, parsed.unsupported, roomMatches.length)) {
+                return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
+            }
+            if (
+                !parsed.entities.some(entity => entity.type === 'room') &&
+                new RegExp(languageRules(language).roomReference, 'iu').test(text)
+            ) {
+                return this.reject(request, language, 'UNKNOWN_ROOM');
             }
             action = configured?.action?.kind === 'capability' ? configured.action.operation : SYSTEM_ACTIONS[intent];
             if (!action) {
@@ -933,7 +1031,140 @@ export class CommandController {
                 .filter(Boolean)
                 .join(' '),
             errorCode: 'INVALID_SELECTION',
-            clarification: { id: pending.id, key: pending.key, options: pending.options },
+            clarification: {
+                id: pending.id,
+                key: pending.key,
+                options: pending.options,
+                parameter: pending.parameterName,
+            },
+            modelVersion,
+        };
+    }
+
+    private async processSendTo(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        action: SendToIntentAction,
+        intent: string,
+        confidence: number,
+        modelVersion: string | undefined,
+        values: Record<string, string | number>,
+        details: NonNullable<CommandResult['analysis']>,
+    ): Promise<CommandResult> {
+        const missing = action.parameters.filter(item => values[item.name] === undefined);
+        details.sendTo = {
+            instance: action.instance,
+            command: action.command,
+            parameters: values,
+            missing: missing.map(item => item.name),
+        };
+        if (missing.length) {
+            const parameter = missing[0];
+            const question = parameter.prompt[language] ?? parameter.prompt[this.defaultLanguage] ?? '';
+            const pending = this.sessions.create({
+                key: 'parameter',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'sendTo',
+                intent,
+                confidence,
+                deviceIds: [],
+                question,
+                parameterName: parameter.name,
+                parameterValues: values,
+            });
+            return {
+                requestId: request.requestId,
+                status: 'clarification',
+                language,
+                intent,
+                confidence,
+                response: question,
+                clarification: { id: pending.id, key: 'parameter', parameter: parameter.name },
+                modelVersion,
+            };
+        }
+        if (request.mode === 'analyze') {
+            return {
+                requestId: request.requestId,
+                status: 'success',
+                language,
+                intent,
+                confidence,
+                response: languageMessage(language, 'planned'),
+                modelVersion,
+            };
+        }
+        if (!this.sendOutbound) {
+            return this.sendToError(request, language, intent, confidence, modelVersion, 'SENDTO_UNAVAILABLE');
+        }
+        try {
+            const rawCallback = await this.sendOutbound(
+                action.instance,
+                action.command,
+                fillPayload(action.payloadTemplate, values),
+            );
+            details.sendTo.rawCallback = diagnosticSnapshot(rawCallback);
+            if (rawCallback instanceof Error) {
+                throw rawCallback;
+            }
+            const result =
+                rawCallback &&
+                typeof rawCallback === 'object' &&
+                'message' in rawCallback &&
+                !('version' in rawCallback)
+                    ? rawCallback.message
+                    : rawCallback;
+            details.sendTo.message = diagnosticSnapshot(result);
+            if (!result || typeof result !== 'object' || Array.isArray(result)) {
+                return this.sendToError(request, language, intent, confidence, modelVersion, 'SENDTO_INVALID_RESPONSE');
+            }
+            const reply = result as Record<string, unknown>;
+            if (
+                reply.version !== 1 ||
+                (reply.status !== 'success' && reply.status !== 'error') ||
+                typeof reply.text !== 'string' ||
+                !reply.text.trim() ||
+                reply.text.length > 2000
+            ) {
+                return this.sendToError(request, language, intent, confidence, modelVersion, 'SENDTO_INVALID_RESPONSE');
+            }
+            return {
+                requestId: request.requestId,
+                status: reply.status,
+                language,
+                intent,
+                confidence,
+                response: reply.text,
+                errorCode: reply.status === 'error' ? 'SENDTO_TARGET_ERROR' : undefined,
+                modelVersion,
+            };
+        } catch (error) {
+            details.sendTo.transportError = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+            this.reportError?.(error, request.requestId);
+            return this.sendToError(request, language, intent, confidence, modelVersion, 'SENDTO_FAILED');
+        }
+    }
+
+    private sendToError(
+        request: CommandRequest,
+        language: Language,
+        intent: string,
+        confidence: number,
+        modelVersion: string | undefined,
+        code: string,
+    ): CommandResult {
+        return {
+            requestId: request.requestId,
+            status: 'error',
+            language,
+            intent,
+            confidence,
+            errorCode: code,
+            response: languageMessage(language, `error.${code}`),
             modelVersion,
         };
     }

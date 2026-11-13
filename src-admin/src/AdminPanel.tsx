@@ -50,6 +50,7 @@ import { normalizeIntentDraft, parseAliases, validateApproval, validateIntentDra
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
 import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
 import type { IntentDefinition } from '../../src/nlp/types';
+import type { SendToIntentAction } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
 import type { TestLabSession, TestLabSessionSummary } from '../../src/storage/TestLabHistoryRepository';
 import type { Language } from '../../src/types/api';
@@ -1120,6 +1121,15 @@ const emptyIntent = (): IntentDefinition => ({
     action: { kind: 'capability', operation: 'turnOn' },
 });
 
+const emptySendToAction = (): SendToIntentAction => ({
+    kind: 'sendTo',
+    instance: '',
+    command: '',
+    payloadTemplate: {},
+    parameters: [],
+    extractionPatterns: Object.fromEntries(languageOptions.map(item => [item.code, []])),
+});
+
 function IntentEditor({
     intents,
     language,
@@ -1134,6 +1144,8 @@ function IntentEditor({
     const t = labels(language);
     const [draft, setDraft] = useState<IntentDefinition>(emptyIntent);
     const [responseRows, setResponseRows] = useState<LanguageRow[]>(() => rowsFromValues({}, language));
+    const [payloadText, setPayloadText] = useState('{}');
+    const [payloadError, setPayloadError] = useState('');
     const [editingId, setEditingId] = useState<string>();
     const [error, setError] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1141,6 +1153,10 @@ function IntentEditor({
     const edit = (intent: IntentDefinition, existing = true): void => {
         setDraft(structuredClone(intent));
         setResponseRows(rowsFromValues(intent.action?.kind === 'response' ? intent.action.response : {}, language));
+        setPayloadText(
+            intent.action?.kind === 'sendTo' ? JSON.stringify(intent.action.payloadTemplate, null, 2) : '{}',
+        );
+        setPayloadError('');
         setEditingId(existing ? intent.id : undefined);
         setError('');
     };
@@ -1150,6 +1166,7 @@ function IntentEditor({
     };
     const save = async (): Promise<void> => {
         try {
+            if (payloadError) throw new Error(payloadError);
             const normalized = normalizeIntentDraft(draft);
             validateIntentDraft(normalized);
             if (!editingId && intents.some(item => item.id === normalized.id)) {
@@ -1247,18 +1264,25 @@ function IntentEditor({
                             select
                             label={t('ui.action_type')}
                             value={action.kind}
-                            onChange={event =>
+                            onChange={event => {
+                                setPayloadError('');
+                                if (event.target.value === 'sendTo') {
+                                    setPayloadText('{}');
+                                }
                                 setDraft({
                                     ...draft,
                                     action:
                                         event.target.value === 'response'
                                             ? { kind: 'response', response: valuesFromRows(responseRows) }
-                                            : { kind: 'capability', operation: 'turnOn' },
-                                })
-                            }
+                                            : event.target.value === 'sendTo'
+                                              ? emptySendToAction()
+                                              : { kind: 'capability', operation: 'turnOn' },
+                                });
+                            }}
                         >
                             <MenuItem value="capability">{t('ui.device_action')}</MenuItem>
                             <MenuItem value="response">{t('ui.response_template')}</MenuItem>
+                            <MenuItem value="sendTo">{t('ui.sendto_action')}</MenuItem>
                         </TextField>
                         {action.kind === 'capability' ? (
                             <TextField
@@ -1281,7 +1305,7 @@ function IntentEditor({
                                     </MenuItem>
                                 ))}
                             </TextField>
-                        ) : (
+                        ) : action.kind === 'response' ? (
                             <LanguageValueTable
                                 rows={responseRows}
                                 onChange={changeResponseRows}
@@ -1291,6 +1315,198 @@ function IntentEditor({
                                 addLabel={t('ui.add_language')}
                                 removeLabel={t('ui.remove_language')}
                             />
+                        ) : (
+                            <Stack spacing={2}>
+                                <TextField
+                                    label={t('ui.sendto_instance')}
+                                    value={action.instance}
+                                    onChange={event =>
+                                        setDraft({ ...draft, action: { ...action, instance: event.target.value } })
+                                    }
+                                />
+                                <TextField
+                                    label={t('ui.sendto_command')}
+                                    value={action.command}
+                                    helperText={t('ui.sendto_command_help')}
+                                    onChange={event =>
+                                        setDraft({ ...draft, action: { ...action, command: event.target.value } })
+                                    }
+                                />
+                                {/^javascript\.\d+$/.test(action.instance) &&
+                                    action.command &&
+                                    action.command !== 'toScript' && (
+                                        <Alert severity="warning">{t('ui.sendto_javascript_command_warning')}</Alert>
+                                    )}
+                                <TextField
+                                    label={t('ui.sendto_payload')}
+                                    multiline
+                                    minRows={7}
+                                    value={payloadText}
+                                    error={!!payloadError}
+                                    helperText={payloadError || t('ui.sendto_placeholder_help')}
+                                    onChange={event => {
+                                        const value = event.target.value;
+                                        setPayloadText(value);
+                                        try {
+                                            const parsed: unknown = JSON.parse(value);
+                                            setPayloadError('');
+                                            setDraft(current => ({
+                                                ...current,
+                                                action: { ...action, payloadTemplate: parsed },
+                                            }));
+                                        } catch {
+                                            setPayloadError(t('ui.sendto_invalid_json'));
+                                        }
+                                    }}
+                                />
+                                <Typography variant="subtitle2">{t('ui.sendto_parameters')}</Typography>
+                                {action.parameters.map((parameter, index) => (
+                                    <Card
+                                        key={index}
+                                        variant="outlined"
+                                    >
+                                        <CardContent>
+                                            <Stack spacing={1}>
+                                                <Stack
+                                                    direction={{ xs: 'column', sm: 'row' }}
+                                                    spacing={1}
+                                                >
+                                                    <TextField
+                                                        label={t('ui.sendto_parameter_name')}
+                                                        value={parameter.name}
+                                                        onChange={event =>
+                                                            setDraft({
+                                                                ...draft,
+                                                                action: {
+                                                                    ...action,
+                                                                    parameters: action.parameters.map(
+                                                                        (item, position) =>
+                                                                            position === index
+                                                                                ? { ...item, name: event.target.value }
+                                                                                : item,
+                                                                    ),
+                                                                },
+                                                            })
+                                                        }
+                                                    />
+                                                    <TextField
+                                                        select
+                                                        label={t('ui.sendto_parameter_type')}
+                                                        value={parameter.type}
+                                                        onChange={event =>
+                                                            setDraft({
+                                                                ...draft,
+                                                                action: {
+                                                                    ...action,
+                                                                    parameters: action.parameters.map(
+                                                                        (item, position) =>
+                                                                            position === index
+                                                                                ? {
+                                                                                      ...item,
+                                                                                      type: event.target.value as
+                                                                                          'string' | 'number',
+                                                                                  }
+                                                                                : item,
+                                                                    ),
+                                                                },
+                                                            })
+                                                        }
+                                                    >
+                                                        <MenuItem value="string">String</MenuItem>
+                                                        <MenuItem value="number">Number</MenuItem>
+                                                    </TextField>
+                                                    <Button
+                                                        onClick={() =>
+                                                            setDraft({
+                                                                ...draft,
+                                                                action: {
+                                                                    ...action,
+                                                                    parameters: action.parameters.filter(
+                                                                        (_, position) => position !== index,
+                                                                    ),
+                                                                },
+                                                            })
+                                                        }
+                                                    >
+                                                        {t('ui.sendto_remove_parameter')}
+                                                    </Button>
+                                                </Stack>
+                                                {languageOptions.map(item => (
+                                                    <TextField
+                                                        key={item.code}
+                                                        label={`${t('ui.sendto_prompt')} (${item.name})`}
+                                                        value={parameter.prompt[item.code] ?? ''}
+                                                        onChange={event =>
+                                                            setDraft({
+                                                                ...draft,
+                                                                action: {
+                                                                    ...action,
+                                                                    parameters: action.parameters.map(
+                                                                        (entry, position) =>
+                                                                            position === index
+                                                                                ? {
+                                                                                      ...entry,
+                                                                                      prompt: {
+                                                                                          ...entry.prompt,
+                                                                                          [item.code]:
+                                                                                              event.target.value,
+                                                                                      },
+                                                                                  }
+                                                                                : entry,
+                                                                    ),
+                                                                },
+                                                            })
+                                                        }
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                                <Button
+                                    startIcon={<AddCircleOutlinedIcon />}
+                                    onClick={() =>
+                                        setDraft({
+                                            ...draft,
+                                            action: {
+                                                ...action,
+                                                parameters: [
+                                                    ...action.parameters,
+                                                    { name: '', type: 'string', prompt: {} },
+                                                ],
+                                            },
+                                        })
+                                    }
+                                >
+                                    {t('ui.sendto_add_parameter')}
+                                </Button>
+                                {action.parameters.length > 0 &&
+                                    languageOptions.map(item => (
+                                        <TextField
+                                            key={item.code}
+                                            multiline
+                                            minRows={3}
+                                            label={`${t('ui.sendto_patterns')} (${item.name})`}
+                                            helperText={t('ui.sendto_patterns_help')}
+                                            value={(action.extractionPatterns?.[item.code] ?? []).join('\n')}
+                                            onChange={event =>
+                                                setDraft({
+                                                    ...draft,
+                                                    action: {
+                                                        ...action,
+                                                        extractionPatterns: {
+                                                            ...action.extractionPatterns,
+                                                            [item.code]: event.target.value
+                                                                .split('\n')
+                                                                .map(line => line.trim())
+                                                                .filter(Boolean),
+                                                        },
+                                                    },
+                                                })
+                                            }
+                                        />
+                                    ))}
+                            </Stack>
                         )}
                         {error && <Alert severity="error">{error}</Alert>}
                         <Alert severity="info">

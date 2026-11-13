@@ -8,7 +8,21 @@ export interface IntentDefinition {
     utterances: Partial<Record<Language, string[]>>;
     action?:
         | { kind: 'capability'; operation: ActionKind }
-        | { kind: 'response'; response: Partial<Record<Language, string>> };
+        | { kind: 'response'; response: Partial<Record<Language, string>> }
+        | SendToIntentAction;
+}
+
+export interface SendToIntentAction {
+    kind: 'sendTo';
+    instance: string;
+    command: string;
+    payloadTemplate: unknown;
+    parameters: Array<{
+        name: string;
+        type: 'string' | 'number';
+        prompt: Partial<Record<Language, string>>;
+    }>;
+    extractionPatterns?: Partial<Record<Language, string[]>>;
 }
 
 export interface LanguageTrainingData {

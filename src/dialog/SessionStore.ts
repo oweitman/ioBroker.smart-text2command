@@ -4,12 +4,12 @@ import type { CommandRequest, Language } from '../types/api';
 
 export interface PendingClarification {
     id: string;
-    key: 'room' | 'device' | 'capability' | 'value';
+    key: 'room' | 'device' | 'capability' | 'value' | 'parameter';
     clientKey: string;
     sessionId?: string;
     request: CommandRequest;
     language: Language;
-    action: ActionKind;
+    action: ActionKind | 'sendTo';
     intent: string;
     confidence: number;
     deviceIds: string[];
@@ -18,6 +18,8 @@ export interface PendingClarification {
     selectedRoomId?: string;
     selectedDeviceId?: string;
     question?: string;
+    parameterName?: string;
+    parameterValues?: Record<string, string | number>;
     options?: Array<{ id: string; label: string }>;
     expiresAt: number;
 }

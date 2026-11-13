@@ -45,5 +45,8 @@
   "error.INVALID_READ": "Der Datenpunkt kann nicht gelesen werden.",
   "error.INVALID_VALUE": "Dieser Wert passt nicht zum Datenpunkt.",
   "error.STATE_UNAVAILABLE": "Der Datenpunkt liefert derzeit keinen Wert.",
-  "error.INVALID_STATE_VALUE": "Der Datenpunkt liefert einen ungültigen Wert."
+  "error.INVALID_STATE_VALUE": "Der Datenpunkt liefert einen ungültigen Wert.",
+  "error.SENDTO_UNAVAILABLE": "Der konfigurierte Empfänger ist nicht verfügbar.",
+  "error.SENDTO_INVALID_RESPONSE": "Der Empfänger hat keine gültige Antwort gesendet.",
+  "error.SENDTO_FAILED": "Der Empfänger hat nicht rechtzeitig geantwortet oder der Aufruf ist fehlgeschlagen."
 }
