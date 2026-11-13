@@ -84,6 +84,22 @@ type DeviceList = {
 };
 
 const pages: Page[] = ['dashboard', 'devices', 'intents', 'training', 'test', 'settings'];
+
+function createBrowserId(): string {
+    const bytes = new Uint8Array(16);
+    if (globalThis.crypto?.getRandomValues) {
+        globalThis.crypto.getRandomValues(bytes);
+    } else {
+        for (let index = 0; index < bytes.length; index++) {
+            bytes[index] = Math.floor(Math.random() * 256);
+        }
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 const localeFiles = import.meta.glob<Record<string, string>>('./i18n/*.json', { eager: true, import: 'default' });
 const dictionaries: Record<Language, Record<string, string>> = Object.fromEntries(
     languageOptions.map(item => [item.code, localeFiles[`./i18n/${item.code}.json`] ?? {}]),
@@ -1522,7 +1538,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
     const [result, setResult] = useState<CommandResult>();
     const [messages, setMessages] = useState<Array<{ id: string; role: 'user' | 'system'; text: string }>>([]);
     const chatRef = useRef<HTMLDivElement>(null);
-    const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+    const [sessionId, setSessionId] = useState(createBrowserId);
     const [sessions, setSessions] = useState<TestLabSessionSummary[]>([]);
     const [historySession, setHistorySession] = useState<TestLabSession>();
     const [historyIndex, setHistoryIndex] = useState(0);
@@ -1562,7 +1578,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
     }
 
     function startSession(): void {
-        setSessionId(crypto.randomUUID());
+        setSessionId(createBrowserId());
         setHistorySession(undefined);
         setMessages([]);
         setResult(undefined);
@@ -1577,9 +1593,9 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                 ? (result?.clarification?.options?.find(item => item.id === selection)?.label ?? selection)
                 : text.trim();
             if (!answerText || answerText.length > 1000) throw new Error(t('error.text_length'));
-            setMessages(previous => [...previous, { id: crypto.randomUUID(), role: 'user', text: answerText }]);
+            setMessages(previous => [...previous, { id: createBrowserId(), role: 'user', text: answerText }]);
             const response = await api.call<CommandResult>('processTestLab', {
-                requestId: crypto.randomUUID(),
+                requestId: createBrowserId(),
                 sessionId,
                 text: answerText,
                 language: selectedLanguage,
@@ -1590,7 +1606,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
             setResult(response);
             setMessages(previous => [
                 ...previous,
-                { id: crypto.randomUUID(), role: 'system', text: response.response },
+                { id: createBrowserId(), role: 'system', text: response.response },
             ]);
             setText('');
             if (response.historyError) {

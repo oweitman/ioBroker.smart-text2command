@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "news": {
+      "0.0.8": {
+        "en": "fix problem with missing crypto api",
+        "de": "Problem mit fehlender Krypto-API lösen",
+        "ru": "исправить проблему с отсутствующим криптографическим API",
+        "pt": "corrija a falta de cripto api",
+        "nl": "probleem met ontbrekende crypto-api oplossen",
+        "fr": "corriger une API cryptée manquante",
+        "it": "risolvere la mancanza di crypto api",
+        "es": "corregir un problema con la API criptográfica",
+        "pl": "naprawić problem z brakującym kryptograficznym API",
+        "uk": "виправити проблему з відсутнім крипто-api",
+        "zh-cn": "修复缺少加密 API 的问题"
+      },
       "0.0.7": {
         "en": "add session history and extend analyze date in test lab",
         "de": "Sitzungsverlauf und Analysedatum im Testlabor verlängern",
@@ -80,19 +93,6 @@
         "pl": "pierwsze wydanie alfa",
         "uk": "перший альфа-реліз",
         "zh-cn": "首个 alpha 版本"
-      },
-      "0.0.1": {
-        "en": "initial release",
-        "de": "Erstveröffentlichung",
-        "ru": "Начальная версия",
-        "pt": "lançamento inicial",
-        "nl": "Eerste uitgave",
-        "fr": "Première version",
-        "it": "Versione iniziale",
-        "es": "Versión inicial",
-        "pl": "Pierwsze wydanie",
-        "uk": "Початкова версія",
-        "zh-cn": "首次出版"
       }
     },
     "titleLang": {

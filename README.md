@@ -109,6 +109,10 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
+### 0.0.8 (2026-11-13)
+
+- fix problem with missing crypto api
+
 ### 0.0.7 (2026-11-12)
 
 - add session history and extend analyze date in test lab
