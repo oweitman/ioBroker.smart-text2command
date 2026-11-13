@@ -11,7 +11,11 @@ function supports(capability: Capability, action: ActionKind): boolean {
         case 'turnOff':
             return capability.kind === 'onOff' && capability.writable;
         case 'setValue':
-            return capability.kind === 'genericValue' && capability.valueKind === 'number' && capability.writable;
+            return (
+                capability.kind === 'genericValue' &&
+                (capability.valueKind === 'number' || capability.valueKind === 'string') &&
+                capability.writable
+            );
         case 'press':
             return capability.kind === 'button' && capability.valueKind === 'boolean' && capability.writable;
         case 'getState':

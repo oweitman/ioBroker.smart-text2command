@@ -38,6 +38,46 @@ function isExplicitSetpointWrite(text: string, language: Language): boolean {
     return new RegExp(rules.setpointVerb, 'iu').test(text) && new RegExp(rules.setpointTarget, 'iu').test(text);
 }
 
+function matchStringPhrase(
+    text: string,
+    examples: string[],
+    language: Language,
+): { prefix: string; value?: string } | undefined {
+    const request = text.trim();
+    for (const prefix of examples.map(example => example.trim()).sort((a, b) => b.length - a.length)) {
+        const remainder = request.slice(prefix.length);
+        if (
+            prefix &&
+            request.slice(0, prefix.length).toLocaleLowerCase(language) === prefix.toLocaleLowerCase(language)
+        ) {
+            if (!remainder) {
+                return { prefix };
+            }
+            if (/^\s/.test(remainder) && remainder.trim()) {
+                return { prefix, value: remainder.trim() };
+            }
+        }
+    }
+    return undefined;
+}
+
+function matchingStringIntent(
+    text: string,
+    language: Language,
+    intents: IntentDefinition[],
+): { intent: string; prefix: string; value?: string } | undefined {
+    const matches = intents
+        .filter(
+            intent => intent.enabled && intent.action?.kind === 'capability' && intent.action.operation === 'setValue',
+        )
+        .flatMap(intent => {
+            const match = matchStringPhrase(text, intent.utterances[language] ?? [], language);
+            return match ? [{ intent: intent.id, ...match }] : [];
+        })
+        .sort((a, b) => b.prefix.length - a.prefix.length);
+    return matches[0] && (!matches[1] || matches[0].prefix.length > matches[1].prefix.length) ? matches[0] : undefined;
+}
+
 function isExplicitNamedValueWrite(
     text: string,
     language: Language,
@@ -304,6 +344,7 @@ export class CommandController {
         if (!model) {
             return this.reject(request, language, 'MODEL_UNAVAILABLE');
         }
+        const userIntents = this.getUserIntents();
         const rooms = [
             ...new Set(
                 this.catalog
@@ -322,6 +363,7 @@ export class CommandController {
         let intent: string;
         let action: ActionKind;
         let confidence: number;
+        let clarifiedStringValue: string | undefined;
         if (request.clarificationId) {
             const pending = this.sessions.get(request.clarificationId, clientKey, request.sessionId);
             if (!pending || pending.request.mode !== request.mode) {
@@ -413,9 +455,23 @@ export class CommandController {
                 selectedStateId = matches[0];
             } else if (pending.key === 'value') {
                 const parsedAnswer = parseEntities(answer, language, rooms);
-                if (!parsedAnswer.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))) {
+                const stringTarget = this.catalog
+                    .list()
+                    .find(device => device.id === pending.selectedDeviceId)
+                    ?.discoveredCapabilities.some(
+                        capability =>
+                            pending.stateIds?.includes(capability.stateId) && capability.valueKind === 'string',
+                    );
+                if (
+                    stringTarget
+                        ? !answer.trim()
+                        : !parsedAnswer.entities.some(entity =>
+                              ['number', 'percent', 'temperature'].includes(entity.type),
+                          )
+                ) {
                     return this.repeatClarification(request, pending, model.version);
                 }
+                clarifiedStringValue = stringTarget ? answer.trim() : undefined;
                 forcedDeviceId = pending.selectedDeviceId;
                 selectedStateId = pending.stateIds?.[0];
                 text = `${pending.request.text} ${answer}`;
@@ -440,6 +496,9 @@ export class CommandController {
             const secondBest = analysis.alternatives.find(item => item.intent !== analysis.intent)?.confidence ?? 0;
             const uncertainIntent =
                 !analysis.intent || analysis.confidence < 0.65 || analysis.confidence - secondBest < 0.12;
+            const stringIntentMatch = matchingStringIntent(text, language, userIntents);
+            const explicitStringIntent =
+                stringIntentMatch !== undefined && analysis.intent === stringIntentMatch.intent;
             const explicitNamedValueWrite =
                 !explicitSetpointWrite &&
                 !explicitButtonPress &&
@@ -458,9 +517,11 @@ export class CommandController {
                 ? 'device.press'
                 : explicitSetpointWrite
                   ? 'device.setTemperature'
-                  : explicitNamedValueWrite
-                    ? 'device.setValue'
-                    : (analysis.intent ?? '');
+                  : explicitStringIntent
+                    ? stringIntentMatch.intent
+                    : explicitNamedValueWrite
+                      ? 'device.setValue'
+                      : (analysis.intent ?? '');
             confidence = explicitButtonPress || explicitSetpointWrite ? 1 : analysis.confidence;
             details.alternatives =
                 explicitButtonPress || explicitSetpointWrite ? [{ intent, confidence }] : analysis.alternatives;
@@ -469,6 +530,7 @@ export class CommandController {
                 !intent ||
                 (!explicitButtonPress &&
                     !explicitSetpointWrite &&
+                    !explicitStringIntent &&
                     !explicitNamedValueWrite &&
                     (confidence < 0.65 || confidence - second < 0.12))
             ) {
@@ -486,7 +548,7 @@ export class CommandController {
                 }
                 return this.reject(request, language, 'UNCLEAR_INTENT');
             }
-            const configured = this.getUserIntents().find(item => item.id === intent && item.enabled);
+            const configured = userIntents.find(item => item.id === intent && item.enabled);
             if (configured?.action?.kind === 'response') {
                 const responses = configured.action.response;
                 return {
@@ -510,7 +572,7 @@ export class CommandController {
                     language,
                     action,
                     undefined,
-                    requestedDomain(intent, action, text, language),
+                    requestedDomain(intent, action, explicitStringIntent ? stringIntentMatch.prefix : text, language),
                 );
                 details.functions = diagnostics.functions;
                 details.dataPoints = diagnostics.dataPoints;
@@ -560,7 +622,12 @@ export class CommandController {
         ) {
             return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
         }
-        const domain = requestedDomain(intent, action, text, language);
+        const configured = userIntents.find(item => item.id === intent && item.enabled);
+        const stringMatch =
+            configured?.action?.kind === 'capability' && configured.action.operation === 'setValue'
+                ? matchStringPhrase(text, configured.utterances[language] ?? [], language)
+                : undefined;
+        const domain = requestedDomain(intent, action, stringMatch?.prefix ?? text, language);
         if (request.mode === 'analyze') {
             const diagnostics = resolver.diagnose(text, language, action, forcedRoomId, domain);
             details.functions = diagnostics.functions;
@@ -719,7 +786,17 @@ export class CommandController {
             }
             deviceId = resolution.selected.deviceId;
         }
-        const outcome = planAction(this.catalog, deviceId, action, parsed, language, text, domain, selectedStateId);
+        const outcome = planAction(
+            this.catalog,
+            deviceId,
+            action,
+            parsed,
+            language,
+            text,
+            domain,
+            selectedStateId,
+            clarifiedStringValue ?? stringMatch?.value,
+        );
         if ('error' in outcome) {
             return this.reject(request, language, outcome.error, intent, confidence);
         }
@@ -774,7 +851,7 @@ export class CommandController {
                 deviceIds: [deviceId],
                 selectedDeviceId: deviceId,
                 selectedRoomId: forcedRoomId,
-                stateIds: selectedStateId ? [selectedStateId] : undefined,
+                stateIds: [outcome.stateId],
                 question: languageMessage(language, 'valueClarification'),
             });
             return {
@@ -807,7 +884,7 @@ export class CommandController {
             entity => entity.type === 'number' || entity.type === 'percent' || entity.type === 'temperature',
         );
         const requested =
-            typeof requestedEntity?.value === 'number'
+            plan.capability.valueKind === 'number' && typeof requestedEntity?.value === 'number'
                 ? { value: requestedEntity.value, type: requestedEntity.type }
                 : undefined;
         if (request.mode === 'analyze') {

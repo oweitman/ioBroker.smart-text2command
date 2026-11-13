@@ -3,7 +3,7 @@ import config from '@iobroker/eslint-config';
 export default [
     ...config,
     {
-        files: ['src/**/*.ts', 'test/**/*.ts'],
+        files: ['src/**/*.ts', 'src-admin/**/*.tsx', 'test/**/*.ts'],
         rules: {
             'jsdoc/require-jsdoc': 'off',
             'jsdoc/require-param': 'off',

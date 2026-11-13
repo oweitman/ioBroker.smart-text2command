@@ -59,7 +59,7 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
         kind = 'onOff';
     } else if (
         (role === 'value' || role.startsWith('value.') || role === 'level' || role.startsWith('level.')) &&
-        (valueKind === 'number' || common.read === true) &&
+        (valueKind === 'number' || valueKind === 'string' || common.read === true) &&
         (common.read === true || common.write === true)
     ) {
         kind = 'genericValue';

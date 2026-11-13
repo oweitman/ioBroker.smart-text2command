@@ -19,6 +19,18 @@ export function parseAliases(input: string): string[] {
     return aliases;
 }
 
+export function normalizeIntentDraft(draft: IntentDefinition): IntentDefinition {
+    return {
+        ...draft,
+        utterances: Object.fromEntries(
+            Object.entries(draft.utterances).map(([language, examples]) => [
+                language,
+                (examples ?? []).map(text => text.trim()).filter(Boolean),
+            ]),
+        ),
+    };
+}
+
 export function validateApproval(device: DeviceRecord, stateId: string, action: ActionKind): void {
     if (device.status === 'missing') {
         throw new Error('Device is missing');

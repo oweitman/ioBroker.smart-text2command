@@ -85,6 +85,37 @@ describe('device discovery and approvals', () => {
         );
         expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(false);
     });
+    it('offers approved string value writes according to the ioBroker write flag', () => {
+        const id = '0_userdata.0.test_musik_wohnzimmer';
+        const stateId = `${id}.Favorit`;
+        const registry = new DeviceRegistry();
+        registry.reconcile(
+            discoverDevices([
+                { id, type: 'channel', common: { name: 'Musik' } },
+                {
+                    id: stateId,
+                    type: 'state',
+                    common: { name: 'Favorit', role: 'value', type: 'string', read: true, write: true },
+                },
+            ]),
+        );
+        const capability = registry.list()[0].discoveredCapabilities[0];
+        expect(capability.kind).to.equal('genericValue');
+        expect(capability.valueKind).to.equal('string');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'getValue');
+        registry.approve(id, stateId, 'setValue');
+        expect(registry.isAllowed(id, capability, 'getValue')).to.equal(true);
+        expect(registry.isAllowed(id, capability, 'setValue')).to.equal(true);
+
+        const writeOnly = mapCapability({
+            id: `${id}.writeOnly`,
+            type: 'state',
+            common: { role: 'value', type: 'string', read: false, write: true },
+        });
+        expect(writeOnly?.writable).to.equal(true);
+        expect(writeOnly?.readable).to.equal(false);
+    });
     it('maps roles offered by Admin to the intended actions', () => {
         const brightness = mapCapability({
             id: '0_userdata.0.test.HELLIGKEIT',

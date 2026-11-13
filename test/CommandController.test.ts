@@ -9,6 +9,7 @@ import { DeviceRegistry } from '../src/devices/DeviceRegistry';
 import type { ObjectSnapshot } from '../src/devices/types';
 import { SessionStore } from '../src/dialog/SessionStore';
 import type { NlpEngine } from '../src/nlp/NlpEngine';
+import type { IntentDefinition } from '../src/nlp/types';
 import { AuditRepository } from '../src/storage/AuditRepository';
 
 describe('command pipeline', () => {
@@ -26,6 +27,7 @@ describe('command pipeline', () => {
         stateValue: unknown = true,
         sessions?: SessionStore,
         nlpConfidence = 0.95,
+        userIntents: IntentDefinition[] = [],
     ): {
         registry: DeviceRegistry;
         controller: CommandController;
@@ -65,7 +67,7 @@ describe('command pipeline', () => {
             registry,
             io,
             () => ({ engine: model, version: 'test' }),
-            () => [],
+            () => userIntents,
             new AuditRepository(join(directory, 'audit.json')),
             undefined,
             sessions,
@@ -1046,6 +1048,92 @@ describe('command pipeline', () => {
             'admin.0',
         );
         expect(unapproved.errorCode).to.equal('UNCLEAR_INTENT');
+    });
+
+    it('writes only the trailing free text of an approved custom string intent', async () => {
+        const id = '0_userdata.0.test_musik_wohnzimmer';
+        const stateId = `${id}.Favorit`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Musik' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { name: 'Favorit', role: 'value', type: 'string', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: [id] } },
+        ];
+        const custom: IntentDefinition = {
+            id: 'FavoritSpielen',
+            source: 'user',
+            enabled: true,
+            utterances: {
+                de: ['Spiele Favorit', 'Starte Favorit'],
+                en: ['Play favorite', 'Start favorite'],
+            },
+            action: { kind: 'capability', operation: 'setValue' },
+        };
+        const { registry, controller, writes } = fixture(objects, custom.id, '', undefined, 0.56, [custom]);
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+
+        const analysis = await controller.process(
+            { requestId: 'favorite-analyze', text: 'Spiele Favorit SWR', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(analysis.status).to.equal('success');
+        expect(analysis.analysis?.plan).to.include({ stateId, value: 'SWR' });
+        expect(writes).to.be.empty;
+
+        const misclassified = fixture(objects, 'device.turnOn', '', undefined, 0.95, [custom]);
+        misclassified.registry.setEnabled(id, true);
+        misclassified.registry.approve(id, stateId, 'setValue');
+        const inactive = await misclassified.controller.process(
+            { requestId: 'favorite-override', text: 'Spiele Favorit SWR', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(inactive.status).to.equal('rejected');
+        expect(inactive.analysis?.plan).to.be.undefined;
+
+        const executed = await controller.process(
+            { requestId: 'favorite-execute', text: 'Spiele Favorit SWR', mode: 'execute' },
+            'admin.0',
+        );
+        expect(executed.status).to.equal('success');
+        expect(executed.response).to.include('SWR');
+        expect(writes).to.deep.equal([{ id: stateId, value: 'SWR' }]);
+
+        const withNumber = await controller.process(
+            { requestId: 'favorite-number-in-name', text: 'Spiele Favorit SWR 3', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(withNumber.analysis?.plan?.value).to.equal('SWR 3');
+        expect(withNumber.response).to.include('SWR 3');
+
+        const question = await controller.process(
+            { requestId: 'favorite-question', sessionId: 'favorite', text: 'Spiele Favorit', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('value');
+        const answer = await controller.process(
+            {
+                requestId: 'favorite-answer',
+                sessionId: 'favorite',
+                clarificationId: question.clarification?.id,
+                text: 'WDR',
+                mode: 'execute',
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes.at(-1)).to.deep.equal({ id: stateId, value: 'WDR' });
+
+        registry.revoke(id, stateId, 'setValue');
+        const denied = await controller.process(
+            { requestId: 'favorite-unapproved', text: 'Spiele Favorit SWR', mode: 'execute' },
+            'admin.0',
+        );
+        expect(denied.status).to.equal('rejected');
+        expect(writes).to.have.length(2);
     });
 
     it('continues a device question with only a room while keeping callers and sessions separate', async () => {

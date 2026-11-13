@@ -10,7 +10,7 @@ import type { PlannedAction } from './types';
 
 export type PlanOutcome =
     | { plan: PlannedAction }
-    | { clarification: 'value' }
+    | { clarification: 'value'; stateId: string }
     | { clarification: 'capability'; stateIds: string[] }
     | { error: string };
 
@@ -23,6 +23,7 @@ export function planAction(
     text: string,
     domain?: ValueDomain,
     selectedStateId?: string,
+    stringValue?: string,
 ): PlanOutcome {
     const device = catalog.list().find(item => item.id === deviceId);
     if (!device || device.status === 'missing' || !device.enabled) {
@@ -47,11 +48,12 @@ export function planAction(
     }
     const capability = selected[0];
     const operation = action === 'getState' || action === 'getValue' ? 'read' : 'write';
-    const value = normalizedValue(action, capability, parsed);
+    const value = normalizedValue(action, capability, parsed, stringValue);
     if (operation === 'write' && value === undefined) {
-        return parsed.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))
+        return stringValue !== undefined ||
+            parsed.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))
             ? { error: 'INVALID_VALUE' }
-            : { clarification: 'value' };
+            : { clarification: 'value', stateId: capability.stateId };
     }
     return {
         plan: {

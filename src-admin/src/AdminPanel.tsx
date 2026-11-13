@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
+    Badge,
     Box,
     Button,
-    Checkbox,
+    ButtonBase,
     Card,
     CardContent,
     Chip,
@@ -18,7 +19,6 @@ import {
     IconButton,
     MenuItem,
     Pagination,
-    Select,
     Snackbar,
     Stack,
     Switch,
@@ -43,11 +43,10 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import BlockIcon from '@mui/icons-material/Block';
+import ImportContactsIcon from '@mui/icons-material/ImportContacts';
 import type { AdminApi } from '../../src/shared/AdminApi';
-import { parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
+import { normalizeIntentDraft, parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
 import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
 import type { IntentDefinition } from '../../src/nlp/types';
@@ -110,9 +109,9 @@ const actions: Record<Capability['kind'], ActionKind[]> = {
     button: ['press'],
 };
 const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue'];
-function languageName(language: Language): string {
+/* function languageName(language: Language): string {
     return languageOptions.find(item => item.code === language)?.name ?? language;
-}
+} */
 
 function actionName(action: ActionKind, language: Language): string {
     return labels(language)(`action.${action}`);
@@ -145,7 +144,7 @@ function isReadAction(action: ActionKind): boolean {
 
 function availableActions(capability: Capability): ActionKind[] {
     return actions[capability.kind].filter(action =>
-        action === 'setValue' && capability.valueKind !== 'number'
+        action === 'setValue' && capability.valueKind !== 'number' && capability.valueKind !== 'string'
             ? false
             : isReadAction(action)
               ? capability.readable
@@ -155,11 +154,33 @@ function availableActions(capability: Capability): ActionKind[] {
 
 function BulkActionIcon({ scope, revoke }: { scope: 'read' | 'write' | 'all'; revoke: boolean }): React.JSX.Element {
     return (
-        <Box sx={{ display: 'inline-flex', position: 'relative', color: revoke ? 'text.secondary' : 'success.main' }}>
-            {(scope === 'read' || scope === 'all') && <VisibilityIcon fontSize="small" />}
-            {(scope === 'write' || scope === 'all') && <EditIcon fontSize="small" />}
-            {revoke && (
-                <BlockIcon sx={{ position: 'absolute', right: -5, bottom: -5, fontSize: 17, color: 'error.main' }} />
+        <Box
+            component="span"
+            sx={{ display: 'inline-flex', color: revoke ? 'error.main' : 'success.main' }}
+        >
+            {scope === 'write' ? (
+                <EditIcon fontSize="small" />
+            ) : scope === 'read' ? (
+                <ImportContactsIcon fontSize="small" />
+            ) : (
+                <Badge
+                    badgeContent={<EditIcon sx={{ fontSize: 11 }} />}
+                    overlap="circular"
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    sx={{
+                        '& .MuiBadge-badge': {
+                            minWidth: 15,
+                            height: 15,
+                            padding: 0,
+                            right: 1,
+                            bottom: 1,
+                            color: 'inherit',
+                            backgroundColor: 'background.paper',
+                        },
+                    }}
+                >
+                    <ImportContactsIcon fontSize="small" />
+                </Badge>
             )}
         </Box>
     );
@@ -184,7 +205,9 @@ function approvalKey(action: ActionKind, capability: Capability): string {
 }
 
 function enumLabel(name: string | Record<string, string> | undefined, id: string, language: Language): string {
-    if (typeof name === 'string') return name;
+    if (typeof name === 'string') {
+        return name;
+    }
     return name?.[language] ?? Object.values(name ?? {})[0] ?? id;
 }
 
@@ -210,10 +233,6 @@ function DeviceCard({
             language,
         ),
     );
-    const [pending, setPending] = useState<{ capability: Capability; action: ActionKind }>();
-    const [batchScope, setBatchScope] = useState<'read' | 'write' | 'all'>();
-    const [batchOperation, setBatchOperation] = useState<'grant' | 'revoke'>('grant');
-    const [batchSelected, setBatchSelected] = useState<string[]>([]);
     const eligibleApprovals = device.discoveredCapabilities.flatMap(capability =>
         availableActions(capability).map(action => ({ capability, action, key: approvalKey(action, capability) })),
     );
@@ -222,9 +241,6 @@ function DeviceCard({
     );
     const approvedActions = eligibleApprovals.filter(
         item => device.approvedCapabilities[item.key] === item.capability.fingerprint && !item.capability.needsReview,
-    );
-    const batchItems = (batchOperation === 'grant' ? availableApprovals : approvedActions).filter(item =>
-        batchScope === 'all' ? true : batchScope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
     );
     const hasReadActions = eligibleApprovals.some(item => isReadAction(item.action));
     const hasWriteActions = eligibleApprovals.some(item => !isReadAction(item.action));
@@ -255,42 +271,39 @@ function DeviceCard({
         (operation === 'grant' ? availableApprovals : approvedActions).filter(item =>
             scope === 'all' ? true : scope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
         ).length;
-    const openBatch = (scope: 'read' | 'write' | 'all', operation: 'grant' | 'revoke'): void => {
+    const changeBatch = (scope: 'read' | 'write' | 'all', operation: 'grant' | 'revoke'): void => {
         const selected = (operation === 'grant' ? availableApprovals : approvedActions).filter(item =>
             scope === 'all' ? true : scope === 'read' ? isReadAction(item.action) : !isReadAction(item.action),
         );
-        setBatchScope(scope);
-        setBatchOperation(operation);
-        setBatchSelected(selected.map(item => item.key));
-    };
-    const approve = (): void => {
-        if (!pending) return;
-        try {
-            validateApproval(device, pending.capability.stateId, pending.action);
-            void update({
-                deviceId: device.id,
-                approval: { stateId: pending.capability.stateId, action: pending.action, approved: true },
-            });
-            setPending(undefined);
-        } catch (error) {
-            onError(displayError(error));
+        if (!selected.length) {
+            return;
         }
-    };
-    const submitBatch = (): void => {
         try {
-            const selected = batchItems.filter(item => batchSelected.includes(item.key));
-            if (batchOperation === 'grant') {
-                for (const item of selected) validateApproval(device, item.capability.stateId, item.action);
+            if (operation === 'grant') {
+                for (const item of selected) {
+                    validateApproval(device, item.capability.stateId, item.action);
+                }
             }
             void update({
                 deviceId: device.id,
-                [batchOperation === 'grant' ? 'approvals' : 'revocations']: selected.map(item => ({
+                [operation === 'grant' ? 'approvals' : 'revocations']: selected.map(item => ({
                     stateId: item.capability.stateId,
                     action: item.action,
                 })),
             });
-            setBatchScope(undefined);
-            setBatchSelected([]);
+        } catch (error) {
+            onError(displayError(error));
+        }
+    };
+    const changeApproval = (capability: Capability, action: ActionKind, approved: boolean): void => {
+        try {
+            if (!approved) {
+                validateApproval(device, capability.stateId, action);
+            }
+            void update({
+                deviceId: device.id,
+                approval: { stateId: capability.stateId, action, approved: !approved },
+            });
         } catch (error) {
             onError(displayError(error));
         }
@@ -306,11 +319,27 @@ function DeviceCard({
                     spacing={1}
                     sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' } }}
                 >
-                    <Box>
+                    <ButtonBase
+                        component="button"
+                        type="button"
+                        aria-label={`${expanded ? t('ui.collapse_device') : t('ui.expand_device')}: ${device.displayName}`}
+                        aria-expanded={expanded}
+                        onClick={onToggle}
+                        sx={{
+                            display: 'flex',
+                            flexGrow: 1,
+                            justifyContent: 'space-between',
+                            minWidth: 0,
+                            width: { xs: '100%', sm: 'auto' },
+                            p: 0.5,
+                            borderRadius: 1,
+                            textAlign: 'left',
+                        }}
+                    >
                         <Stack
                             direction="row"
                             spacing={1}
-                            sx={{ alignItems: 'center' }}
+                            sx={{ alignItems: 'center', minWidth: 0 }}
                         >
                             {device.discoveredCapabilities[0] ? (
                                 capabilityIcon(device.discoveredCapabilities[0].kind)
@@ -324,20 +353,13 @@ function DeviceCard({
                                 {device.displayName} ({device.id})
                             </Typography>
                         </Stack>
-                    </Box>
+                        {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </ButtonBase>
                     <Stack
                         direction="row"
                         spacing={1}
                         sx={{ alignItems: 'center' }}
                     >
-                        <IconButton
-                            size="small"
-                            aria-label={expanded ? t('ui.collapse_device') : t('ui.expand_device')}
-                            aria-expanded={expanded}
-                            onClick={onToggle}
-                        >
-                            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                        </IconButton>
                         <Chip
                             size="small"
                             label={
@@ -465,13 +487,6 @@ function DeviceCard({
                     </Box>
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="subtitle1">{t('ui.action_approvals')}</Typography>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 1 }}
-                        >
-                            {t('ui.each_bulk_approval_shows_all_affected_actions_and_states_before_')}
-                        </Typography>
                         <Stack
                             direction="row"
                             spacing={2}
@@ -511,7 +526,7 @@ function DeviceCard({
                                                             size="small"
                                                             aria-label={title}
                                                             disabled={count === 0}
-                                                            onClick={() => openBatch(item.scope, operation)}
+                                                            onClick={() => changeBatch(item.scope, operation)}
                                                         >
                                                             <BulkActionIcon
                                                                 scope={item.scope}
@@ -593,18 +608,7 @@ function DeviceCard({
                                                 variant={approved ? 'filled' : 'outlined'}
                                                 color={approved ? 'success' : 'default'}
                                                 disabled={device.status === 'missing'}
-                                                onClick={() =>
-                                                    approved
-                                                        ? void update({
-                                                              deviceId: device.id,
-                                                              approval: {
-                                                                  stateId: capability.stateId,
-                                                                  action,
-                                                                  approved: false,
-                                                              },
-                                                          })
-                                                        : setPending({ capability, action })
-                                                }
+                                                onClick={() => changeApproval(capability, action, approved)}
                                             />
                                         </Tooltip>
                                     );
@@ -613,138 +617,6 @@ function DeviceCard({
                         </Box>
                     ))}
                 </Collapse>
-                <Dialog
-                    open={!!pending}
-                    onClose={() => setPending(undefined)}
-                    maxWidth="sm"
-                    fullWidth
-                >
-                    <DialogTitle>{t('ui.approve_action')}</DialogTitle>
-                    <DialogContent>
-                        <Typography>
-                            {pending ? actionName(pending.action, language) : ''} · {device.displayName}
-                        </Typography>
-                        <Typography sx={{ wordBreak: 'break-all' }}>{pending?.capability.stateId}</Typography>
-                        <Typography
-                            variant="body2"
-                            sx={{ mt: 1 }}
-                        >
-                            {t('ui.type_range_and_mapping')} {pending?.capability.valueKind},{' '}
-                            {pending?.capability.min ?? '—'}–{pending?.capability.max ?? '—'},{' '}
-                            {JSON.stringify(pending?.capability.mapping ?? {})}
-                        </Typography>
-                        <Alert
-                            severity="warning"
-                            sx={{ mt: 2 }}
-                        >
-                            {t('ui.this_approval_applies_to_matching_commands_until_the_target_chan')}
-                        </Alert>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setPending(undefined)}>{t('ui.cancel')}</Button>
-                        <Button
-                            variant="contained"
-                            onClick={approve}
-                        >
-                            {t('ui.approve')}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-                <Dialog
-                    open={!!batchScope}
-                    onClose={() => setBatchScope(undefined)}
-                    maxWidth="md"
-                    fullWidth
-                >
-                    <DialogTitle>
-                        {batchOperation === 'grant'
-                            ? t('ui.approve_actions_together')
-                            : t('ui.revoke_approvals_together')}
-                    </DialogTitle>
-                    <DialogContent>
-                        <Typography sx={{ mb: 1 }}>{device.displayName}</Typography>
-                        <Button
-                            size="small"
-                            onClick={() => setBatchSelected(batchItems.map(item => item.key))}
-                        >
-                            {t('ui.select_all')}
-                        </Button>
-                        <Stack sx={{ mt: 1 }}>
-                            {batchItems.map(item => (
-                                <FormControlLabel
-                                    key={item.key}
-                                    sx={{ alignItems: 'flex-start', mb: 1 }}
-                                    control={
-                                        <Checkbox
-                                            checked={batchSelected.includes(item.key)}
-                                            onChange={event =>
-                                                setBatchSelected(current =>
-                                                    event.target.checked
-                                                        ? [...current, item.key]
-                                                        : current.filter(key => key !== item.key),
-                                                )
-                                            }
-                                        />
-                                    }
-                                    label={
-                                        <Box sx={{ pt: 1 }}>
-                                            <Typography variant="subtitle2">
-                                                {actionName(item.action, language)} ·{' '}
-                                                {displayCapabilityName(item.capability, language)}
-                                            </Typography>
-                                            <Typography
-                                                variant="body2"
-                                                sx={{ wordBreak: 'break-all' }}
-                                            >
-                                                {item.capability.stateId}
-                                            </Typography>
-                                            <Typography
-                                                variant="caption"
-                                                color="text.secondary"
-                                            >
-                                                {item.capability.valueKind} ·{' '}
-                                                {[
-                                                    item.capability.readable ? t('ui.read') : undefined,
-                                                    item.capability.writable ? t('ui.write') : undefined,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' / ')}
-                                                {item.capability.min !== undefined
-                                                    ? ` · ${t('ui.minimum')} ${item.capability.min}`
-                                                    : ''}
-                                                {item.capability.max !== undefined
-                                                    ? ` · ${t('ui.maximum')} ${item.capability.max}`
-                                                    : ''}
-                                                {item.capability.unit ? ` · ${item.capability.unit}` : ''}
-                                                {item.capability.mapping
-                                                    ? ` · ${JSON.stringify(item.capability.mapping)}`
-                                                    : ''}
-                                            </Typography>
-                                        </Box>
-                                    }
-                                />
-                            ))}
-                        </Stack>
-                        <Alert
-                            severity={batchOperation === 'grant' ? 'warning' : 'info'}
-                            sx={{ mt: 1 }}
-                        >
-                            {batchOperation === 'grant'
-                                ? t('ui.only_selected_actions_are_approved_permanently_review_target_sta')
-                                : t('ui.only_the_selected_approvals_will_be_revoked')}
-                        </Alert>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setBatchScope(undefined)}>{t('ui.cancel')}</Button>
-                        <Button
-                            variant="contained"
-                            disabled={batchSelected.length === 0}
-                            onClick={submitBatch}
-                        >
-                            {batchOperation === 'grant' ? t('ui.approve_selected') : t('ui.revoke_selected')}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
             </CardContent>
         </Card>
     );
@@ -767,7 +639,11 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
-    const [importDraft, setImportDraft] = useState<{ schemaVersion: number; intents: IntentDefinition[] }>();
+    const [importDraft, setImportDraft] = useState<{
+        schemaVersion: number;
+
+        intents: IntentDefinition[];
+    }>();
 
     const refresh = useCallback(
         async (offset = 0): Promise<void> => {
@@ -783,7 +659,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 }),
                 api.call<Diagnostics>('getDiagnostics'),
                 api.call<Training>('getTrainingStatus'),
-                api.call<{ intents: IntentDefinition[] }>('listIntents'),
+                api.call<{
+                    intents: IntentDefinition[];
+                }>('listIntents'),
             ]);
             setDeviceList(devices);
             setDiagnostics(status);
@@ -797,7 +675,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
         void refresh((devicePage - 1) * 50).catch(error => setError(displayError(error)));
     }, [refresh, devicePage]);
     useEffect(() => {
-        if (training.status !== 'running') return;
+        if (training.status !== 'running') {
+            return;
+        }
         const timer = window.setInterval(
             () =>
                 void api
@@ -814,7 +694,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
         try {
             await api.call(command, payload);
             await refresh((devicePage - 1) * 50);
-            if (message) setNotice(message);
+            if (message) {
+                setNotice(message);
+            }
         } catch (error) {
             setError(displayError(error));
         } finally {
@@ -824,7 +706,11 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
 
     async function exportIntents(): Promise<void> {
         try {
-            const data = await api.call<{ schemaVersion: number; intents: IntentDefinition[] }>('exportIntents');
+            const data = await api.call<{
+                schemaVersion: number;
+
+                intents: IntentDefinition[];
+            }>('exportIntents');
             const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
             const link = document.createElement('a');
             link.href = url;
@@ -837,9 +723,13 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     }
 
     async function readImport(file: File | undefined): Promise<void> {
-        if (!file) return;
+        if (!file) {
+            return;
+        }
         try {
-            if (file.size > 65_536) throw new Error(t('error.import_too_large'));
+            if (file.size > 65_536) {
+                throw new Error(t('error.import_too_large'));
+            }
             const data: unknown = JSON.parse(await file.text());
             if (
                 !data ||
@@ -848,10 +738,19 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                 data.schemaVersion !== 1 ||
                 !('intents' in data) ||
                 !Array.isArray(data.intents)
-            )
+            ) {
                 throw new Error(t('error.invalid_intent_import'));
-            for (const intent of data.intents) validateIntentDraft(intent as IntentDefinition);
-            setImportDraft(data as { schemaVersion: number; intents: IntentDefinition[] });
+            }
+            for (const intent of data.intents) {
+                validateIntentDraft(intent as IntentDefinition);
+            }
+            setImportDraft(
+                data as {
+                    schemaVersion: number;
+
+                    intents: IntentDefinition[];
+                },
+            );
         } catch (error) {
             setError(displayError(error));
         }
@@ -1099,7 +998,7 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                         select
                         label={t('ui.default_language')}
                         value={defaultLanguage}
-                        onChange={event => onDefaultLanguage(event.target.value as Language)}
+                        onChange={event => onDefaultLanguage(event.target.value)}
                         sx={{ maxWidth: 240 }}
                     >
                         {languageOptions.map(item => (
@@ -1174,7 +1073,9 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     <Button
                         color="warning"
                         onClick={() => {
-                            if (!importDraft) return;
+                            if (!importDraft) {
+                                return;
+                            }
                             void mutate('importIntents', importDraft, t('ui.intents_imported'));
                             setImportDraft(undefined);
                         }}
@@ -1249,12 +1150,14 @@ function IntentEditor({
     };
     const save = async (): Promise<void> => {
         try {
-            validateIntentDraft(draft);
-            if (!editingId && intents.some(item => item.id === draft.id)) {
+            const normalized = normalizeIntentDraft(draft);
+            validateIntentDraft(normalized);
+            if (!editingId && intents.some(item => item.id === normalized.id)) {
                 throw new Error(t('error.intent_id_exists'));
             }
-            await onSave(draft);
-            setEditingId(draft.id);
+            await onSave(normalized);
+            setDraft(normalized);
+            setEditingId(normalized.id);
             setError('');
         } catch (error) {
             setError(displayError(error));
@@ -1592,7 +1495,9 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
             const answerText = selection
                 ? (result?.clarification?.options?.find(item => item.id === selection)?.label ?? selection)
                 : text.trim();
-            if (!answerText || answerText.length > 1000) throw new Error(t('error.text_length'));
+            if (!answerText || answerText.length > 1000) {
+                throw new Error(t('error.text_length'));
+            }
             setMessages(previous => [...previous, { id: createBrowserId(), role: 'user', text: answerText }]);
             const response = await api.call<CommandResult>('processTestLab', {
                 requestId: createBrowserId(),
@@ -1604,10 +1509,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                 ...(selection ? { selection } : {}),
             });
             setResult(response);
-            setMessages(previous => [
-                ...previous,
-                { id: createBrowserId(), role: 'system', text: response.response },
-            ]);
+            setMessages(previous => [...previous, { id: createBrowserId(), role: 'system', text: response.response }]);
             setText('');
             if (response.historyError) {
                 setError(t('ui.history_save_failed'));
@@ -1757,6 +1659,14 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                             disabled={busy}
                             value={text}
                             onChange={event => setText(event.target.value)}
+                            onKeyDown={event => {
+                                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                                    event.preventDefault();
+                                    if (!busy && text.trim()) {
+                                        void submit();
+                                    }
+                                }
+                            }}
                             slotProps={{ htmlInput: { maxLength: 1000 } }}
                         />
                     )}
@@ -1773,7 +1683,7 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                 disabled={busy}
                                 value={selectedLanguage}
                                 onChange={event => {
-                                    setSelectedLanguage(event.target.value as Language);
+                                    setSelectedLanguage(event.target.value);
                                     setResult(undefined);
                                 }}
                                 sx={{ minWidth: 140 }}
@@ -1800,17 +1710,6 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                     />
                                 }
                             />
-                            <Button
-                                variant="contained"
-                                disabled={busy || !text.trim()}
-                                onClick={() => void submit()}
-                            >
-                                {result?.clarification
-                                    ? t('ui.send_answer')
-                                    : mode === 'execute'
-                                      ? t('ui.execute')
-                                      : t('ui.analyze')}
-                            </Button>
                             {result?.clarification && (
                                 <Button
                                     variant="outlined"

@@ -36,6 +36,8 @@ Ein eigener Intent braucht derzeit mindestens zwei gültige Beispiele auf Deutsc
 
 Die Trainingsbeispiele steuern die **Intent-Erkennung**. Welches konkrete Gerät gemeint ist, bestimmen Gerätename, konfigurierte Aliase, Räume, Funktionen und Freigaben. Ein neues Wort für ein Gerät gehört deshalb in dessen Alias-Konfiguration. Nach Änderungen an eigenen Intents das Modell auf der Seite **Training** erneut trainieren und die Beispiele im **Testlabor** analysieren.
 
+Für einen schreibbaren String-Datenpunkt wie `0_userdata.0.test_musik_wohnzimmer.Favorit` wähle beim eigenen Intent **Geräteaktion → Wert setzen**. Gib kurze Befehle ohne den späteren Wert als Trainingsbeispiele ein, etwa `Spiele Favorit` und `Starte Favorit` sowie entsprechende englische Beispiele. Aktiviere das Gerät und gib für den Datenpunkt die Schreibaktion frei. Nach dem Training schreibt `Spiele Favorit SWR` genau `SWR` in den Datenpunkt. Der Text nach einem passenden Trainingsbeispiel ist der Schreibwert; ohne Text fragt der Adapter nach dem Wert. Bei mehreren passenden Geräten oder Datenpunkten folgt eine Rückfrage. Auch String-Datenpunkte bleiben ohne ausdrückliche Freigabe gesperrt.
+
 Ein Prompt zum Erzeugen kopierbarer Varianten:
 
 ```text
@@ -80,7 +82,7 @@ Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`.
 }
 ```
 
-Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setValue`, `press`, `getState` und `getValue`. `press` löst einen freigegebenen booleschen `button`-State mit `true` aus. Die System-Intents für Helligkeit und Temperatur verwenden `setValue` und wählen den passenden numerischen State anhand von Name und Rolle. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
+Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setValue`, `press`, `getState` und `getValue`. `press` löst einen freigegebenen booleschen `button`-State mit `true` aus. Die System-Intents für Helligkeit und Temperatur verwenden `setValue` und wählen den passenden numerischen State anhand von Name und Rolle. Eigene Intents mit `setValue` können den Text nach einem passenden Trainingsbeispiel auch in einen freigegebenen String-Datenpunkt schreiben. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
 
 ## Development
 

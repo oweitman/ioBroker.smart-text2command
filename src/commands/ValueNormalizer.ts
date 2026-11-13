@@ -5,6 +5,7 @@ export function normalizedValue(
     action: ActionKind,
     capability: Capability,
     parsed: ParsedText,
+    stringValue?: string,
 ): boolean | number | string | undefined {
     if (action === 'turnOn') {
         return capability.mapping?.on ?? true;
@@ -16,6 +17,14 @@ export function normalizedValue(
         return true;
     }
     if (action !== 'setValue') {
+        return undefined;
+    }
+    if (capability.valueKind === 'string') {
+        return stringValue && (!capability.enumValues || capability.enumValues.includes(stringValue))
+            ? stringValue
+            : undefined;
+    }
+    if (capability.valueKind !== 'number') {
         return undefined;
     }
     const candidates = parsed.entities.filter(

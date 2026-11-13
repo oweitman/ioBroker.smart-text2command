@@ -3,12 +3,35 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ModelRepository } from '../src/nlp/ModelRepository';
+import { NlpJsProvider } from '../src/nlp/NlpJsProvider';
 import { TrainingManager } from '../src/nlp/TrainingManager';
 import { systemIntents } from '../src/nlp/TrainingData';
 import { testAdapterTimers } from './AdapterTimers';
 
 describe('NLP model training and persistence', function () {
     this.timeout(120_000);
+
+    it('recognizes a custom string intent when free text follows its training phrase', async () => {
+        const provider = new NlpJsProvider();
+        await provider.train(
+            [
+                ...systemIntents(),
+                {
+                    id: 'FavoritSpielen',
+                    source: 'user',
+                    enabled: true,
+                    utterances: {
+                        de: ['Spiele Favorit', 'Starte Favorit', 'Gib Favorit wieder'],
+                        en: ['Play favorite', 'Start favorite', 'Play the favorite'],
+                    },
+                    action: { kind: 'capability', operation: 'setValue' },
+                },
+            ],
+            ['de', 'en'],
+        );
+        expect((await provider.analyze('Spiele Favorit SWR', 'de')).intent).to.equal('FavoritSpielen');
+        expect((await provider.analyze('Play favorite SWR', 'en')).intent).to.equal('FavoritSpielen');
+    });
 
     it('trains both languages, reloads the model, and retains it after failed regression', async () => {
         const dir = await mkdtemp(join(tmpdir(), 'smart-text2command-model-'));
