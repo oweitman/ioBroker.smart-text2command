@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "news": {
+      "0.0.9": {
+        "en": "repair intent edit\nadd write strings to datapoint\nadd sendto with parameters as a intent capability",
+        "de": "Reparaturvorsatz\nWrite-Text zu Datapoint hinzufügen\nSendto mit Parametern als Absicht hinzufügen",
+        "ru": "изменение намерения ремонта\nдобавить строки записи в точку данных\nдобавьте функцию sendto с параметрами в качестве возможности намерения",
+        "pt": "intenção de reparo\nadicionar strings ao datapoint\nadicione sendto com parâmetros como intenção",
+        "nl": "intentie voor de reparatie, bewerken\nschrijfreeksen aan datapunt toevoegen\nsendto toevoegen met parameters als intentiemogelijkheid",
+        "fr": "repair intent edit\najouter des chaînes d'écriture\najouter sendto avec des paramètres comme intention",
+        "it": "intento di riparazione\naggiungere stringhe al datapoint\naggiungere sendto con parametri come intento",
+        "es": "reparar intento editar\nañadir cadenas al punto de datos\nañadir sendto con parámetros como capacidad de intención",
+        "pl": "zamiar naprawy edytuj\ndodaj ciągi zapisu do punktu danych\ndodaj sendto z parametrami jako możliwością intencji",
+        "uk": "редагування наміру ремонту\nдодати рядки запису до точки даних\nдодати sendto з параметрами як можливість наміру",
+        "zh-cn": "修复意图编辑\n向 dataPoint 添加写入字符串\n添加带有参数的 sendto 作为意图功能"
+      },
       "0.0.8": {
         "en": "fix problem with missing crypto api",
         "de": "Problem mit fehlender Krypto-API lösen",
@@ -80,19 +93,6 @@
         "pl": "naprawa testów i wdrażania",
         "uk": "виправлення тестів і розгортання",
         "zh-cn": "修复测试和部署"
-      },
-      "0.0.2": {
-        "en": "first alpha release",
-        "de": "erste Alphaversion",
-        "ru": "первый альфа-релиз",
-        "pt": "1ª versão alfa",
-        "nl": "eerste alfa-release",
-        "fr": "première version alpha",
-        "it": "prima versione alfa",
-        "es": "primera versión alfa",
-        "pl": "pierwsze wydanie alfa",
-        "uk": "перший альфа-реліз",
-        "zh-cn": "首个 alpha 版本"
       }
     },
     "titleLang": {

@@ -115,6 +115,12 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
+### 0.0.9 (2026-11-13)
+
+- repair intent edit
+- add write strings to datapoint
+- add sendto with parameters as a intent capability
+
 ### 0.0.8 (2026-11-13)
 
 - fix problem with missing crypto api
