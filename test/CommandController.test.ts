@@ -801,6 +801,16 @@ describe('command pipeline', () => {
         expect(changed.status).to.equal('success');
         expect(write.writes).to.deep.equal([{ id: `${id}.POSITION`, value: 25 }]);
         expect(changed.response).to.include('Position');
+        const spoken = await write.controller.process(
+            {
+                requestId: 'blind-write-spoken',
+                text: 'Stelle den Rollladen im Wohnzimmer auf fünfundsiebzig Prozent',
+                mode: 'execute',
+            },
+            'admin.0',
+        );
+        expect(spoken.status).to.equal('success');
+        expect(write.writes.at(-1)).to.deep.equal({ id: `${id}.POSITION`, value: 75 });
         const read = fixture(objects, 'device.getValue', 40);
         read.registry.setEnabled(id, true);
         read.registry.approve(id, `${id}.POSITION`, 'getValue');

@@ -430,7 +430,12 @@ export class CommandController {
                 if (!parameter) {
                     return this.reject(request, language, 'UNSUPPORTED_ACTION');
                 }
-                const value = parseParameter(request.text, parameter.type, language);
+                const value = parseParameter(
+                    request.text,
+                    parameter.type,
+                    language,
+                    languageRules(language).spokenNumbers,
+                );
                 if (value === undefined) {
                     return this.repeatClarification(request, pending, model.version);
                 }
@@ -647,7 +652,7 @@ export class CommandController {
                     intent,
                     confidence,
                     model.version,
-                    extractParameters(configured.action, text, language),
+                    extractParameters(configured.action, text, language, languageRules(language).spokenNumbers),
                     details,
                 );
             }

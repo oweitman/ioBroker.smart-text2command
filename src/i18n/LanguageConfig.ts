@@ -2,8 +2,10 @@ import languages from '../../resources/languages.json';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Language } from '../types/api';
+import type { SpokenNumberRules } from '../nlp/SpokenNumbers';
 
 export interface LanguageRules {
+    spokenNumbers: SpokenNumberRules;
     cancelPhrases: string[];
     unsupported: Record<'group' | 'exception' | 'time' | 'multipleActions' | 'unit', string>;
     actionVerbs: string;

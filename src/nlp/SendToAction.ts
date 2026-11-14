@@ -1,6 +1,8 @@
 import type { Language } from '../types/api';
 import languages from '../../resources/languages.json';
 import type { SendToIntentAction } from './types';
+import { parseSpokenNumber } from './SpokenNumbers';
+import type { SpokenNumberRules } from './SpokenNumbers';
 
 const NAME = /^[A-Za-z][A-Za-z0-9_]{0,49}$/;
 const supportedLanguages = languages;
@@ -99,6 +101,7 @@ export function parseParameter(
     value: string,
     type: 'string' | 'number',
     language: Language,
+    spokenRules?: SpokenNumberRules,
 ): string | number | undefined {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -110,7 +113,7 @@ export function parseParameter(
     const decimal = new Intl.NumberFormat(language).format(1.5).replace(/[\d\s]/g, '');
     const normalized = decimal === ',' ? trimmed.replace(',', '.') : trimmed;
     if (!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized)) {
-        return undefined;
+        return spokenRules ? parseSpokenNumber(trimmed, spokenRules) : undefined;
     }
     const number = Number(normalized);
     return Number.isFinite(number) ? number : undefined;
@@ -120,6 +123,7 @@ export function extractParameters(
     action: SendToIntentAction,
     text: string,
     language: Language,
+    spokenRules?: SpokenNumberRules,
 ): Record<string, string | number> {
     const results: Array<Record<string, string | number>> = [];
     for (const pattern of action.extractionPatterns?.[language] ?? []) {
@@ -131,7 +135,7 @@ export function extractParameters(
         const values: Record<string, string | number> = {};
         for (let index = 0; index < slots.length; index++) {
             const parameter = action.parameters.find(item => item.name === slots[index])!;
-            const value = parseParameter(matched[index + 1], parameter.type, language);
+            const value = parseParameter(matched[index + 1], parameter.type, language, spokenRules);
             if (value !== undefined) {
                 values[parameter.name] = value;
             }

@@ -1,5 +1,6 @@
 import type { Language } from '../types/api';
 import { languageRules } from '../i18n/LanguageConfig';
+import { findSpokenNumbers } from './SpokenNumbers';
 
 export interface ParsedEntity {
     type: 'number' | 'percent' | 'temperature' | 'room' | 'devicePhrase' | 'negation';
@@ -47,6 +48,34 @@ export function parseEntities(text: string, language: Language, rooms: string[] 
               ? 'temperature'
               : 'number';
         entities.push({ type, value: number, start: match.index, end: match.index + raw.length });
+    }
+    const spokenNumbers = findSpokenNumbers(text, rules.spokenNumbers);
+    if (unsupported.includes('multipleActions')) {
+        const conjunctions = [...text.matchAll(new RegExp(rules.unsupported.multipleActions, 'giu'))];
+        if (
+            conjunctions.length > 0 &&
+            conjunctions.every(match =>
+                spokenNumbers.some(
+                    number => match.index >= number.start && match.index + match[0].length <= number.end,
+                ),
+            ) &&
+            [...text.matchAll(actionVerbs)].length <= 1
+        ) {
+            unsupported.splice(unsupported.indexOf('multipleActions'), 1);
+        }
+    }
+    for (const spoken of spokenNumbers) {
+        const suffix = text.slice(spoken.end);
+        const percent = new RegExp(`^\\s*(?:${rules.numericPercent})(?=$|[^\\p{L}])`, 'iu').exec(suffix);
+        const temperature = percent
+            ? null
+            : new RegExp(`^\\s*(?:${rules.numericTemperature})(?=$|[^\\p{L}])`, 'iu').exec(suffix);
+        entities.push({
+            type: percent ? 'percent' : temperature ? 'temperature' : 'number',
+            value: spoken.value,
+            start: spoken.start,
+            end: spoken.end + (percent?.[0].length ?? temperature?.[0].length ?? 0),
+        });
     }
     for (const room of rooms) {
         const words = room.split(/[\s_-]+/).filter(Boolean);

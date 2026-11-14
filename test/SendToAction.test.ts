@@ -11,6 +11,7 @@ import { systemIntents } from '../src/nlp/TrainingData';
 import type { IntentDefinition, SendToIntentAction } from '../src/nlp/types';
 import { extractParameters, fillPayload, validateSendToAction } from '../src/nlp/SendToAction';
 import { IntentRepository } from '../src/nlp/IntentRepository';
+import { languageRules } from '../src/i18n/LanguageConfig';
 import { AuditRepository } from '../src/storage/AuditRepository';
 
 describe('configured sendTo intent', () => {
@@ -50,6 +51,22 @@ describe('configured sendTo intent', () => {
             wert: 42.5,
             text: 'Hello world',
         });
+        expect(
+            extractParameters(
+                action,
+                'Sende Wert einundzwanzig komma fünf mit Text Hallo Welt',
+                'de',
+                languageRules('de').spokenNumbers,
+            ),
+        ).to.deep.equal({ wert: 21.5, text: 'Hallo Welt' });
+        expect(
+            extractParameters(
+                action,
+                'Send value twenty five with text Hello world',
+                'en',
+                languageRules('en').spokenNumbers,
+            ),
+        ).to.deep.equal({ wert: 25, text: 'Hello world' });
         const payload = fillPayload(action.payloadTemplate, { wert: 42.5, text: 'Hello' });
         expect(payload).to.deep.equal({
             script: 'script.js.common.Target',
@@ -287,7 +304,7 @@ describe('configured sendTo intent', () => {
                 {
                     requestId: 'wrong',
                     sessionId: 'a',
-                    text: '42',
+                    text: 'einundzwanzig',
                     mode: 'execute',
                     clarificationId: first.clarification!.id,
                 },
@@ -298,7 +315,7 @@ describe('configured sendTo intent', () => {
                 {
                     requestId: 'second',
                     sessionId: 'a',
-                    text: '42',
+                    text: 'einundzwanzig',
                     mode: 'execute',
                     clarificationId: first.clarification!.id,
                 },
@@ -323,7 +340,7 @@ describe('configured sendTo intent', () => {
                 payload: {
                     script: 'script.js.common.Target',
                     message: 'run',
-                    data: { value: 42, text: 'Hallo Welt' },
+                    data: { value: 21, text: 'Hallo Welt' },
                 },
             });
             const wrappedReply = {

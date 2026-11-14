@@ -12,6 +12,44 @@ describe('entity parser', () => {
         );
     });
 
+    it('parses spoken German and English numbers without rewriting device names', () => {
+        const german = parseEntities('Stelle die Heizung auf fünfundzwanzig Grad', 'de');
+        expect(german.entities.find(item => item.type === 'temperature')).to.include({ value: 25 });
+        expect(
+            parseEntities('Stelle die Lamellen auf fünfzig Prozent', 'de').entities.find(
+                item => item.type === 'percent',
+            ),
+        ).to.include({ value: 50 });
+        const splitGerman = parseEntities('Stelle die Lamellen auf fünf und zwanzig Prozent', 'de');
+        expect(splitGerman.entities.find(item => item.type === 'percent')).to.include({ value: 25 });
+        expect(splitGerman.unsupported).not.to.include('multipleActions');
+        expect(
+            parseEntities('Set the brightness to seventy five percent', 'en').entities.find(
+                item => item.type === 'percent',
+            ),
+        ).to.include({ value: 75 });
+        expect(
+            parseEntities('Set temperature to twenty one point five degrees', 'en').entities.find(
+                item => item.type === 'temperature',
+            ),
+        ).to.include({ value: 21.5 });
+        expect(
+            parseEntities('Set the value to one hundred twenty five', 'en').entities.find(
+                item => item.type === 'number',
+            ),
+        ).to.include({ value: 125 });
+        const withAnd = parseEntities('Set the value to one hundred and twenty five', 'en');
+        expect(withAnd.entities.find(item => item.type === 'number')).to.include({ value: 125 });
+        expect(withAnd.unsupported).not.to.include('multipleActions');
+        expect(
+            parseEntities('Set value to one hundred and twenty five and turn off the lamp', 'en').unsupported,
+        ).to.include('multipleActions');
+        expect(parseEntities('Schalte eine Lampe ein', 'de').entities.filter(item => item.type === 'number')).to.be
+            .empty;
+        expect(parseEntities('Switch constructor on', 'en').entities.filter(item => item.type === 'number')).to.be
+            .empty;
+    });
+
     it('reports a room only once when its ID and display name match', () => {
         const parsed = parseEntities('Welche Temperatur hat die Heizung im Wohnzimmer', 'de', [
             'wohnzimmer',
