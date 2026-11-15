@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "news": {
+      "0.0.10": {
+        "en": "add translate spoken numbers\nadd intents to ask for rooms, devices amd functions\nThe \"Devices\" tab only displays devices that are assigned to at least one room or function",
+        "de": "Add, übersetze gesprochene Zahlen\nnach Räumen, Geräten und Funktionen fragen\nDer Tab „Geräte“ zeigt nur Geräte, die mindestens einem Raum oder Funktion zugeordnet sind",
+        "ru": "добавить перевод произносимых номеров\nдобавить намерения запрашивать комнаты, устройства и функции\nНа вкладке «Устройства» отображаются только те устройства, которые относятся хотя бы к одному помещению или функции",
+        "pt": "adicionar traduzir números\nadicione pedidos de salas, dispositivos e funções\nA guia “Dispositivos” só exibe dispositivos atribuídos a pelo menos uma sala ou função",
+        "nl": "toevoegen, gesproken nummers vertalen\nintenties toevoegen om naar kamers, apparaten en functies te vragen\nOp het tabblad „Apparaten” worden alleen apparaten weergegeven die zijn toegewezen aan ten minste één ruimte of functie",
+        "fr": "ajouter traduire des numéros parlés\najouter des demandes de pièces, d'appareils et de fonctions\nL'onglet « Appareils » n'affiche que les appareils affectés à au moins une pièce ou une fonction",
+        "it": "aggiungere e tradurre numeri\naggiungere domande per camere, dispositivi e funzioni\nLa scheda «Dispositivi» mostra solo i dispositivi assegnati ad almeno una sala o funzione",
+        "es": "añadir traducir números hablados\nañadir para pedir habitaciones, aparatos y funciones\nLa pestaña «Dispositivos» solo muestra los dispositivos asignados a al menos una sala o función",
+        "pl": "dodaj przetłumacz liczby mówione\ndodaj zamiary, aby zapytać o pokoje, urządzenia i funkcje\nZakładka „Urządzenia” wyświetla tylko urządzenia, które są przypisane do co najmniej jednego pomieszczenia lub funkcji",
+        "uk": "додати переклад розмовних номерів\nдодати наміри запитати кімнати, пристрої та функції\nНа вкладці «Пристрої» відображаються лише пристрої, призначені принаймні для однієї кімнати або функції",
+        "zh-cn": "添加翻译口语数字\n添加询问房间、设备和功能的意图\n“设备” 选项卡仅显示分配给至少一个房间或功能的设备"
+      },
       "0.0.9": {
         "en": "repair intent edit\nadd write strings to datapoint\nadd sendto with parameters as a intent capability",
         "de": "Reparaturvorsatz\nWrite-Text zu Datapoint hinzufügen\nSendto mit Parametern als Absicht hinzufügen",
@@ -69,19 +82,6 @@
         "zh-cn": "修复测试和部署"
       },
       "0.0.4": {
-        "en": "fix tests and deployment",
-        "de": "Fixtests und Einsatz",
-        "ru": "исправления, тесты и развертывание",
-        "pt": "fixe testes e uso",
-        "nl": "tests en implementatie repareren",
-        "fr": "fix tests et déploiement",
-        "it": "fix test e uso",
-        "es": "arreglar pruebas y despliegue",
-        "pl": "naprawa testów i wdrażania",
-        "uk": "виправлення тестів і розгортання",
-        "zh-cn": "修复测试和部署"
-      },
-      "0.0.3": {
         "en": "fix tests and deployment",
         "de": "Fixtests und Einsatz",
         "ru": "исправления, тесты и развертывание",

@@ -121,6 +121,12 @@ See [implementation status](documentation/IMPLEMENTATION_STATUS.md) for scope, v
    ### **WORK IN PROGRESS**
 
 -->
+### 0.0.10 (2026-11-15)
+
+- add translate spoken numbers
+- add intents to ask for rooms, devices amd functions
+- The "Devices" tab only displays devices that are assigned to at least one room or function
+
 ### 0.0.9 (2026-11-13)
 
 - repair intent edit
