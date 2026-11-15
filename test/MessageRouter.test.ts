@@ -258,6 +258,28 @@ describe('message API', () => {
         });
         expect(await new IntentRepository(join(directory, 'intents.json')).load()).to.deep.equal(imported);
         expect(await router.handle('exportIntents', {}, admin)).to.deep.equal({ schemaVersion: 1, intents: imported });
+        const additional: IntentDefinition = {
+            id: 'user.farewell',
+            source: 'user',
+            enabled: true,
+            utterances: { de: ['Tschüss', 'Auf Wiedersehen'], en: ['Goodbye', 'See you'] },
+            action: { kind: 'response', response: { de: 'Tschüss' } },
+        };
+        expect(await router.handle('importIntents', { schemaVersion: 1, intents: [additional] }, admin)).to.deep.equal({
+            status: 'imported',
+            count: 1,
+        });
+        expect(await new IntentRepository(join(directory, 'intents.json')).load()).to.deep.equal([
+            ...imported,
+            additional,
+        ]);
+        expect(await router.handle('importIntents', { schemaVersion: 1, intents: imported }, admin)).to.deep.equal({
+            error: 'Intent ID already exists',
+        });
+        expect(await new IntentRepository(join(directory, 'intents.json')).load()).to.deep.equal([
+            ...imported,
+            additional,
+        ]);
         const fixedSendTo: IntentDefinition = {
             id: 'user.fixedSendTo',
             source: 'user',

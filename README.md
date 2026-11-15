@@ -92,6 +92,8 @@ Die Importdatei ist UTF-8-JSON mit `schemaVersion: 1` und einem Array `intents`.
 
 Für eine Geräteaktion stattdessen beispielsweise `"action": { "kind": "capability", "operation": "turnOn" }` verwenden. Unterstützte Operationen sind `turnOn`, `turnOff`, `setValue`, `press`, `getState` und `getValue`. `press` löst einen freigegebenen booleschen `button`-State mit `true` aus. Die System-Intents für Helligkeit und Temperatur verwenden `setValue` und wählen den passenden numerischen State anhand von Name und Rolle. Eigene Intents mit `setValue` können den Text nach einem passenden Trainingsbeispiel auch in einen freigegebenen String-Datenpunkt schreiben. Nach dem Import auf **Training** ein neues Modell trainieren; der Import allein aktiviert die neuen Sätze nicht.
 
+Beim Export kannst du die eigenen Intents auswählen, die in die JSON-Datei aufgenommen werden. So lässt sich eine Datei mit nur den Intents erstellen, die du weitergeben möchtest. Beim Import zeigt die Admin-Oberfläche die Intents der Datei einzeln an. Wähle die gewünschten Einträge aus; sie werden zu den vorhandenen eigenen Intents hinzugefügt. Einträge mit bereits vorhandener ID sind nicht auswählbar und werden nicht überschrieben. Eigene Intents lassen sich im Intent-Editor über das Kopiersymbol duplizieren; die Kopie erhält eine neue ID und kann vor dem Speichern bearbeitet werden.
+
 ## Development
 
 Requires Node.js 22 or later.

@@ -198,10 +198,16 @@ export class MessageRouter {
                 if (payload.schemaVersion !== 1 || !Array.isArray(payload.intents)) {
                     throw new Error('Invalid intent import');
                 }
-                const intents = payload.intents as IntentDefinition[];
-                await this.options.intentRepository.save(intents);
-                this.options.setUserIntents(intents);
-                return { status: 'imported', count: intents.length };
+                const imported = payload.intents as IntentDefinition[];
+                const existing = this.options.getUserIntents();
+                const ids = new Set(existing.map(intent => intent.id));
+                if (imported.some(intent => !intent || typeof intent.id !== 'string' || ids.has(intent.id))) {
+                    throw new Error('Intent ID already exists');
+                }
+                const combined = [...existing, ...imported];
+                await this.options.intentRepository.save(combined);
+                this.options.setUserIntents(combined);
+                return { status: 'imported', count: imported.length };
             }
             if (command === 'trainModel') {
                 if (!this.options.modelReady()) {

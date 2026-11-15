@@ -7,6 +7,7 @@ import {
     ButtonBase,
     Card,
     CardContent,
+    Checkbox,
     Chip,
     Collapse,
     CircularProgress,
@@ -44,6 +45,7 @@ import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/Edit';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ImportContactsIcon from '@mui/icons-material/ImportContacts';
 import type { AdminApi } from '../../src/shared/AdminApi';
 import { normalizeIntentDraft, parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
@@ -642,9 +644,11 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
     const [notice, setNotice] = useState('');
     const [importDraft, setImportDraft] = useState<{
         schemaVersion: number;
-
         intents: IntentDefinition[];
     }>();
+    const [selectedImportIds, setSelectedImportIds] = useState<string[]>([]);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
+    const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
 
     const refresh = useCallback(
         async (offset = 0): Promise<void> => {
@@ -709,15 +713,20 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
         try {
             const data = await api.call<{
                 schemaVersion: number;
-
                 intents: IntentDefinition[];
             }>('exportIntents');
-            const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+            const selected = data.intents.filter(intent => selectedExportIds.includes(intent.id));
+            if (selected.length !== selectedExportIds.length) {
+                throw new Error(t('error.export_selection_changed'));
+            }
+            const content = { schemaVersion: data.schemaVersion, intents: selected };
+            const url = URL.createObjectURL(new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }));
             const link = document.createElement('a');
             link.href = url;
             link.download = 'smart-text2command-intents.json';
             link.click();
             window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setExportDialogOpen(false);
         } catch (error) {
             setError(displayError(error));
         }
@@ -745,6 +754,11 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
             for (const intent of data.intents) {
                 validateIntentDraft(intent as IntentDefinition);
             }
+            const ids = (data.intents as IntentDefinition[]).map(intent => intent.id);
+            if (new Set(ids).size !== ids.length) {
+                throw new Error(t('error.invalid_intent_import'));
+            }
+            setSelectedImportIds(ids.filter(id => !intents.some(intent => intent.id === id)));
             setImportDraft(
                 data as {
                     schemaVersion: number;
@@ -754,6 +768,27 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
             );
         } catch (error) {
             setError(displayError(error));
+        }
+    }
+
+    async function importSelected(): Promise<void> {
+        if (!importDraft || !selectedImportIds.length) {
+            return;
+        }
+        setBusy(true);
+        try {
+            await api.call('importIntents', {
+                schemaVersion: importDraft.schemaVersion,
+                intents: importDraft.intents.filter(intent => selectedImportIds.includes(intent.id)),
+            });
+            await refresh((devicePage - 1) * 50);
+            setImportDraft(undefined);
+            setSelectedImportIds([]);
+            setNotice(t('ui.intents_imported'));
+        } catch (error) {
+            setError(displayError(error));
+        } finally {
+            setBusy(false);
         }
     }
 
@@ -1041,7 +1076,13 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     >
                         <Button
                             variant="outlined"
-                            onClick={() => void exportIntents()}
+                            disabled={!intents.some(intent => intent.source === 'user')}
+                            onClick={() => {
+                                setSelectedExportIds(
+                                    intents.filter(intent => intent.source === 'user').map(intent => intent.id),
+                                );
+                                setExportDialogOpen(true);
+                            }}
                         >
                             {t('ui.export')}
                         </Button>
@@ -1054,34 +1095,134 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                                 hidden
                                 type="file"
                                 accept="application/json,.json"
-                                onChange={event => void readImport(event.target.files?.[0])}
+                                onChange={event => {
+                                    void readImport(event.target.files?.[0]);
+                                    event.target.value = '';
+                                }}
                             />
                         </Button>
                     </Stack>
                 </Stack>
             )}
             <Dialog
+                open={exportDialogOpen}
+                onClose={() => setExportDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>{t('ui.select_intents_to_export')}</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={1}>
+                        <Stack
+                            direction="row"
+                            spacing={1}
+                        >
+                            <Button
+                                size="small"
+                                onClick={() =>
+                                    setSelectedExportIds(
+                                        intents.filter(item => item.source === 'user').map(item => item.id),
+                                    )
+                                }
+                            >
+                                {t('ui.select_all')}
+                            </Button>
+                            <Button
+                                size="small"
+                                onClick={() => setSelectedExportIds([])}
+                            >
+                                {t('ui.select_none')}
+                            </Button>
+                        </Stack>
+                        {intents
+                            .filter(item => item.source === 'user')
+                            .map(item => (
+                                <FormControlLabel
+                                    key={item.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedExportIds.includes(item.id)}
+                                            onChange={event =>
+                                                setSelectedExportIds(current =>
+                                                    event.target.checked
+                                                        ? [...current, item.id]
+                                                        : current.filter(id => id !== item.id),
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label={item.id}
+                                />
+                            ))}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setExportDialogOpen(false)}>{t('ui.cancel')}</Button>
+                    <Button
+                        disabled={!selectedExportIds.length}
+                        onClick={() => void exportIntents()}
+                    >
+                        {t('ui.export_selected')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog
                 open={!!importDraft}
                 onClose={() => setImportDraft(undefined)}
+                fullWidth
+                maxWidth="sm"
             >
-                <DialogTitle>{t('ui.replace_training_data')}</DialogTitle>
-                <DialogContent>
-                    {t('ui.custom_intents_in_file')}: {importDraft?.intents.length}.{' '}
-                    {t('ui.the_active_model_stays_unchanged_until_training')}
+                <DialogTitle>{t('ui.select_intents_to_import')}</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={1}>
+                        <Typography variant="body2">
+                            {t('ui.custom_intents_in_file')}: {importDraft?.intents.length}.{' '}
+                            {t('ui.the_active_model_stays_unchanged_until_training')}
+                        </Typography>
+                        <Button
+                            size="small"
+                            sx={{ alignSelf: 'start' }}
+                            onClick={() =>
+                                setSelectedImportIds(
+                                    importDraft?.intents
+                                        .filter(item => !intents.some(existing => existing.id === item.id))
+                                        .map(item => item.id) ?? [],
+                                )
+                            }
+                        >
+                            {t('ui.select_all_available')}
+                        </Button>
+                        {importDraft?.intents.map(item => {
+                            const exists = intents.some(existing => existing.id === item.id);
+                            return (
+                                <FormControlLabel
+                                    key={item.id}
+                                    control={
+                                        <Checkbox
+                                            checked={selectedImportIds.includes(item.id)}
+                                            disabled={exists}
+                                            onChange={event =>
+                                                setSelectedImportIds(current =>
+                                                    event.target.checked
+                                                        ? [...current, item.id]
+                                                        : current.filter(id => id !== item.id),
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label={`${item.id}${exists ? ` — ${t('ui.intent_id_already_exists')}` : ''}`}
+                                />
+                            );
+                        })}
+                    </Stack>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setImportDraft(undefined)}>{t('ui.cancel')}</Button>
                     <Button
-                        color="warning"
-                        onClick={() => {
-                            if (!importDraft) {
-                                return;
-                            }
-                            void mutate('importIntents', importDraft, t('ui.intents_imported'));
-                            setImportDraft(undefined);
-                        }}
+                        disabled={busy || !selectedImportIds.length}
+                        onClick={() => void importSelected()}
                     >
-                        {t('ui.replace')}
+                        {t('ui.import_selected')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1160,6 +1301,15 @@ function IntentEditor({
         setEditingId(existing ? intent.id : undefined);
         setError('');
     };
+    const duplicate = (intent: IntentDefinition): void => {
+        const base = `${intent.id.slice(0, 90)}_copy`;
+        let id = base;
+        let number = 2;
+        while (intents.some(item => item.id === id)) {
+            id = `${base}${number++}`;
+        }
+        edit({ ...structuredClone(intent), id, source: 'user' }, false);
+    };
     const changeResponseRows = (rows: LanguageRow[]): void => {
         setResponseRows(rows);
         setDraft(current => ({ ...current, action: { kind: 'response', response: valuesFromRows(rows) } }));
@@ -1210,13 +1360,22 @@ function IntentEditor({
                 {intents
                     .filter(item => item.source === 'user')
                     .map(item => (
-                        <Button
+                        <Stack
                             key={item.id}
-                            sx={{ display: 'block' }}
-                            onClick={() => edit(item)}
+                            direction="row"
+                            sx={{ alignItems: 'center' }}
                         >
-                            {item.id}
-                        </Button>
+                            <Button onClick={() => edit(item)}>{item.id}</Button>
+                            <Tooltip title={t('ui.duplicate_intent')}>
+                                <IconButton
+                                    size="small"
+                                    aria-label={`${t('ui.duplicate_intent')}: ${item.id}`}
+                                    onClick={() => duplicate(item)}
+                                >
+                                    <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
                     ))}
             </Box>
             <Card
