@@ -112,7 +112,12 @@ export class MessageRouter {
                 const language = isSupportedLanguage(payload.language) ? payload.language : defaultLanguage();
                 const current = this.options.catalog
                     .list()
-                    .filter(device => device.status !== 'missing' && device.discoveredCapabilities.length > 0);
+                    .filter(
+                        device =>
+                            device.status !== 'missing' &&
+                            device.discoveredCapabilities.length > 0 &&
+                            (device.roomIds.length > 0 || device.functionIds.length > 0),
+                    );
                 const devices = current.filter(
                     device =>
                         (!filter ||

@@ -191,14 +191,49 @@ describe('message API', () => {
         expect(Object.keys(catalog.list()[0].approvedCapabilities)).to.deep.equal(['turnOn:plug.0.lamp.POWER']);
         await catalog.reconcile([
             ...catalog.list(),
-            ...discoverDevices([{ id: 'plug.0.empty', type: 'device', common: { name: 'Ohne Datenpunkt' } }]),
+            ...discoverDevices([
+                { id: 'plug.0.empty', type: 'device', common: { name: 'Ohne Datenpunkt' } },
+                { id: 'plug.0.unassigned', type: 'device', common: { name: 'Ohne Zuordnung' } },
+                {
+                    id: 'plug.0.unassigned.POWER',
+                    type: 'state',
+                    common: { role: 'switch', type: 'boolean', read: true, write: true },
+                },
+                { id: 'plug.0.functionOnly', type: 'device', common: { name: 'Nur Funktion' } },
+                {
+                    id: 'plug.0.functionOnly.POWER',
+                    type: 'state',
+                    common: { role: 'switch', type: 'boolean', read: true, write: true },
+                },
+                {
+                    id: 'enum.functions.test',
+                    type: 'enum',
+                    common: { name: 'Test', members: ['plug.0.functionOnly'] },
+                },
+                { id: 'plug.0.roomOnly', type: 'device', common: { name: 'Nur Raum' } },
+                {
+                    id: 'plug.0.roomOnly.POWER',
+                    type: 'state',
+                    common: { role: 'switch', type: 'boolean', read: true, write: true },
+                },
+                {
+                    id: 'enum.rooms.test',
+                    type: 'enum',
+                    common: { name: 'Test', members: ['plug.0.roomOnly'] },
+                },
+            ]),
         ]);
         for (const key of ['room', 'functionId']) {
-            expect(await router.handle('listDevices', { [key]: '__none__' }, admin)).to.include({ total: 0 });
+            expect(await router.handle('listDevices', { [key]: '__none__' }, admin)).to.include({ total: 1 });
         }
         expect(await router.handle('listDevices', { capability: '__none__' }, admin)).to.include({ total: 0 });
-        expect(await router.handle('listDevices', {}, admin)).to.include({ total: 1 });
-        expect(await router.handle('listDevices', { capability: 'POWER' }, admin)).to.include({ total: 1 });
+        const assigned = (await router.handle('listDevices', { limit: 1 }, admin)) as {
+            total: number;
+            devices: Array<{ id: string }>;
+        };
+        expect(assigned.total).to.equal(3);
+        expect(assigned.devices).to.have.length(1);
+        expect(await router.handle('listDevices', { capability: 'POWER' }, admin)).to.include({ total: 3 });
         await catalog.reconcile([]);
         expect(catalog.list().every(item => item.status === 'missing')).to.equal(true);
         expect(await router.handle('listDevices', { limit: 1 }, admin)).to.deep.equal({
@@ -211,6 +246,11 @@ describe('message API', () => {
         await catalog.reconcile(
             discoverDevices([
                 { id: 'test.0.heating', type: 'channel', common: { name: 'Heizung' } },
+                {
+                    id: 'enum.functions.heating',
+                    type: 'enum',
+                    common: { name: 'Heizung', members: ['test.0.heating'] },
+                },
                 {
                     id: 'test.0.heating.IST',
                     type: 'state',
