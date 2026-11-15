@@ -87,9 +87,8 @@ function isExplicitNamedValueWrite(
     language: Language,
     catalog: DeviceCatalogView,
     resolver: DeviceResolver,
-    hasNumericValue: boolean,
 ): boolean {
-    if (!hasNumericValue || !new RegExp(languageRules(language).setpointVerb, 'iu').test(text)) {
+    if (!new RegExp(languageRules(language).setpointVerb, 'iu').test(text)) {
         return false;
     }
     const domain = inferValueDomain(text, language);
@@ -106,7 +105,7 @@ function isExplicitNamedValueWrite(
                           capabilityNameMatches(capability, text, language),
                   ),
         );
-    return named.length === 1;
+    return named.length > 0;
 }
 
 function requestedDomain(
@@ -594,17 +593,9 @@ export class CommandController {
             const explicitNamedValueWrite =
                 !explicitSetpointWrite &&
                 !explicitButtonPress &&
-                uncertainIntent &&
-                isExplicitNamedValueWrite(
-                    text,
-                    language,
-                    this.catalog,
-                    resolver,
-                    parsed.entities.some(
-                        entity =>
-                            entity.type === 'number' || entity.type === 'percent' || entity.type === 'temperature',
-                    ),
-                );
+                !explicitStringIntent &&
+                (uncertainIntent || analysis.intent?.startsWith('device.')) &&
+                isExplicitNamedValueWrite(text, language, this.catalog, resolver);
             intent = explicitSendToIntent
                 ? explicitSendToIntent
                 : explicitButtonPress
@@ -925,10 +916,15 @@ export class CommandController {
         if ('clarification' in outcome) {
             if (outcome.clarification === 'capability') {
                 const device = this.catalog.list().find(item => item.id === deviceId);
+                const names = outcome.stateIds.map(id => {
+                    const capability = device?.discoveredCapabilities.find(item => item.stateId === id);
+                    return capability ? capabilityLabel(language, capability) : id;
+                });
                 const options = outcome.stateIds.map(id => {
                     const capability = device?.discoveredCapabilities.find(item => item.stateId === id);
                     const kind = capability ? capabilityLabel(language, capability) : id;
-                    return { id, label: `${kind} (${id.split('.').at(-1)})` };
+                    const duplicate = names.filter(name => normalizeReply(name) === normalizeReply(kind)).length > 1;
+                    return { id, label: duplicate ? `${kind} (${id.split('.').at(-1)})` : kind };
                 });
                 const pending = this.sessions.create({
                     key: 'capability',

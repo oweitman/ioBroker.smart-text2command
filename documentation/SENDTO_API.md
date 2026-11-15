@@ -53,6 +53,12 @@ this.sendTo(
 
 `requestId`, `sessionId` und `clarificationId` dürfen jeweils nur 1 bis 100 Zeichen aus `A–Z`, `a–z`, `0–9`, `.`, `_`, `:` und `-` enthalten. Eine `selection` darf höchstens 100 Zeichen und keine Steuerzeichen enthalten. Der Nachrichtenrouter lehnt serialisierte Anfragen über 65.536 Zeichen ab.
 
+## Optionale Session-Historie
+
+In der Adapterkonfiguration unter **Einstellungen** kann ein Administrator **Externe sendTo-Anfragen in der Session-Historie speichern** aktivieren. Die Option ist standardmäßig ausgeschaltet. Bei aktivierter Option erscheinen `processText`-Anfragen und ihre Antworten zusammen mit den Testlabor-Sitzungen in der Session-Historie; die Herkunft und der aufrufende Adapter werden dort angezeigt. Die Speicherung ist auf 30 Sitzungen mit jeweils bis zu 50 Anfragen begrenzt.
+
+Anfragen mit derselben `sessionId` desselben Absenders und Nutzers werden in einem Verlauf gesammelt. Gleiche Session-IDs anderer Absender oder Nutzer bleiben getrennt. Ohne `sessionId` erhält jede `requestId` einen eigenen Verlauf. Schlägt die Speicherung fehl, bleibt das Verarbeitungsergebnis erhalten und enthält zusätzlich `historyError: "HISTORY_SAVE_FAILED"`.
+
 ## Mehrteilige Gespräche
 
 Ein Aufruf **ohne** `clarificationId` beginnt immer eine neue Anfrage, auch wenn dieselbe `sessionId` gesendet wird. Dabei wird eine zuvor offene Rückfrage derselben Absender-/Nutzer-/Sitzungskombination beendet. Ein Aufruf **mit** `clarificationId` versucht, den Text als Antwort auf genau diese Rückfrage zu verstehen. Bei einer unpassenden Antwort wiederholt der Adapter die Frage mit derselben ID; er führt den Text nicht als neuen Befehl aus.

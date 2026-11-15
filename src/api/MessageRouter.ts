@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { validateCommandRequest } from './RequestValidator';
 import type { CommandController } from '../commands/CommandController';
 import type { DeviceCatalog } from '../devices/DeviceCatalog';
@@ -25,6 +25,7 @@ interface RouterOptions {
     intentRepository: IntentRepository;
     modelRepository: ModelRepository;
     testLabHistory: TestLabHistoryRepository;
+    recordExternalHistory?: () => boolean;
     timers: AdapterTimers;
     getUserIntents: () => IntentDefinition[];
     setUserIntents: (intents: IntentDefinition[]) => void;
@@ -63,10 +64,27 @@ export class MessageRouter {
                 if (!this.permit(context.from)) {
                     return { error: 'RATE_LIMITED' };
                 }
-                return this.options.controller.process(
-                    validateCommandRequest(message),
-                    `${context.from}:${context.user ?? ''}`,
-                );
+                const request = validateCommandRequest(message);
+                const callerKey = `${context.from}:${context.user ?? ''}`;
+                const recordHistory = this.options.recordExternalHistory?.() === true;
+                const result = await this.options.controller.process(request, callerKey, recordHistory);
+                if (recordHistory) {
+                    const id = createHash('sha256')
+                        .update(
+                            JSON.stringify([context.from, context.user ?? '', request.sessionId ?? request.requestId]),
+                        )
+                        .digest('hex');
+                    try {
+                        await this.options.testLabHistory.append(request, result, {
+                            sessionId: `sendTo-${id}`,
+                            source: 'sendTo',
+                            caller: context.from,
+                        });
+                    } catch {
+                        return { ...result, historyError: 'HISTORY_SAVE_FAILED' };
+                    }
+                }
+                return result;
             }
             if (!(await this.options.isAdmin(context))) {
                 return { error: 'ADMIN_REQUIRED' };

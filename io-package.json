@@ -162,7 +162,8 @@
     ]
   },
   "native": {
-    "defaultLanguage": "de"
+    "defaultLanguage": "de",
+    "recordExternalHistory": false
   },
   "objects": [],
   "instanceObjects": [

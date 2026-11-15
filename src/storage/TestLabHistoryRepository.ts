@@ -11,6 +11,8 @@ export interface TestLabExchange {
 
 export interface TestLabSession {
     id: string;
+    source?: 'testLab' | 'sendTo';
+    caller?: string;
     startedAt: string;
     updatedAt: string;
     exchanges: TestLabExchange[];
@@ -18,6 +20,8 @@ export interface TestLabSession {
 
 export interface TestLabSessionSummary {
     id: string;
+    source: 'testLab' | 'sendTo';
+    caller?: string;
     startedAt: string;
     updatedAt: string;
     firstText: string;
@@ -27,6 +31,12 @@ export interface TestLabSessionSummary {
 interface HistoryFile {
     schemaVersion: 1;
     sessions: TestLabSession[];
+}
+
+interface HistorySource {
+    sessionId?: string;
+    source?: 'testLab' | 'sendTo';
+    caller?: string;
 }
 
 export class TestLabHistoryRepository {
@@ -44,6 +54,8 @@ export class TestLabHistoryRepository {
         return data.sessions
             .map(session => ({
                 id: session.id,
+                source: session.source ?? 'testLab',
+                caller: session.caller,
                 startedAt: session.startedAt,
                 updatedAt: session.updatedAt,
                 firstText: session.exchanges[0]?.request.text ?? '',
@@ -57,8 +69,8 @@ export class TestLabHistoryRepository {
         return (await this.load()).sessions.find(session => session.id === id);
     }
 
-    public append(request: CommandRequest, result: CommandResult): Promise<void> {
-        const sessionId = request.sessionId;
+    public append(request: CommandRequest, result: CommandResult, origin: HistorySource = {}): Promise<void> {
+        const sessionId = origin.sessionId ?? request.sessionId;
         if (!sessionId) {
             return Promise.reject(new Error('Session ID required'));
         }
@@ -66,8 +78,18 @@ export class TestLabHistoryRepository {
             const at = new Date().toISOString();
             let session = data.sessions.find(item => item.id === sessionId);
             if (!session) {
-                session = { id: sessionId, startedAt: at, updatedAt: at, exchanges: [] };
+                session = {
+                    id: sessionId,
+                    source: origin.source ?? 'testLab',
+                    caller: origin.caller,
+                    startedAt: at,
+                    updatedAt: at,
+                    exchanges: [],
+                };
                 data.sessions.push(session);
+            }
+            if (session.exchanges.some(exchange => exchange.request.requestId === request.requestId)) {
+                return;
             }
             session.updatedAt = at;
             session.exchanges.push({ at, request, result });

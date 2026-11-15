@@ -54,12 +54,14 @@ describe('message API', () => {
         );
         let userIntents: IntentDefinition[] = [];
         let rescanCount = 0;
+        let recordExternalHistory = false;
         const router = new MessageRouter({
             controller,
             catalog,
             intentRepository: new IntentRepository(join(directory, 'intents.json')),
             modelRepository: new ModelRepository(join(directory, 'models')),
             testLabHistory: new TestLabHistoryRepository(join(directory, 'test-lab-history.json')),
+            recordExternalHistory: () => recordExternalHistory,
             timers: testAdapterTimers,
             getUserIntents: () => userIntents,
             setUserIntents: intents => {
@@ -99,6 +101,48 @@ describe('message API', () => {
         expect(testLabResult).to.have.property('requestId', 'history-1');
         const savedHistory = await router.handle('getTestLabSession', { sessionId: 'session-a' }, admin);
         expect(savedHistory).to.have.nested.property('session.exchanges[0].request.text', 'Schalte Lampe ein');
+        const externalRequest = {
+            requestId: 'external-1',
+            sessionId: 'shared-session',
+            text: 'Welche Temperatur',
+            mode: 'analyze',
+        };
+        await router.handle('processText', externalRequest, untrusted);
+        expect(await router.handle('listTestLabSessions', {}, admin)).to.have.nested.property('sessions.length', 1);
+        recordExternalHistory = true;
+        await router.handle('processText', { ...externalRequest, requestId: 'external-2' }, untrusted);
+        await router.handle('processText', { ...externalRequest, requestId: 'external-3' }, untrusted);
+        await router.handle('processText', { ...externalRequest, requestId: 'external-3' }, untrusted);
+        await router.handle(
+            'processText',
+            { ...externalRequest, requestId: 'external-4' },
+            {
+                from: 'system.adapter.javascript.0',
+                user: 'system.user.admin',
+            },
+        );
+        await router.handle(
+            'processText',
+            { ...externalRequest, requestId: 'external-6' },
+            { from: 'system.adapter.web.0', user: 'system.user.other' },
+        );
+        await router.handle(
+            'processText',
+            { requestId: 'external-5', text: 'Schalte Lampe ein', mode: 'execute' },
+            untrusted,
+        );
+        const histories = (await router.handle('listTestLabSessions', {}, admin)) as {
+            sessions: Array<{ id: string; source: string; caller?: string; count: number }>;
+        };
+        expect(histories.sessions).to.have.length(5);
+        expect(histories.sessions.find(item => item.id === 'session-a')?.source).to.equal('testLab');
+        const fromWeb = histories.sessions.find(item => item.source === 'sendTo' && item.count === 2);
+        expect(fromWeb?.caller).to.equal('system.adapter.web.0');
+        expect(fromWeb?.id).not.to.equal('shared-session');
+        expect(await router.handle('getTestLabSession', { sessionId: fromWeb?.id }, admin)).to.have.nested.property(
+            'session.exchanges.length',
+            2,
+        );
         expect(await router.handle('rescanDevices', {}, untrusted)).to.deep.equal({ error: 'ADMIN_REQUIRED' });
         expect(await router.handle('rescanDevices', {}, admin)).to.deep.equal({ status: 'updated' });
         expect(rescanCount).to.equal(1);

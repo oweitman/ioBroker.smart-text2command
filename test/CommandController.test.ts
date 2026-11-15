@@ -629,7 +629,7 @@ describe('command pipeline', () => {
             { requestId: 'response-value', text: 'Wie warm ist es im Wohnzimmer', mode: 'execute' },
             'admin.0',
         );
-        expect(value.response).to.equal('Der Wert von Sensor im Raum Wohnzimmer beträgt 21 °C.');
+        expect(value.response).to.equal('Der Wert für IST von Sensor im Raum Wohnzimmer beträgt 21 °C.');
     });
 
     it('explains that no matching device is known in the requested room', async () => {
@@ -941,6 +941,122 @@ describe('command pipeline', () => {
         expect(measured.status).to.equal('success');
         expect(measured.actions?.[0].stateId).to.equal(`${id}.TILT`);
         expect(measured.response).to.include('40');
+        expect(measured.response).to.include('Lamellen');
+        const namedSlats = await read.controller.process(
+            { requestId: 'blind-slats-named', text: 'Welchen Wert hat die Lamellen im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(namedSlats.status).to.equal('success');
+        expect(namedSlats.actions?.[0].stateId).to.equal(`${id}.TILT`);
+        expect(namedSlats.response).to.include('Lamellen');
+        const explicitPosition = await read.controller.process(
+            {
+                requestId: 'blind-position-explicit',
+                text: 'Welchen Wert hat die Position des Geräts Rollladen im Wohnzimmer',
+                mode: 'execute',
+            },
+            'admin.0',
+        );
+        expect(explicitPosition.status).to.equal('success');
+        expect(explicitPosition.actions?.[0].stateId).to.equal(`${id}.POSITION`);
+        expect(explicitPosition.response).to.include('Position');
+        const ambiguous = await read.controller.process(
+            { requestId: 'blind-value-ambiguous', text: 'Welchen Wert hat Roladen im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(ambiguous.clarification?.key).to.equal('capability');
+        expect(ambiguous.clarification?.options?.map(option => option.label)).to.deep.equal(['Position', 'Lamellen']);
+        const selected = await read.controller.process(
+            {
+                requestId: 'blind-value-selected',
+                text: 'Position',
+                mode: 'execute',
+                clarificationId: ambiguous.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(selected.status).to.equal('success');
+        expect(selected.actions?.[0].stateId).to.equal(`${id}.POSITION`);
+        expect(selected.response).to.include('Position');
+    });
+
+    it('asks for a missing value after resolving a named function and asks for the device when needed', async () => {
+        const blind = 'test.0.blind';
+        const other = 'test.0.otherBlind';
+        const objects: ObjectSnapshot[] = [
+            { id: blind, type: 'channel', common: { name: 'Rolladen' } },
+            {
+                id: `${blind}.lamellen`,
+                type: 'state',
+                common: { name: 'Lamellen', role: 'value', type: 'number', read: true, write: true, unit: '%' },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { name: 'Wohnzimmer', members: [blind] } },
+        ];
+        const single = fixture(objects, 'device.getValue', 0, undefined, 0.55);
+        single.registry.setEnabled(blind, true);
+        single.registry.approve(blind, `${blind}.lamellen`, 'setValue');
+        const commands = [
+            'Setze den Wert der Lamellen des Geräts Rolladen im Wohnzimmer',
+            'Stelle den Wert der Lamellen des Rolladens im Wohnzimmer',
+            'Setze am Gerät Rolladen im Wohnzimmer den Wert von Lamellen',
+            'Setze den Wert der Lamellen im Wohnzimmer',
+        ];
+        let lastQuestion: Awaited<ReturnType<typeof single.controller.process>> | undefined;
+        for (const [index, command] of commands.entries()) {
+            lastQuestion = await single.controller.process(
+                { requestId: `missing-value-${index}`, text: command, mode: 'execute' },
+                'admin.0',
+            );
+            expect(lastQuestion.intent).to.equal('device.setValue');
+            expect(lastQuestion.clarification?.key).to.equal('value');
+        }
+        const completed = await single.controller.process(
+            {
+                requestId: 'missing-value-answer',
+                text: '50 Prozent',
+                mode: 'execute',
+                clarificationId: lastQuestion!.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(completed.status).to.equal('success');
+        expect(single.writes).to.deep.equal([{ id: `${blind}.lamellen`, value: 50 }]);
+
+        const multiple = fixture(
+            [
+                ...objects.slice(0, 2),
+                { id: other, type: 'channel', common: { name: 'Jalousie' } },
+                {
+                    id: `${other}.lamellen`,
+                    type: 'state',
+                    common: { name: 'Lamellen', role: 'value', type: 'number', read: true, write: true, unit: '%' },
+                },
+                { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { name: 'Wohnzimmer', members: [blind, other] } },
+            ],
+            'device.getValue',
+            0,
+            undefined,
+            0.55,
+        );
+        for (const id of [blind, other]) {
+            multiple.registry.setEnabled(id, true);
+            multiple.registry.approve(id, `${id}.lamellen`, 'setValue');
+        }
+        const deviceQuestion = await multiple.controller.process(
+            { requestId: 'missing-device', text: commands[3], mode: 'execute' },
+            'admin.0',
+        );
+        expect(deviceQuestion.clarification?.key).to.equal('device');
+        const valueQuestion = await multiple.controller.process(
+            {
+                requestId: 'chosen-device',
+                text: 'Rolladen',
+                mode: 'execute',
+                clarificationId: deviceQuestion.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(valueQuestion.clarification?.key).to.equal('value');
     });
 
     it('rejects a percentage for a temperature state even with generic write approval', async () => {

@@ -34,6 +34,10 @@ export default class App extends GenericApp<GenericAppProps, GenericAppState> {
                                         : languages[0].code) as Language
                                 }
                                 onDefaultLanguage={value => this.updateNativeValue('defaultLanguage', value)}
+                                recordExternalHistory={this.state.native.recordExternalHistory === true}
+                                onRecordExternalHistory={value =>
+                                    this.updateNativeValue('recordExternalHistory', value)
+                                }
                             />
                             {this.renderHelperDialogs()}
                         </Box>

@@ -59,6 +59,8 @@ describe('NLP model training and persistence', function () {
                 ['What temperature', 'en'],
                 ['Welche Temperatur hat die Heizung im Wohnzimmer', 'de'],
                 ['What temperature does the heater in the living room have', 'en'],
+                ['Welchen Wert hat die Position des Geräts Rollladen im Wohnzimmer', 'de'],
+                ['What value does the blind position have in the living room', 'en'],
             ] as const) {
                 const result = await trained.engine.analyze(text, language);
                 expect(result.intent).to.equal('device.getValue');
@@ -75,6 +77,12 @@ describe('NLP model training and persistence', function () {
                 ['Set the blind in the living room to 25 percent', 'en'],
                 ['Set the slats in the living room to 75 percent', 'en'],
                 ['Set the position to 35 percent', 'en'],
+                ['Setze den Wert der Lamellen des Geräts Rolladen im Wohnzimmer', 'de'],
+                ['Stelle den Wert der Lamellen des Rolladens im Wohnzimmer', 'de'],
+                ['Setze am Gerät Rolladen im Wohnzimmer den Wert von Lamellen', 'de'],
+                ['Setze den Wert der Lamellen im Wohnzimmer', 'de'],
+                ['Set the value of the blind slats in the living room', 'en'],
+                ['Set the slat value in the living room', 'en'],
             ] as const) {
                 const result = await trained.engine.analyze(text, language);
                 expect(result.intent).to.equal('device.setValue');

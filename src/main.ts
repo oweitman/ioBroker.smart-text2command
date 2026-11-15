@@ -159,6 +159,8 @@ class SmartText2command extends utils.Adapter {
             intentRepository: new IntentRepository(join(dataDir, 'training', 'user-intents-v1.json')),
             modelRepository: new ModelRepository(join(dataDir, 'models')),
             testLabHistory: new TestLabHistoryRepository(join(dataDir, 'test-lab-history-v1.json')),
+            recordExternalHistory: () =>
+                (this.config as { recordExternalHistory?: boolean }).recordExternalHistory === true,
             timers: this,
             getUserIntents: () => this.userIntents,
             setUserIntents: intents => {

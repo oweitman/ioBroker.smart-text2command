@@ -193,6 +193,8 @@ interface Props {
     api: AdminApi;
     defaultLanguage: Language;
     onDefaultLanguage: (value: Language) => void;
+    recordExternalHistory: boolean;
+    onRecordExternalHistory: (value: boolean) => void;
 }
 
 function labels(language: Language): (key: string) => string {
@@ -625,7 +627,13 @@ function DeviceCard({
     );
 }
 
-export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: Props): React.JSX.Element {
+export default function AdminPanel({
+    api,
+    defaultLanguage,
+    onDefaultLanguage,
+    recordExternalHistory,
+    onRecordExternalHistory,
+}: Props): React.JSX.Element {
     const t = labels(defaultLanguage);
     const [page, setPage] = useState<Page>('dashboard');
     const [diagnostics, setDiagnostics] = useState<Diagnostics>({});
@@ -1049,6 +1057,16 @@ export default function AdminPanel({ api, defaultLanguage, onDefaultLanguage }: 
                     <Typography variant="body2">
                         {t('ui.the_language_takes_effect_after_saving_adapter_configuration')}
                     </Typography>
+                    <FormControlLabel
+                        label={t('ui.record_external_history')}
+                        control={
+                            <Switch
+                                checked={recordExternalHistory}
+                                onChange={event => onRecordExternalHistory(event.target.checked)}
+                            />
+                        }
+                    />
+                    <Typography variant="body2">{t('ui.record_external_history_hint')}</Typography>
                     <Typography variant="h6">{t('ui.diagnostics')}</Typography>
                     <Box
                         component="pre"
@@ -1925,7 +1943,10 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                     key={session.id}
                                     value={session.id}
                                 >
-                                    {new Date(session.startedAt).toLocaleString(selectedLanguage)} ·{' '}
+                                    {session.source === 'sendTo'
+                                        ? `${t('ui.history_source_sendto')}${session.caller ? ` (${session.caller})` : ''}`
+                                        : t('ui.history_source_testlab')}{' '}
+                                    · {new Date(session.startedAt).toLocaleString(selectedLanguage)} ·{' '}
                                     {session.firstText.slice(0, 60)}
                                 </MenuItem>
                             ))}
