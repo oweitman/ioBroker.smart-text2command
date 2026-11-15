@@ -14,6 +14,9 @@ const VALID_INTENTS = new Set([
     'device.press',
     'device.getState',
     'device.getValue',
+    'device.listRooms',
+    'device.listDevices',
+    'device.listFunctions',
     'None',
 ]);
 

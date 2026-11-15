@@ -16,6 +16,11 @@
     { "language": "de", "text": "Welche Temperatur zeigt der Sensor", "intent": "device.getValue" },
     { "language": "de", "text": "Welche Temperatur hat die Heizung im Wohnzimmer", "intent": "device.getValue" },
     { "language": "de", "text": "Wie hell ist die Lampe im Schlafzimmer", "intent": "device.getValue" },
+    { "language": "de", "text": "Welche Räume kennst du", "intent": "device.listRooms" },
+    { "language": "de", "text": "Welche Geräte stehen im Wohnzimmer", "intent": "device.listDevices" },
+    { "language": "de", "text": "Welche Geräte sind im Raum Wohnzimmer", "intent": "device.listDevices" },
+    { "language": "de", "text": "Was kann die Lampe im Wohnzimmer", "intent": "device.listFunctions" },
+    { "language": "de", "text": "Welche Funktionen hat das Gerät Lampe im Wohnzimmer", "intent": "device.listFunctions" },
     { "language": "en", "text": "Please turn the floor lamp on", "intent": "device.turnOn" },
     { "language": "en", "text": "Switch the floor lamp off", "intent": "device.turnOff" },
     { "language": "en", "text": "Could you kindly deactivate the light in the living room", "intent": "device.turnOff" },
@@ -31,6 +36,11 @@
     { "language": "en", "text": "What temperature does the sensor show", "intent": "device.getValue" },
     { "language": "en", "text": "What temperature does the heater in the living room have", "intent": "device.getValue" },
     { "language": "en", "text": "How bright is the lamp in the bedroom", "intent": "device.getValue" },
+    { "language": "en", "text": "Which rooms do you know", "intent": "device.listRooms" },
+    { "language": "en", "text": "What devices are in the living room", "intent": "device.listDevices" },
+    { "language": "en", "text": "Which devices are in the room called living room", "intent": "device.listDevices" },
+    { "language": "en", "text": "What can the living room lamp do", "intent": "device.listFunctions" },
+    { "language": "en", "text": "What functions does the device lamp have in the living room", "intent": "device.listFunctions" },
     { "language": "de", "text": "Erzähl mir eine Geschichte", "intent": null },
     { "language": "en", "text": "Tell me a story", "intent": null }
   ]

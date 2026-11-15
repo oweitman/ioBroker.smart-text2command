@@ -1,5 +1,5 @@
 import type { CommandRequest, Language } from '../types/api';
-import type { ActionKind, Capability } from '../devices/types';
+import type { ActionKind, Capability, DeviceRecord } from '../devices/types';
 import { capabilityName, capabilityNameMatches } from '../devices/CapabilityName';
 import { DeviceResolver, roomNames } from '../devices/DeviceResolver';
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
@@ -33,6 +33,9 @@ const SYSTEM_ACTIONS: Record<string, ActionKind> = {
     'device.getState': 'getState',
     'device.getValue': 'getValue',
 };
+
+const CATALOG_INTENTS = new Set(['device.listRooms', 'device.listDevices', 'device.listFunctions']);
+const CAPABILITY_ACTIONS: ActionKind[] = ['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue'];
 
 function isExplicitSetpointWrite(text: string, language: Language): boolean {
     const rules = languageRules(language);
@@ -550,6 +553,19 @@ export class CommandController {
                 text = `${pending.request.text} ${answer}`;
             }
             this.sessions.consume(pending.id, clientKey, request.sessionId);
+            if (CATALOG_INTENTS.has(intent)) {
+                return this.catalogAnswer(
+                    request,
+                    clientKey,
+                    language,
+                    intent,
+                    confidence,
+                    model.version,
+                    text,
+                    forcedRoomId,
+                    forcedDeviceId,
+                );
+            }
         } else {
             const parsed = parseEntities(text, language, rooms);
             const roomMatches = resolver.roomMatches(text, language);
@@ -655,6 +671,9 @@ export class CommandController {
                     extractParameters(configured.action, text, language, languageRules(language).spokenNumbers),
                     details,
                 );
+            }
+            if (CATALOG_INTENTS.has(intent)) {
+                return this.catalogAnswer(request, clientKey, language, intent, confidence, model.version, text);
             }
             if (parsed.negated || hasUnsupportedSyntax(text, language, parsed.unsupported, roomMatches.length)) {
                 return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
@@ -1019,6 +1038,153 @@ export class CommandController {
             actions: [executed],
             modelVersion: model.version,
         };
+    }
+
+    private catalogAnswer(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        intent: string,
+        confidence: number,
+        modelVersion: string | undefined,
+        text: string,
+        forcedRoomId?: string,
+        forcedDeviceId?: string,
+    ): CommandResult {
+        const visible = this.catalog
+            .list()
+            .filter(device =>
+                device.discoveredCapabilities.some(capability =>
+                    CAPABILITY_ACTIONS.some(action => this.catalog.isAllowed(device.id, capability, action)),
+                ),
+            );
+        const allRooms = new Map<string, string>();
+        for (const device of visible) {
+            for (const id of device.roomIds) {
+                allRooms.set(id, roomNames(device, id, language).at(-1) ?? id);
+            }
+        }
+        const sorted = (items: string[]): string =>
+            new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(
+                [...new Set(items)].sort((a, b) => a.localeCompare(b, language)),
+            );
+        const result = (
+            response: string,
+            status: CommandResult['status'] = 'success',
+            errorCode?: string,
+        ): CommandResult => ({
+            requestId: request.requestId,
+            status,
+            language,
+            intent,
+            confidence,
+            response,
+            errorCode,
+            modelVersion,
+        });
+        if (intent === 'device.listRooms') {
+            const names = [...allRooms.values()];
+            return result(
+                responseText(language, names.length ? 'catalog.rooms' : 'catalog.noRooms', { items: sorted(names) }),
+            );
+        }
+        const resolver = new DeviceResolver(this.catalog);
+        const roomMatches = forcedRoomId
+            ? [{ id: forcedRoomId, label: allRooms.get(forcedRoomId) ?? forcedRoomId }]
+            : resolver.roomMatches(text, language).filter(room => allRooms.has(room.id));
+        const roomOptions = [...allRooms].map(([id, label]) => ({ id, label }));
+        if (!roomMatches.length && new RegExp(languageRules(language).roomReference, 'iu').test(text)) {
+            return result(languageMessage(language, 'error.UNKNOWN_ROOM'), 'rejected', 'UNKNOWN_ROOM');
+        }
+        if (roomMatches.length !== 1) {
+            if (!roomOptions.length) {
+                return result(languageMessage(language, 'catalog.noRooms'));
+            }
+            const options = roomMatches.length ? roomMatches : roomOptions;
+            const key = roomMatches.length ? 'roomChoices' : 'catalog.askRoom';
+            const question = responseText(language, key, { options: sorted(options.map(item => item.label)) });
+            const pending = this.sessions.create({
+                key: 'room',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: intent === 'device.listDevices' ? 'listDevices' : 'listFunctions',
+                intent,
+                confidence,
+                deviceIds: [],
+                roomIds: options.map(item => item.id),
+                options,
+                question,
+            });
+            return { ...result(question, 'clarification'), clarification: { id: pending.id, key: 'room', options } };
+        }
+        const room = roomMatches[0];
+        const devices = visible.filter(device => device.roomIds.includes(room.id));
+        if (intent === 'device.listDevices') {
+            return result(
+                responseText(language, devices.length ? 'catalog.devices' : 'catalog.noDevices', {
+                    room: room.label,
+                    items: sorted(devices.map(device => device.displayName)),
+                }),
+            );
+        }
+        if (!devices.length) {
+            return result(responseText(language, 'catalog.noDevices', { room: room.label }));
+        }
+        const named = forcedDeviceId
+            ? devices.filter(device => device.id === forcedDeviceId)
+            : devices.filter(device =>
+                  [device.displayName, ...(device.aliases[language] ?? [])].some(name => {
+                      const phrase = normalizeReply(name);
+                      return phrase && ` ${normalizeReply(text)} `.includes(` ${phrase} `);
+                  }),
+              );
+        if (!named.length && new RegExp(languageRules(language).catalogDeviceReference, 'iu').test(text)) {
+            return result(languageMessage(language, 'deviceNotFoundInRoom'), 'rejected', 'DEVICE_NOT_FOUND');
+        }
+        const matches: DeviceRecord[] = named.length ? named : devices.length === 1 ? devices : [];
+        if (matches.length !== 1) {
+            const options = (matches.length ? matches : devices).map(device => ({
+                id: device.id,
+                label: device.displayName,
+            }));
+            const question = responseText(language, matches.length ? 'deviceChoices' : 'catalog.askDevice', {
+                options: sorted(options.map(item => item.label)),
+            });
+            const pending = this.sessions.create({
+                key: 'device',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'listFunctions',
+                intent,
+                confidence,
+                deviceIds: options.map(item => item.id),
+                selectedRoomId: room.id,
+                options,
+                question,
+            });
+            return { ...result(question, 'clarification'), clarification: { id: pending.id, key: 'device', options } };
+        }
+        const device = matches[0];
+        const functions = device.discoveredCapabilities
+            .filter(capability =>
+                CAPABILITY_ACTIONS.some(action => this.catalog.isAllowed(device.id, capability, action)),
+            )
+            .map(capability =>
+                capability.kind === 'onOff'
+                    ? languageMessage(language, 'catalog.switchFunction')
+                    : capabilityName(capability, language),
+            );
+        return result(
+            responseText(language, functions.length ? 'catalog.functions' : 'catalog.noFunctions', {
+                device: device.displayName,
+                room: room.label,
+                items: sorted(functions),
+            }),
+        );
     }
 
     private repeatClarification(

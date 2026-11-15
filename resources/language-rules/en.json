@@ -35,5 +35,6 @@
   "buttonStateQualifier": "\\b(?:on|off|deactivate)\\b",
   "buttonTarget": "\\b(?:button|key|control)\\b",
   "roomReference": "\\bin\\s+the\\s+[\\p{L}][\\p{L}\\p{N}-]*",
+  "catalogDeviceReference": "\\b(?:device\\s+[\\p{L}][\\p{L}\\p{N}-]*|lamp|light|heater|sensor|blind|shutter|climate)\\b",
   "deviceBeforeRoom": "\\b(?:turn|switch|activate|deactivate|press|push|trigger)\\s+(?:(?:on|off)\\s+)?(?:(?:the|a|an)\\s+)?(?<device>[\\p{L}][\\p{L}\\p{N}\\s-]*?)\\s+in\\s+the\\s+[\\p{L}]"
 }

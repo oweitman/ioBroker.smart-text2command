@@ -91,6 +91,125 @@ describe('command pipeline', () => {
         },
     ];
 
+    it('answers room, device and function inventory using only approved devices', async () => {
+        const objects: ObjectSnapshot[] = [
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: 'Wohnzimmer', members: ['plug.0.lamp', 'plug.0.hidden'] },
+            },
+            {
+                id: 'enum.rooms.schlafzimmer',
+                type: 'enum',
+                common: { name: 'Schlafzimmer', members: ['plug.0.sensor'] },
+            },
+            ...lamp,
+            { id: 'plug.0.hidden', type: 'device', common: { name: 'Versteckt' } },
+            {
+                id: 'plug.0.hidden.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'plug.0.sensor', type: 'device', common: { name: 'Sensor' } },
+            {
+                id: 'plug.0.sensor.TEMP',
+                type: 'state',
+                common: { name: 'Temperatur', role: 'value', type: 'number', read: true, write: false },
+            },
+        ];
+        const { registry, controller } = fixture(objects, 'device.listRooms');
+        registry.setEnabled('plug.0.lamp', true);
+        registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        registry.setEnabled('plug.0.sensor', true);
+        registry.approve('plug.0.sensor', 'plug.0.sensor.TEMP', 'getValue');
+        const rooms = await controller.process(
+            { requestId: 'cat1', text: 'Welche Räume kennst du', mode: 'execute' },
+            'admin.0',
+        );
+        expect(rooms.status).to.equal('success');
+        expect(rooms.response).to.include('Wohnzimmer').and.include('Schlafzimmer');
+        const devicesController = fixture(objects, 'device.listDevices');
+        devicesController.registry.setEnabled('plug.0.lamp', true);
+        devicesController.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const devices = await devicesController.controller.process(
+            { requestId: 'cat2', text: 'Welche Geräte sind im Wohnzimmer', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(devices.response).to.include('Lampe');
+        expect(devices.response).not.to.include('Versteckt');
+        const functionsController = fixture(objects, 'device.listFunctions');
+        functionsController.registry.setEnabled('plug.0.lamp', true);
+        functionsController.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const functions = await functionsController.controller.process(
+            { requestId: 'cat3', text: 'Welche Funktionen hat die Lampe im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(functions.response).to.include('Schalten');
+    });
+
+    it('continues a function inventory query after room and device selections', async () => {
+        const objects: ObjectSnapshot[] = [
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: 'Wohnzimmer', members: ['plug.0.lamp', 'plug.0.fan'] },
+            },
+            {
+                id: 'enum.rooms.schlafzimmer',
+                type: 'enum',
+                common: { name: 'Schlafzimmer', members: ['plug.0.sensor'] },
+            },
+            ...lamp,
+            { id: 'plug.0.fan', type: 'device', common: { name: 'Ventilator' } },
+            {
+                id: 'plug.0.fan.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'plug.0.sensor', type: 'device', common: { name: 'Sensor' } },
+            {
+                id: 'plug.0.sensor.TEMP',
+                type: 'state',
+                common: { name: 'Temperatur', role: 'value', type: 'number', read: true, write: false },
+            },
+        ];
+        const { registry, controller } = fixture(objects, 'device.listFunctions');
+        for (const id of ['plug.0.lamp', 'plug.0.fan']) {
+            registry.setEnabled(id, true);
+            registry.approve(id, `${id}.POWER`, 'turnOn');
+        }
+        registry.setEnabled('plug.0.sensor', true);
+        registry.approve('plug.0.sensor', 'plug.0.sensor.TEMP', 'getValue');
+        const first = await controller.process(
+            { requestId: 'cat4', sessionId: 's1', text: 'Welche Funktionen kennst du', mode: 'execute' },
+            'admin.0',
+        );
+        expect(first.clarification?.key).to.equal('room');
+        const second = await controller.process(
+            {
+                requestId: 'cat5',
+                sessionId: 's1',
+                clarificationId: first.clarification!.id,
+                text: 'Wohnzimmer',
+                mode: 'execute',
+            },
+            'admin.0',
+        );
+        expect(second.clarification?.key).to.equal('device');
+        const third = await controller.process(
+            {
+                requestId: 'cat6',
+                sessionId: 's1',
+                clarificationId: second.clarification!.id,
+                text: 'Ventilator',
+                mode: 'execute',
+            },
+            'admin.0',
+        );
+        expect(third.status).to.equal('success');
+        expect(third.response).to.include('Ventilator').and.include('Schalten');
+    });
+
     it('analyzes without device writes and executes one approved command with idempotency', async () => {
         const { registry, controller, writes } = fixture(lamp);
         registry.setEnabled('plug.0.lamp', true);

@@ -26,6 +26,7 @@ export interface LanguageRules {
     buttonStateQualifier: string;
     buttonTarget: string;
     roomReference: string;
+    catalogDeviceReference: string;
     deviceBeforeRoom: string;
 }
 

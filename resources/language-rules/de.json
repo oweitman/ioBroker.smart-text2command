@@ -36,5 +36,6 @@
   "buttonStateQualifier": "\\b(?:ein|an|aus|ab|deaktiviere|deaktivier)\\b",
   "buttonTarget": "\\b(?:taste|taster|knopf|button|schaltfläche)\\b",
   "roomReference": "\\b(?:im|in\\s+der|in\\s+dem)\\s+[\\p{L}][\\p{L}\\p{N}-]*",
+  "catalogDeviceReference": "\\b(?:(?:gerät|geraet)\\s+[\\p{L}][\\p{L}\\p{N}-]*|lampe|heizung|sensor|rollladen|rolladen|klima)\\b",
   "deviceBeforeRoom": "\\b(?:schalte|schalt|aktiviere|deaktiviere|drücke|drück|betätige|betätig)\\s+(?:(?:das|die|den|der|ein|eine|einen)\\s+)?(?<device>[\\p{L}][\\p{L}\\p{N}\\s-]*?)\\s+(?:im|in\\s+der|in\\s+dem)\\s+[\\p{L}]"
 }

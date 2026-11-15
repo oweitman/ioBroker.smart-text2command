@@ -9,7 +9,7 @@ export interface PendingClarification {
     sessionId?: string;
     request: CommandRequest;
     language: Language;
-    action: ActionKind | 'sendTo';
+    action: ActionKind | 'sendTo' | 'listDevices' | 'listFunctions';
     intent: string;
     confidence: number;
     deviceIds: string[];
