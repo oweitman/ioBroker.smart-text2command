@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.10",
+    "version": "0.0.11",
     "news": {
+      "0.0.11": {
+        "en": "extend session log for external sendtos (must be activated)\nimprove intents for commands without values with followup-question",
+        "de": "Sitzungslog für externe Sender erweitern (muss aktiviert sein)\nVerbessern Sie die Absicht für Befehle ohne Werte mit Folgefrage",
+        "ru": "расширить журнал сеансов для внешних отправителей (необходимо активировать)\nулучшите намерения команд без значений с помощью последующего вопроса",
+        "pt": "estender log de sessão para remetentes externos (deve ser ativado)\nmelhore as intenções de comandos sem valores com a pergunta",
+        "nl": "het sessielogboek voor externe zenders uitbreiden (moet geactiveerd zijn)\nde intenties voor opdrachten zonder waarden verbeteren met een vervolgvraag",
+        "fr": "étendre le journal de session aux expéditeurs externes (doit être activé)\naméliorer l'intention des commandes sans valeurs avec une question de suivi",
+        "it": "estendere il log per i mittenti esterni (deve attivarsi)\nmigliorare gli intenti per i comandi senza valori con domanda",
+        "es": "ampliar sesión para sendtos externos (debe estar activado)\nmejorar las intenciones de los comandos sin valores con una pregunta de seguimiento",
+        "pl": "rozszerzyć dziennik sesji dla zewnętrznych sendto (musi być aktywowany)\npopraw intencje poleceń bez wartości za pomocą pytania uzupełniającego",
+        "uk": "розширити журнал сеансів для зовнішніх sendtos (має бути активовано)\nпокращити наміри команд без значень за допомогою подальшого запитання",
+        "zh-cn": "扩展外部 sendtos 的会话日志（必须激活）\n通过后续问题改善没有值的命令的意图"
+      },
       "0.0.10": {
         "en": "add translate spoken numbers\nadd intents to ask for rooms, devices amd functions\nThe \"Devices\" tab only displays devices that are assigned to at least one room or function",
         "de": "Add, übersetze gesprochene Zahlen\nnach Räumen, Geräten und Funktionen fragen\nDer Tab „Geräte“ zeigt nur Geräte, die mindestens einem Raum oder Funktion zugeordnet sind",
@@ -69,19 +82,6 @@
         "zh-cn": "修复测试和部署"
       },
       "0.0.5": {
-        "en": "fix tests and deployment",
-        "de": "Fixtests und Einsatz",
-        "ru": "исправления, тесты и развертывание",
-        "pt": "fixe testes e uso",
-        "nl": "tests en implementatie repareren",
-        "fr": "fix tests et déploiement",
-        "it": "fix test e uso",
-        "es": "arreglar pruebas y despliegue",
-        "pl": "naprawa testów i wdrażania",
-        "uk": "виправлення тестів і розгортання",
-        "zh-cn": "修复测试和部署"
-      },
-      "0.0.4": {
         "en": "fix tests and deployment",
         "de": "Fixtests und Einsatz",
         "ru": "исправления, тесты и развертывание",
