@@ -121,23 +121,16 @@
       "uk": "smart-text2command",
       "zh-cn": "智能文本2命令"
     },
-    "authors": [
-      "oweitman <oweitman@gmx.de>"
-    ],
-    "keywords": [
-      "template",
-      "automation",
-      "IoT",
-      "integration"
-    ],
+    "authors": ["oweitman <oweitman@gmx.de>"],
+    "keywords": ["template", "automation", "IoT", "integration"],
     "licenseInformation": {
       "type": "free",
       "license": "MIT"
     },
     "platform": "Javascript/Node.js",
-    "icon": "smart-text2command.png",
+    "icon": "smart-text2command.svg",
     "enabled": true,
-    "extIcon": "https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.png",
+    "extIcon": "https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.svg",
     "readme": "https://github.com/oweitman/ioBroker.smart-text2command/blob/main/README.md",
     "loglevel": "info",
     "tier": 3,
