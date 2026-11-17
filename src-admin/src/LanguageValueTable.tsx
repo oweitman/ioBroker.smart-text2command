@@ -42,6 +42,9 @@ interface Props {
     addLabel: string;
     removeLabel: string;
     valueLabel: string;
+    multiline?: boolean;
+    minRows?: number;
+    fullWidth?: boolean;
 }
 
 export default function LanguageValueTable({
@@ -52,10 +55,13 @@ export default function LanguageValueTable({
     addLabel,
     removeLabel,
     valueLabel,
+    multiline = false,
+    minRows,
+    fullWidth = false,
 }: Props): React.JSX.Element {
     const unused = languageOptions.filter(option => !rows.some(row => row.language === option.code));
     return (
-        <Box sx={{ width: { xs: '100%', md: '50%' }, minWidth: { md: 430 }, maxWidth: '100%' }}>
+        <Box sx={{ width: fullWidth ? '100%' : { xs: '100%', md: '50%' }, minWidth: { md: 430 }, maxWidth: '100%' }}>
             <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table
                     size="small"
@@ -105,6 +111,8 @@ export default function LanguageValueTable({
                                     <TextField
                                         size="small"
                                         fullWidth
+                                        multiline={multiline}
+                                        minRows={minRows}
                                         value={row.value}
                                         label={valueLabel}
                                         onChange={event =>

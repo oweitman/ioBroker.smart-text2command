@@ -7,7 +7,7 @@ describe('admin form validation', () => {
         expect(() => parseAliases('Lampe, lampe')).to.throw('Duplicate aliases');
     });
 
-    it('requires typed action and bilingual training examples', () => {
+    it('requires two examples for each configured language', () => {
         const draft = {
             id: 'myLamp',
             source: 'user' as const,
@@ -16,9 +16,13 @@ describe('admin form validation', () => {
             action: { kind: 'capability' as const, operation: 'turnOn' as const },
         };
         expect(() => validateIntentDraft(draft)).not.to.throw();
-        expect(() =>
-            validateIntentDraft({ ...draft, utterances: { ...draft.utterances, en: ['Lamp on'] } }),
-        ).to.throw();
+        expect(() => validateIntentDraft({ ...draft, utterances: { de: draft.utterances.de } })).not.to.throw();
+        expect(() => validateIntentDraft({ ...draft, utterances: {} })).to.throw(
+            'At least two valid examples required',
+        );
+        expect(() => validateIntentDraft({ ...draft, utterances: { ...draft.utterances, en: ['Lamp on'] } })).to.throw(
+            'At least two valid en examples required',
+        );
     });
 
     it('ignores empty lines and surrounding whitespace when saving intent examples', () => {

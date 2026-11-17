@@ -40,6 +40,7 @@ function validate(intents: IntentDefinition[]): void {
             throw new Error('Invalid user intent');
         }
         ids.add(intent.id);
+        const configuredLanguages: Array<(typeof supportedLanguages)[number]['code']> = [];
         for (const { code: language } of supportedLanguages) {
             const examples = intent.utterances?.[language] ?? [];
             if (
@@ -48,6 +49,15 @@ function validate(intents: IntentDefinition[]): void {
             ) {
                 throw new Error('Invalid utterances');
             }
+            if (examples.length > 0) {
+                if (examples.length < 2) {
+                    throw new Error(`At least two valid ${language} examples required`);
+                }
+                configuredLanguages.push(language);
+            }
+        }
+        if (!configuredLanguages.length) {
+            throw new Error('At least two valid examples required');
         }
         if (
             !intent.action ||
@@ -61,7 +71,7 @@ function validate(intents: IntentDefinition[]): void {
             throw new Error('Invalid intent action');
         }
         if (intent.action.kind === 'sendTo') {
-            validateSendToAction(intent.action);
+            validateSendToAction(intent.action, configuredLanguages);
         }
     }
 }

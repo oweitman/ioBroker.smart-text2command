@@ -111,9 +111,9 @@ const actions: Record<Capability['kind'], ActionKind[]> = {
     button: ['press'],
 };
 const operationOptions: ActionKind[] = ['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue'];
-/* function languageName(language: Language): string {
+function languageName(language: Language): string {
     return languageOptions.find(item => item.code === language)?.name ?? language;
-} */
+}
 
 function actionName(action: ActionKind, language: Language): string {
     return labels(language)(`action.${action}`);
@@ -1275,7 +1275,7 @@ const emptyIntent = (): IntentDefinition => ({
     id: '',
     source: 'user',
     enabled: true,
-    utterances: Object.fromEntries(languageOptions.map(item => [item.code, []])),
+    utterances: {},
     action: { kind: 'capability', operation: 'turnOn' },
 });
 
@@ -1285,7 +1285,7 @@ const emptySendToAction = (): SendToIntentAction => ({
     command: '',
     payloadTemplate: {},
     parameters: [],
-    extractionPatterns: Object.fromEntries(languageOptions.map(item => [item.code, []])),
+    extractionPatterns: {},
 });
 
 function IntentEditor({
@@ -1301,6 +1301,7 @@ function IntentEditor({
 }): React.JSX.Element {
     const t = labels(language);
     const [draft, setDraft] = useState<IntentDefinition>(emptyIntent);
+    const [exampleRows, setExampleRows] = useState<LanguageRow[]>(() => rowsFromValues({}, language));
     const [responseRows, setResponseRows] = useState<LanguageRow[]>(() => rowsFromValues({}, language));
     const [payloadText, setPayloadText] = useState('{}');
     const [payloadError, setPayloadError] = useState('');
@@ -1308,8 +1309,27 @@ function IntentEditor({
     const [error, setError] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const action = draft.action ?? { kind: 'capability' as const, operation: 'turnOn' as const };
+    useEffect(() => {
+        setExampleRows(
+            rowsFromValues(
+                Object.fromEntries(
+                    languageOptions.map(item => [item.code, (draft.utterances[item.code] ?? []).join('\n')]),
+                ),
+                language,
+            ),
+        );
+        setResponseRows(rowsFromValues(draft.action?.kind === 'response' ? draft.action.response : {}, language));
+    }, [language]);
     const edit = (intent: IntentDefinition, existing = true): void => {
         setDraft(structuredClone(intent));
+        setExampleRows(
+            rowsFromValues(
+                Object.fromEntries(
+                    languageOptions.map(item => [item.code, (intent.utterances[item.code] ?? []).join('\n')]),
+                ),
+                language,
+            ),
+        );
         setResponseRows(rowsFromValues(intent.action?.kind === 'response' ? intent.action.response : {}, language));
         setPayloadText(
             intent.action?.kind === 'sendTo' ? JSON.stringify(intent.action.payloadTemplate, null, 2) : '{}',
@@ -1330,6 +1350,33 @@ function IntentEditor({
     const changeResponseRows = (rows: LanguageRow[]): void => {
         setResponseRows(rows);
         setDraft(current => ({ ...current, action: { kind: 'response', response: valuesFromRows(rows) } }));
+    };
+    const changeExampleRows = (rows: LanguageRow[]): void => {
+        setExampleRows(rows);
+        const selected = new Set(rows.map(row => row.language));
+        setDraft(current => ({
+            ...current,
+            utterances: Object.fromEntries(
+                Object.entries(valuesFromRows(rows)).map(([code, value]) => [code, (value ?? '').split('\n')]),
+            ),
+            action:
+                current.action?.kind === 'sendTo'
+                    ? {
+                          ...current.action,
+                          parameters: current.action.parameters.map(parameter => ({
+                              ...parameter,
+                              prompt: Object.fromEntries(
+                                  Object.entries(parameter.prompt).filter(([code]) => selected.has(code as Language)),
+                              ),
+                          })),
+                          extractionPatterns: Object.fromEntries(
+                              Object.entries(current.action.extractionPatterns ?? {}).filter(([code]) =>
+                                  selected.has(code as Language),
+                              ),
+                          ),
+                      }
+                    : current.action,
+        }));
     };
     const save = async (): Promise<void> => {
         try {
@@ -1420,24 +1467,18 @@ function IntentEditor({
                                 />
                             }
                         />
-                        {languageOptions.map(item => (
-                            <TextField
-                                key={item.code}
-                                multiline
-                                minRows={4}
-                                label={`${t('ui.training_examples_one_per_line')} (${item.name})`}
-                                value={(draft.utterances[item.code] ?? []).join('\n')}
-                                onChange={event =>
-                                    setDraft({
-                                        ...draft,
-                                        utterances: {
-                                            ...draft.utterances,
-                                            [item.code]: event.target.value.split('\n'),
-                                        },
-                                    })
-                                }
-                            />
-                        ))}
+                        <LanguageValueTable
+                            rows={exampleRows}
+                            onChange={changeExampleRows}
+                            languageHeader={t('ui.language')}
+                            valueHeader={t('ui.training_examples_one_per_line')}
+                            valueLabel={t('ui.training_examples_one_per_line')}
+                            addLabel={t('ui.add_language')}
+                            removeLabel={t('ui.remove_language')}
+                            multiline
+                            minRows={4}
+                            fullWidth
+                        />
                         <TextField
                             select
                             label={t('ui.action_type')}
@@ -1609,11 +1650,11 @@ function IntentEditor({
                                                         {t('ui.sendto_remove_parameter')}
                                                     </Button>
                                                 </Stack>
-                                                {languageOptions.map(item => (
+                                                {exampleRows.map(row => (
                                                     <TextField
-                                                        key={item.code}
-                                                        label={`${t('ui.sendto_prompt')} (${item.name})`}
-                                                        value={parameter.prompt[item.code] ?? ''}
+                                                        key={row.language}
+                                                        label={`${t('ui.sendto_prompt')} (${languageName(row.language)})`}
+                                                        value={parameter.prompt[row.language] ?? ''}
                                                         onChange={event =>
                                                             setDraft({
                                                                 ...draft,
@@ -1626,7 +1667,7 @@ function IntentEditor({
                                                                                       ...entry,
                                                                                       prompt: {
                                                                                           ...entry.prompt,
-                                                                                          [item.code]:
+                                                                                          [row.language]:
                                                                                               event.target.value,
                                                                                       },
                                                                                   }
@@ -1659,14 +1700,14 @@ function IntentEditor({
                                     {t('ui.sendto_add_parameter')}
                                 </Button>
                                 {action.parameters.length > 0 &&
-                                    languageOptions.map(item => (
+                                    exampleRows.map(row => (
                                         <TextField
-                                            key={item.code}
+                                            key={row.language}
                                             multiline
                                             minRows={3}
-                                            label={`${t('ui.sendto_patterns')} (${item.name})`}
+                                            label={`${t('ui.sendto_patterns')} (${languageName(row.language)})`}
                                             helperText={t('ui.sendto_patterns_help')}
-                                            value={(action.extractionPatterns?.[item.code] ?? []).join('\n')}
+                                            value={(action.extractionPatterns?.[row.language] ?? []).join('\n')}
                                             onChange={event =>
                                                 setDraft({
                                                     ...draft,
@@ -1674,7 +1715,7 @@ function IntentEditor({
                                                         ...action,
                                                         extractionPatterns: {
                                                             ...action.extractionPatterns,
-                                                            [item.code]: event.target.value
+                                                            [row.language]: event.target.value
                                                                 .split('\n')
                                                                 .map(line => line.trim())
                                                                 .filter(Boolean),

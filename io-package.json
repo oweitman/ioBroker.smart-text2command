@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.11",
+    "version": "0.0.12",
     "news": {
+      "0.0.12": {
+        "en": "update advices of repochecker\nrework readme\nOwn intents can now also be maintained in just a single language.",
+        "de": "Repochecker Update Tipps\nRework Readme\nEigene Absichten können nun auch nur in einer Sprache gepflegt werden.",
+        "ru": "обновите рекомендации репочекера\nПереработать файл readme\nТеперь собственные намерения могут быть сохранены только на одном языке.",
+        "pt": "dicas de atualização do RepoChecker\nrefaça o readme\nAgora, as próprias intenções podem ser mantidas em um único idioma.",
+        "nl": "de adviezen van repochecker bijwerken\nherwerken, readme\nEigen bedoelingen kunnen nu ook in slechts één taal worden gehandhaafd.",
+        "fr": "conseils de mise à jour de Repochecker\nrework readme\nVous pouvez désormais gérer vos propres intentions dans une seule langue.",
+        "it": "aggiorna repochecker\nrework readme\nOra è possibile mantenere i propri intenti in una sola lingua.",
+        "es": "actualice los consejos de RepoChecker\nrework readme\nLas propias intenciones ahora también se pueden mantener en un solo idioma.",
+        "pl": "aktualizacja porad repocheckera\nRework readme\nWłasne intencje można teraz również utrzymywać w jednym języku.",
+        "uk": "оновлення порад репочекера\nпереробка readme\nВласні наміри тепер також можна підтримувати лише однією мовою.",
+        "zh-cn": "更新 repochecker 的建议\n重写自述文件\n现在也可以只用一种语言来维护自己的意图。"
+      },
       "0.0.11": {
         "en": "extend session log for external sendtos (must be activated)\nimprove intents for commands without values with followup-question",
         "de": "Sitzungslog für externe Sender erweitern (muss aktiviert sein)\nVerbessern Sie die Absicht für Befehle ohne Werte mit Folgefrage",
@@ -108,7 +121,9 @@
       "uk": "smart-text2command",
       "zh-cn": "智能文本2命令"
     },
-    "authors": ["oweitman <oweitman@gmx.de>"],
+    "authors": [
+      "oweitman <oweitman@gmx.de>"
+    ],
     "keywords": [
       "smarthome",
       "home-automation",

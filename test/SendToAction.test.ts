@@ -97,6 +97,36 @@ describe('configured sendTo intent', () => {
         }
     });
 
+    it('accepts prompts and extraction patterns for a single configured language', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'sendto-monolingual-'));
+        try {
+            const repository = new IntentRepository(join(directory, 'intents.json'));
+            const germanAction: SendToIntentAction = {
+                ...action,
+                parameters: action.parameters.map(parameter => ({
+                    ...parameter,
+                    prompt: { de: parameter.prompt.de },
+                })),
+                extractionPatterns: { de: action.extractionPatterns?.de },
+            };
+            const germanIntent: IntentDefinition = {
+                ...intent,
+                utterances: { de: intent.utterances.de },
+                action: germanAction,
+            };
+            await repository.save([germanIntent]);
+            expect((await repository.load())[0].utterances).to.deep.equal(germanIntent.utterances);
+            try {
+                await repository.save([{ ...germanIntent, utterances: intent.utterances }]);
+                expect.fail('Missing English sendTo configuration was accepted');
+            } catch (error) {
+                expect(String(error)).to.contain('Missing en prompt');
+            }
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
+
     it('uses training examples alone for a fixed JSON message', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'sendto-fixed-'));
         try {

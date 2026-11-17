@@ -11,6 +11,24 @@ import { testAdapterTimers } from './AdapterTimers';
 describe('NLP model training and persistence', function () {
     this.timeout(120_000);
 
+    it('trains a custom intent with examples in only one language', async () => {
+        const provider = new NlpJsProvider();
+        await provider.train(
+            [
+                ...systemIntents(),
+                {
+                    id: 'NurDeutsch',
+                    source: 'user',
+                    enabled: true,
+                    utterances: { de: ['Öffne die Dachluke', 'Mach die Dachluke auf'] },
+                    action: { kind: 'capability', operation: 'turnOn' },
+                },
+            ],
+            ['de', 'en'],
+        );
+        expect((await provider.analyze('Öffne die Dachluke', 'de')).intent).to.equal('NurDeutsch');
+    });
+
     it('recognizes a custom string intent when free text follows its training phrase', async () => {
         const provider = new NlpJsProvider();
         await provider.train(

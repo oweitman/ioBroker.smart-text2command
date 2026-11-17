@@ -10,7 +10,10 @@ const TARGET = /^[A-Za-z][A-Za-z0-9_-]*\.[0-9]+$/;
 const COMMAND = /^[A-Za-z][A-Za-z0-9_.-]{0,99}$/;
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export function validateSendToAction(action: SendToIntentAction): void {
+export function validateSendToAction(
+    action: SendToIntentAction,
+    languages: Language[] = supportedLanguages.map(item => item.code),
+): void {
     if (!TARGET.test(action.instance)) {
         throw new Error('Invalid sendTo instance');
     }
@@ -29,7 +32,7 @@ export function validateSendToAction(action: SendToIntentAction): void {
             throw new Error('Invalid parameter type');
         }
         names.add(parameter.name);
-        for (const { code } of supportedLanguages) {
+        for (const code of languages) {
             if (typeof parameter.prompt?.[code] !== 'string' || !parameter.prompt[code]?.trim()) {
                 throw new Error(`Missing ${code} prompt for ${parameter.name}`);
             }
@@ -76,7 +79,7 @@ export function validateSendToAction(action: SendToIntentAction): void {
     if (!names.size) {
         return;
     }
-    for (const { code } of supportedLanguages) {
+    for (const code of languages) {
         const patterns = action.extractionPatterns?.[code];
         if (!Array.isArray(patterns) || !patterns.length || patterns.length > 30) {
             throw new Error(`Missing ${code} extraction pattern`);

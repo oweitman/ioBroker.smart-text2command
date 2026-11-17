@@ -9,10 +9,12 @@ Ein eigener Intent erhält neben Geräteaktion und Antwortvorlage den Aktionstyp
 - eine feste Empfängerinstanz, beispielsweise `javascript.0`;
 - einen festen Befehl, beispielsweise `toScript`;
 - eine JSON-Nachricht mit festen Werten und Parameterplatzhaltern;
-- pro Parameter einen eindeutigen Namen, den Typ `string` oder `number` und eine Rückfrage pro unterstützter Sprache;
-- falls Parameter vorhanden sind: pro Sprache Erkennungsmuster, die Textstellen den benannten Parametern zuordnen.
+- pro Parameter einen eindeutigen Namen, den Typ `string` oder `number` und eine Rückfrage für jede im Intent konfigurierte Sprache;
+- falls Parameter vorhanden sind: Erkennungsmuster für jede im Intent konfigurierte Sprache, die Textstellen den benannten Parametern zuordnen.
 
 Die vorhandenen Trainingsbeispiele erkennen weiterhin den **Intent**. Die Erkennungsmuster lesen erst danach dessen **Parameter** aus dem Text. Empfängerinstanz und Befehl sind keine Parameter und können durch einen gesprochenen Befehl nicht geändert werden. Die Konfiguration ist ausschließlich über die bestehenden Admin-Berechtigungen änderbar.
+
+Der Intent-Editor zeigt zunächst nur die eingestellte Sprache. Weitere vom Adapter unterstützte Sprachen können bei den Trainingsbeispielen einzeln hinzugefügt werden; für sie erscheinen dann auch die zugehörigen Rückfragen und Erkennungsmuster. Je konfigurierter Sprache sind mindestens zwei Trainingsbeispiele erforderlich. Eine nicht konfigurierte Sprache benötigt keine Rückfragen oder Erkennungsmuster.
 
 Beispiel einer Intent-Konfiguration:
 

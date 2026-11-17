@@ -1,6 +1,7 @@
 import type { ActionKind, DeviceRecord } from '../devices/types';
 import type { IntentDefinition } from '../nlp/types';
 import { validateSendToAction } from '../nlp/SendToAction';
+import type { Language } from '../types/api';
 import languages from '../../resources/languages.json';
 
 const ACTIONS = new Set<ActionKind>(['turnOn', 'turnOff', 'setValue', 'press', 'getState', 'getValue']);
@@ -54,11 +55,20 @@ export function validateIntentDraft(draft: IntentDefinition): void {
     ) {
         throw new Error('Invalid intent ID');
     }
-    for (const { code: language } of languages) {
+    const configuredLanguages: Language[] = [];
+    for (const { code } of languages) {
+        const language = code;
         const examples = draft.utterances[language] ?? [];
+        if (!examples.length) {
+            continue;
+        }
+        configuredLanguages.push(language);
         if (examples.length < 2 || examples.some(text => !text.trim() || text.length > 1000)) {
             throw new Error(`At least two valid ${language} examples required`);
         }
+    }
+    if (!configuredLanguages.length) {
+        throw new Error('At least two valid examples required');
     }
     if (
         !draft.action ||
@@ -69,6 +79,6 @@ export function validateIntentDraft(draft: IntentDefinition): void {
         throw new Error('Select a valid action');
     }
     if (draft.action.kind === 'sendTo') {
-        validateSendToAction(draft.action);
+        validateSendToAction(draft.action, configuredLanguages);
     }
 }
