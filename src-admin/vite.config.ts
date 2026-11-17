@@ -8,6 +8,6 @@ export default defineConfig({
     build: {
         outDir: resolve(import.meta.dirname, '../admin'),
         emptyOutDir: false,
-        rollupOptions: { input: resolve(import.meta.dirname, 'index_m.html') },
+        rollupOptions: { input: resolve(import.meta.dirname, 'index.html') },
     },
 });

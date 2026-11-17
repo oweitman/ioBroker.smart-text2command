@@ -80,19 +80,6 @@
         "pl": "naprawa testów i wdrażania",
         "uk": "виправлення тестів і розгортання",
         "zh-cn": "修复测试和部署"
-      },
-      "0.0.5": {
-        "en": "fix tests and deployment",
-        "de": "Fixtests und Einsatz",
-        "ru": "исправления, тесты и развертывание",
-        "pt": "fixe testes e uso",
-        "nl": "tests en implementatie repareren",
-        "fr": "fix tests et déploiement",
-        "it": "fix test e uso",
-        "es": "arreglar pruebas y despliegue",
-        "pl": "naprawa testów i wdrażania",
-        "uk": "виправлення тестів і розгортання",
-        "zh-cn": "修复测试和部署"
       }
     },
     "titleLang": {
@@ -122,7 +109,20 @@
       "zh-cn": "智能文本2命令"
     },
     "authors": ["oweitman <oweitman@gmx.de>"],
-    "keywords": ["template", "automation", "IoT", "integration"],
+    "keywords": [
+      "smarthome",
+      "home-automation",
+      "text2command",
+      "nlp",
+      "natural-language-processing",
+      "intent-recognition",
+      "nlu",
+      "natural-language-understanding",
+      "local-control",
+      "offline",
+      "privacy",
+      "device-control"
+    ],
     "licenseInformation": {
       "type": "free",
       "license": "MIT"
@@ -136,12 +136,12 @@
     "tier": 3,
     "mode": "daemon",
     "type": "misc-data",
-    "compact": true,
+    "compact": false,
     "messagebox": true,
     "connectionType": "local",
     "dataSource": "assumption",
     "adminUI": {
-      "config": "materialize"
+      "config": "html"
     },
     "dependencies": [
       {

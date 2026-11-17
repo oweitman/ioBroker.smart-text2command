@@ -72,7 +72,6 @@
   "ui.export": "Export",
   "ui.select_intents_to_export": "Select intents to export",
   "ui.export_selected": "Export selected",
-  "ui.select_all": "Select all",
   "ui.choose_json_file": "Choose JSON file",
   "ui.select_intents_to_import": "Select intents to add",
   "ui.select_all_available": "Select all available",

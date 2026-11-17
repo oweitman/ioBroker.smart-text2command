@@ -51,8 +51,7 @@ import type { AdminApi } from '../../src/shared/AdminApi';
 import { normalizeIntentDraft, parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
 import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
-import type { IntentDefinition } from '../../src/nlp/types';
-import type { SendToIntentAction } from '../../src/nlp/types';
+import type { IntentDefinition, SendToIntentAction } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
 import type { TestLabSession, TestLabSessionSummary } from '../../src/storage/TestLabHistoryRepository';
 import type { Language } from '../../src/types/api';
@@ -102,9 +101,9 @@ function createBrowserId(): string {
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-const localeFiles = import.meta.glob<Record<string, string>>('./i18n/*.json', { eager: true, import: 'default' });
+const localeFiles = import.meta.glob<Record<string, string>>('./myi18n/*.json', { eager: true, import: 'default' });
 const dictionaries: Record<Language, Record<string, string>> = Object.fromEntries(
-    languageOptions.map(item => [item.code, localeFiles[`./i18n/${item.code}.json`] ?? {}]),
+    languageOptions.map(item => [item.code, localeFiles[`./myi18n/${item.code}.json`] ?? {}]),
 );
 const actions: Record<Capability['kind'], ActionKind[]> = {
     onOff: ['turnOn', 'turnOff', 'getState'],
@@ -1334,7 +1333,9 @@ function IntentEditor({
     };
     const save = async (): Promise<void> => {
         try {
-            if (payloadError) throw new Error(payloadError);
+            if (payloadError) {
+                throw new Error(payloadError);
+            }
             const normalized = normalizeIntentDraft(draft);
             validateIntentDraft(normalized);
             if (!editingId && intents.some(item => item.id === normalized.id)) {

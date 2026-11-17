@@ -4,7 +4,7 @@
 
 The Admin configuration page is a React 19/MUI 9 application built with `@iobroker/gui-components` 10. It requires Admin 8. Device cards show concrete state targets, data types, ranges and mappings before an admin approves an action. The page also manages aliases, enabled devices, bilingual custom intents, background training and rollback, an analysis-first test lab, default language, and diagnostics. Custom intents have JSON export/import; approvals are deliberately excluded from imports. The backend API now returns intent alternatives, extracted entities, device candidates, policy decision and planned access for analysis requests.
 
-Frontend code is in `src-admin/`; the built `admin/index_m.html` and assets are included in the npm package. After `npm ci --prefix src-admin`, the root `npm run build` checks backend TypeScript and builds the Admin UI. All tests remain under `/test`. A live browser session against an Admin 8 instance and a populated device controller still need verification before release.
+Frontend code is in `src-admin/`; the built `admin/index.html` and assets are included in the npm package. After `npm ci --prefix src-admin`, the root `npm run build` checks backend TypeScript and builds the Admin UI. All tests remain under `/test`. A live browser session against an Admin 8 instance and a populated device controller still need verification before release.
 
 ## Phase 3
 
@@ -22,12 +22,12 @@ The Phase 3 pipeline rejects unsupported syntax and negation, rechecks approvals
 
 ## Phase 0 and Phase 1 plan
 
-| Area | Files | Verification |
-| --- | --- | --- |
-| Types and request validation | `src/types/api.ts`, `src/api/RequestValidator.ts` | `test/RequestValidator.test.ts` |
-| Discovery and capability mapping | `src/devices/DeviceDiscovery.ts`, `src/devices/CapabilityMapper.ts` | `test/DeviceRegistry.test.ts` |
+| Area                                | Files                                                                                              | Verification                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Types and request validation        | `src/types/api.ts`, `src/api/RequestValidator.ts`                                                  | `test/RequestValidator.test.ts`                                |
+| Discovery and capability mapping    | `src/devices/DeviceDiscovery.ts`, `src/devices/CapabilityMapper.ts`                                | `test/DeviceRegistry.test.ts`                                  |
 | Approval policy and durable updates | `src/devices/DeviceRegistry.ts`, `src/devices/DeviceCatalog.ts`, `src/storage/DeviceRepository.ts` | `test/DeviceRegistry.test.ts`, `test/DeviceRepository.test.ts` |
-| Adapter lifecycle | `src/main.ts`, `io-package.json` | package and adapter integration tests |
+| Adapter lifecycle                   | `src/main.ts`, `io-package.json`                                                                   | package and adapter integration tests                          |
 
 The existing adapter template supplies TypeScript, package tests, and CI. No NLP or additional runtime dependency is needed for these phases. Development dependencies add `@types/mocha`, ESLint, Prettier, and the official `@iobroker/eslint-config`.
 
@@ -47,7 +47,7 @@ The existing adapter template supplies TypeScript, package tests, and CI. No NLP
 - `npm run lint`: passed.
 - `npm run format:check`: passed.
 - `npm test`: 23 TypeScript tests and 58 package tests passed.
-- `npm run build:admin`: React 19/MUI 9 type check and Vite build passed; npm package dry-run includes `admin/index_m.html` and all generated assets.
+- `npm run build:admin`: React 19/MUI 9 type check and Vite build passed; npm package dry-run includes `admin/index.html` and all generated assets.
 - `npm run test:integration`: two tests passed against the ioBroker test controller, including `info.modelStatus = ready` after baseline training and the `input.text` analysis path.
 - `npm audit --omit=dev`: zero runtime dependency findings after using modular NLP.js packages.
 
