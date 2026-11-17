@@ -1,12 +1,6 @@
 # ioBroker.smart-text2command
 
-<img
-src="admin/smart-text2command.png"
-alt="smart-text2command logo"
-width="150"
-height="150"
-
->
+![Logo](https://raw.githubusercontent.com/oweitman/ioBroker.smart-text2command/main/admin/smart-text2command.png)
 
 [![npm version](https://img.shields.io/npm/v/iobroker.smart-text2command.svg)](https://www.npmjs.com/package/iobroker.smart-text2command)
 [![npm downloads](https://img.shields.io/npm/dm/iobroker.smart-text2command.svg)](https://www.npmjs.com/package/iobroker.smart-text2command)
@@ -263,6 +257,7 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
+
 ### 0.0.13 (2026-11-17)
 
 - update advices of repochecker
