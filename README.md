@@ -263,11 +263,12 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
-### 0.0.12 (2026-11-17)
+### 0.0.13 (2026-11-17)
 
 - update advices of repochecker
 - rework readme
 - Own intents can now also be maintained in just a single language.
+- fix test
 
 ### 0.0.11 (2026-11-15)
 

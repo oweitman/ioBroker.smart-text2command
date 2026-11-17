@@ -329,7 +329,7 @@ describe('message API', () => {
                 id: 'user.greeting',
                 source: 'user',
                 enabled: true,
-                utterances: { de: ['Hallo'], en: ['Hello'] },
+                utterances: { de: ['Hallo', 'Sag Hallo'], en: ['Hello', 'Say hello'] },
                 action: { kind: 'response', response: { de: 'Hallo' } },
             },
         ];

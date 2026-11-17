@@ -15,7 +15,7 @@ describe('user intent storage', () => {
                     id: 'user.readKitchen',
                     source: 'user',
                     enabled: true,
-                    utterances: { de: ['Wie warm ist es in der Küche'] },
+                    utterances: { de: ['Wie warm ist es in der Küche', 'Welche Temperatur hat die Küche'] },
                     action: { kind: 'capability', operation: 'getValue' },
                 },
             ]);
