@@ -6,6 +6,7 @@ import { MessageRouter } from '../src/api/MessageRouter';
 import { CommandController } from '../src/commands/CommandController';
 import { DeviceCatalog } from '../src/devices/DeviceCatalog';
 import { discoverDevices } from '../src/devices/DeviceDiscovery';
+import { isVisibleDevice } from '../src/devices/DeviceVisibility';
 import { IntentRepository } from '../src/nlp/IntentRepository';
 import { ModelRepository } from '../src/nlp/ModelRepository';
 import type { IntentDefinition } from '../src/nlp/types';
@@ -276,6 +277,7 @@ describe('message API', () => {
             devices: Array<{ id: string }>;
         };
         expect(assigned.total).to.equal(3);
+        expect(catalog.list().filter(isVisibleDevice).length).to.equal(assigned.total);
         expect(assigned.devices).to.have.length(1);
         expect(await router.handle('listDevices', { capability: 'POWER' }, admin)).to.include({ total: 3 });
         await catalog.reconcile([]);

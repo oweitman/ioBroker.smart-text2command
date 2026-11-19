@@ -4,6 +4,7 @@ import type { CommandController } from '../commands/CommandController';
 import type { DeviceCatalog } from '../devices/DeviceCatalog';
 import type { ActionKind } from '../devices/types';
 import { capabilityName } from '../devices/CapabilityName';
+import { isVisibleDevice } from '../devices/DeviceVisibility';
 import { defaultLanguage, isSupportedLanguage } from '../i18n/LanguageConfig';
 import type { IntentRepository } from '../nlp/IntentRepository';
 import type { ModelRepository } from '../nlp/ModelRepository';
@@ -128,14 +129,7 @@ export class MessageRouter {
                 const functionId = typeof payload.functionId === 'string' ? payload.functionId.slice(0, 200) : '';
                 const capability = typeof payload.capability === 'string' ? payload.capability.slice(0, 100) : '';
                 const language = isSupportedLanguage(payload.language) ? payload.language : defaultLanguage();
-                const current = this.options.catalog
-                    .list()
-                    .filter(
-                        device =>
-                            device.status !== 'missing' &&
-                            device.discoveredCapabilities.length > 0 &&
-                            (device.roomIds.length > 0 || device.functionIds.length > 0),
-                    );
+                const current = this.options.catalog.list().filter(isVisibleDevice);
                 const devices = current.filter(
                     device =>
                         (!filter ||

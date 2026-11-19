@@ -1,5 +1,6 @@
 {
   "cancelPhrases": ["stopp", "stop", "abbrechen", "abbruch", "vergiss es"],
+  "confirmationPhrases": ["ja", "genau", "richtig"],
   "unsupported": {
     "group": "\\b(alle|sämtliche)\\b",
     "exception": "\\b(außer|ausgenommen)\\b",

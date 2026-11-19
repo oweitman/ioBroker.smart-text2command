@@ -7,6 +7,7 @@ import type { SpokenNumberRules } from '../nlp/SpokenNumbers';
 export interface LanguageRules {
     spokenNumbers: SpokenNumberRules;
     cancelPhrases: string[];
+    confirmationPhrases: string[];
     unsupported: Record<'group' | 'exception' | 'time' | 'multipleActions' | 'unit', string>;
     actionVerbs: string;
     negation: string;

@@ -4,6 +4,7 @@ import { inferValueDomain, matchesValueDomain } from './ValueDomain';
 import type { ValueDomain } from './ValueDomain';
 import { capabilityName, capabilityNameMatches } from './CapabilityName';
 import { languageRules } from '../i18n/LanguageConfig';
+import { similarNameDistance } from './NameSimilarity';
 
 export interface DeviceCatalogView {
     list(): DeviceRecord[];
@@ -81,7 +82,10 @@ function matchScore(text: string, value: string): number {
     if (!normalized) {
         return 0;
     }
-    if (` ${text} `.includes(` ${normalized} `)) {
+    if (
+        ` ${text} `.includes(` ${normalized} `) ||
+        (normalized.length >= 5 && ` ${text} `.includes(` ${normalized}s `))
+    ) {
         return 100;
     }
     if (normalized.length < 5) {
@@ -190,6 +194,38 @@ export class DeviceResolver {
         return [...rooms].map(([id, label]) => ({ id, label }));
     }
 
+    public similarRooms(text: string, language: Language): Array<{ id: string; label: string }> {
+        if (this.roomMatches(text, language).length) {
+            return [];
+        }
+        const reference = new RegExp(languageRules(language).roomReference, 'iu').exec(text);
+        const phrase = reference
+            ? [
+                  reference[0].split(/\s+/).at(-1),
+                  ...text
+                      .slice(reference.index + reference[0].length)
+                      .trim()
+                      .split(/\s+/)
+                      .slice(0, 3),
+              ].join(' ')
+            : undefined;
+        if (!phrase) {
+            return [];
+        }
+        const rooms = new Map<string, { id: string; label: string; distance: number }>();
+        for (const device of this.registry.list().filter(item => item.status !== 'missing')) {
+            for (const id of device.roomIds) {
+                const names = roomNames(device, id, language);
+                const distance = Math.min(...names.map(name => similarNameDistance(phrase, name) ?? Infinity));
+                if (Number.isFinite(distance) && distance < (rooms.get(id)?.distance ?? Infinity)) {
+                    rooms.set(id, { id, label: names.at(-1) ?? id, distance });
+                }
+            }
+        }
+        const ranked = [...rooms.values()].sort((a, b) => a.distance - b.distance || a.label.localeCompare(b.label));
+        return ranked.filter(item => item.distance <= ranked[0].distance + 1).slice(0, 3);
+    }
+
     public resolve(
         text: string,
         language: Language,
@@ -231,7 +267,7 @@ export class DeviceResolver {
                     const functionNamed = device.functionIds.some(id =>
                         [id.split('.').at(-1) ?? '', device.enumNames?.[id]]
                             .flatMap(name => (typeof name === 'string' ? [name] : Object.values(name ?? {})))
-                            .some(name => matchScore(normalize(explicitPhrase), name) > 0),
+                            .some(name => matchScore(normalize(explicitPhrase), name) === 100),
                     );
                     if (!functionNamed) {
                         continue;
@@ -285,7 +321,9 @@ export class DeviceResolver {
         }
         candidates.sort((a, b) => b.score - a.score || a.deviceId.localeCompare(b.deviceId));
         const selected =
-            candidates[0]?.score >= 65 && (!candidates[1] || candidates[0].score - candidates[1].score > 10)
+            candidates[0]?.score >= 65 &&
+            (!candidates[1] || candidates[0].score - candidates[1].score > 10) &&
+            !candidates[0].reasons.includes('fuzzy name')
                 ? candidates[0]
                 : undefined;
         return { selected, candidates, clarification: !selected };

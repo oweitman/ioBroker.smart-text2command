@@ -6,6 +6,7 @@ import { CommandController } from './commands/CommandController';
 import type { DeviceIO } from './commands/types';
 import { discoverDevices } from './devices/DeviceDiscovery';
 import { DeviceCatalog } from './devices/DeviceCatalog';
+import { isVisibleDevice } from './devices/DeviceVisibility';
 import type { ObjectSnapshot } from './devices/types';
 import { DeviceRepository } from './storage/DeviceRepository';
 import { IntentRepository } from './nlp/IntentRepository';
@@ -181,13 +182,13 @@ class SmartText2command extends utils.Adapter {
             diagnostics: () => ({
                 modelStatus: this.model ? 'ready' : 'unavailable',
                 modelVersion: this.modelVersion,
-                deviceCount: this.catalog?.list().filter(device => device.status !== 'missing').length ?? 0,
+                deviceCount: this.catalog?.list().filter(isVisibleDevice).length ?? 0,
                 approvedDevices:
                     this.catalog
                         ?.list()
                         .filter(
                             device =>
-                                device.status !== 'missing' &&
+                                isVisibleDevice(device) &&
                                 device.enabled &&
                                 Object.keys(device.approvedCapabilities).length > 0,
                         ).length ?? 0,
@@ -292,11 +293,7 @@ class SmartText2command extends utils.Adapter {
             throw new Error('Discovery object limit exceeded');
         }
         await this.catalog!.reconcile(discoverDevices([...this.objects.values()]));
-        await this.setState(
-            'info.deviceCount',
-            this.catalog!.list().filter(device => device.status !== 'missing').length,
-            true,
-        );
+        await this.setState('info.deviceCount', this.catalog!.list().filter(isVisibleDevice).length, true);
     }
 
     private async scanObjects(): Promise<void> {

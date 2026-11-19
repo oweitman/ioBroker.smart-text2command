@@ -62,6 +62,8 @@ or "einundzwanzig Komma fünf". If a write command has no value, the adapter ask
 for it. If the device, room, or data point is ambiguous, it asks a follow-up
 question. A short reply such as "Living room", "Position", or "50 percent" is
 enough; you do not need to repeat the full command.
+If speech recognition produces a similar but inexact room, device, or function
+name, the adapter asks you to confirm the suggested name before using it.
 
 **Analyze** shows only the planned access. **Execute** can use only enabled
 devices and explicitly approved actions. Submitting a write command does not

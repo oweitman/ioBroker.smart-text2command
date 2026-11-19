@@ -218,7 +218,10 @@ describe('device resolver', () => {
         registry.setAliases('plug.0.b', { de: ['Stehlampe'] });
         expect(resolver.resolve('Schalte die Stehlampe ein', 'de', 'turnOn').selected?.deviceId).to.equal('plug.0.b');
         expect(resolver.resolve('Schalte die Stehlampe aus', 'de', 'turnOff').candidates).to.be.empty;
-        expect(resolver.resolve('Schalte die Stehlamne ein', 'de', 'turnOn').selected?.deviceId).to.equal('plug.0.b');
+        const similar = resolver.resolve('Schalte die Stehlamne ein', 'de', 'turnOn');
+        expect(similar.selected).to.equal(undefined);
+        expect(similar.candidates[0].deviceId).to.equal('plug.0.b');
+        expect(similar.candidates[0].reasons).to.include('fuzzy name');
         expect(resolver.resolve('Schalte die Stehlamxx ein', 'de', 'turnOn').clarification).to.equal(true);
     });
 });

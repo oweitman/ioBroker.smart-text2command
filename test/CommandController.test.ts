@@ -147,6 +147,152 @@ describe('command pipeline', () => {
         expect(functions.response).to.include('Schalten');
     });
 
+    it('confirms a similar room before answering or executing', async () => {
+        const objects: ObjectSnapshot[] = [
+            ...lamp,
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: { de: 'Wohnzimmer', en: 'Living room' }, members: ['plug.0.lamp'] },
+            },
+        ];
+        const catalog = fixture(objects, 'device.listDevices');
+        catalog.registry.setEnabled('plug.0.lamp', true);
+        catalog.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const question = await catalog.controller.process(
+            { requestId: 'room-similar-catalog', text: 'Welche Geräte gibt es im Bodenzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('room');
+        expect(question.response).to.equal('Meintest du den Raum Wohnzimmer?');
+        const answer = await catalog.controller.process(
+            {
+                requestId: 'room-similar-catalog-answer',
+                text: 'ja',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(answer.response).to.include('Lampe');
+        const english = await catalog.controller.process(
+            {
+                requestId: 'room-similar-english',
+                text: 'Which devices are in the Lving room',
+                language: 'en',
+                mode: 'analyze',
+            },
+            'admin.0',
+        );
+        expect(english.response).to.equal('Did you mean the room Living room?');
+
+        const command = fixture(objects);
+        command.registry.setEnabled('plug.0.lamp', true);
+        command.registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const pending = await command.controller.process(
+            { requestId: 'room-similar-action', text: 'Schalte die Lampe im Bodenzimmer ein', mode: 'execute' },
+            'admin.0',
+        );
+        expect(pending.clarification?.key).to.equal('room');
+        expect(command.writes).to.be.empty;
+        const executed = await command.controller.process(
+            {
+                requestId: 'room-similar-action-answer',
+                text: 'Wohnzimmer',
+                mode: 'execute',
+                clarificationId: pending.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(executed.status).to.equal('success');
+        expect(command.writes).to.deep.equal([{ id: 'plug.0.lamp.POWER', value: true }]);
+    });
+
+    it('confirms similar device and data point names', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.blind', type: 'device', common: { name: 'Rolladen' } },
+            {
+                id: 'plug.0.blind.LAMELLEN',
+                type: 'state',
+                common: { name: 'Lamellen', role: 'value', type: 'number', read: true, write: false },
+            },
+            {
+                id: 'plug.0.blind.POSITION',
+                type: 'state',
+                common: { name: 'Position', role: 'value', type: 'number', read: true, write: false },
+            },
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: 'Wohnzimmer', members: ['plug.0.blind'] },
+            },
+        ];
+        const test = fixture(objects, 'device.getValue', 50);
+        test.registry.setEnabled('plug.0.blind', true);
+        test.registry.approve('plug.0.blind', 'plug.0.blind.LAMELLEN', 'getValue');
+        test.registry.approve('plug.0.blind', 'plug.0.blind.POSITION', 'getValue');
+        const device = await test.controller.process(
+            { requestId: 'similar-device', text: 'Welchen Wert hat Roladen im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(device.clarification?.key).to.equal('device');
+        expect(device.response).to.include('Meintest du das Gerät Rolladen');
+        const capability = await test.controller.process(
+            { requestId: 'similar-function', text: 'Welchen Wert haben die Lamelen im Wohnzimmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(capability.clarification?.key).to.equal('capability');
+        expect(capability.response).to.equal('Meintest du die Funktion Lamellen?');
+        const answer = await test.controller.process(
+            {
+                requestId: 'similar-function-answer',
+                text: 'ja',
+                mode: 'execute',
+                clarificationId: capability.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(answer.actions?.[0].stateId).to.equal('plug.0.blind.LAMELLEN');
+    });
+
+    it('confirms a similar ioBroker function before switching', async () => {
+        const objects: ObjectSnapshot[] = [
+            ...lamp,
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { name: 'Wohnzimmer', members: ['plug.0.lamp'] },
+            },
+            {
+                id: 'enum.functions.licht',
+                type: 'enum',
+                common: { name: 'Licht', members: ['plug.0.lamp'] },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects);
+        registry.setEnabled('plug.0.lamp', true);
+        registry.approve('plug.0.lamp', 'plug.0.lamp.POWER', 'turnOn');
+        const question = await controller.process(
+            { requestId: 'function-similar', text: 'Schalte Lichd im Wohnzimmer ein', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.response).to.equal('Meintest du die Funktion Licht?');
+        expect(writes).to.be.empty;
+        const answer = await controller.process(
+            {
+                requestId: 'function-similar-answer',
+                text: 'ja',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: 'plug.0.lamp.POWER', value: true }]);
+    });
+
     it('continues a function inventory query after room and device selections', async () => {
         const objects: ObjectSnapshot[] = [
             {
@@ -964,14 +1110,28 @@ describe('command pipeline', () => {
             { requestId: 'blind-value-ambiguous', text: 'Welchen Wert hat Roladen im Wohnzimmer', mode: 'execute' },
             'admin.0',
         );
-        expect(ambiguous.clarification?.key).to.equal('capability');
-        expect(ambiguous.clarification?.options?.map(option => option.label)).to.deep.equal(['Position', 'Lamellen']);
+        expect(ambiguous.clarification?.key).to.equal('device');
+        expect(ambiguous.response).to.include('Meintest du das Gerät Rollladen');
+        const confirmedDevice = await read.controller.process(
+            {
+                requestId: 'blind-device-confirmed',
+                text: 'ja',
+                mode: 'execute',
+                clarificationId: ambiguous.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(confirmedDevice.clarification?.key).to.equal('capability');
+        expect(confirmedDevice.clarification?.options?.map(option => option.label)).to.deep.equal([
+            'Position',
+            'Lamellen',
+        ]);
         const selected = await read.controller.process(
             {
                 requestId: 'blind-value-selected',
                 text: 'Position',
                 mode: 'execute',
-                clarificationId: ambiguous.clarification!.id,
+                clarificationId: confirmedDevice.clarification!.id,
             },
             'admin.0',
         );
