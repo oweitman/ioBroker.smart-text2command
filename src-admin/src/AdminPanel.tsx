@@ -2218,6 +2218,44 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                         .join(', ')}
                                 </Typography>
                             ) : null}
+                            {visibleResult.analysis?.devices?.length ? (
+                                <Box sx={{ mt: 2, overflowX: 'auto' }}>
+                                    <Typography variant="subtitle2">{t('ui.recognized_devices')}</Typography>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>{t('ui.device')}</TableCell>
+                                                <TableCell>{t('ui.device_name_mentioned')}</TableCell>
+                                                <TableCell>{t('ui.room_match')}</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {visibleResult.analysis.devices.map(item => (
+                                                <TableRow key={item.deviceId}>
+                                                    <TableCell>
+                                                        {item.deviceName}
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{ display: 'block' }}
+                                                            color="text.secondary"
+                                                        >
+                                                            {item.deviceId}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>{item.nameMatched ? t('ui.yes') : t('ui.no')}</TableCell>
+                                                    <TableCell>
+                                                        {item.roomMatched === undefined
+                                                            ? '—'
+                                                            : item.roomMatched
+                                                              ? t('ui.yes')
+                                                              : t('ui.no')}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </Box>
+                            ) : null}
                             {visibleResult.analysis?.functions?.length ? (
                                 <Box sx={{ mt: 2, overflowX: 'auto' }}>
                                     <Typography variant="subtitle2">{t('ui.recognized_functions')}</Typography>

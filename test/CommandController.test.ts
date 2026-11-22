@@ -536,6 +536,92 @@ describe('command pipeline', () => {
         expect(writes).to.be.empty;
     });
 
+    it('shows device name matches and asks for the missing switch direction', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.living', type: 'channel', common: { name: 'Lampe' } },
+            { id: 'plug.0.standing', type: 'channel', common: { name: 'Stehlampe' } },
+            {
+                id: 'plug.0.living.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: 'plug.0.standing.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: 'enum.rooms.wohnzimmer',
+                type: 'enum',
+                common: { members: ['plug.0.living', 'plug.0.standing'] },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', true, undefined, 0.628);
+        for (const id of ['plug.0.living', 'plug.0.standing']) {
+            registry.setEnabled(id, true);
+            registry.approve(id, `${id}.POWER`, 'turnOn');
+            registry.approve(id, `${id}.POWER`, 'turnOff');
+        }
+        const text = 'schalte lampe im wohnzimmer';
+        const first = await controller.process({ requestId: 'direction-1', text, mode: 'analyze' }, 'admin.0');
+        expect(first.status).to.equal('clarification');
+        expect(first.clarification?.key).to.equal('action');
+        expect(first.response).to.include('einschalten oder ausschalten');
+        expect(first.analysis?.devices?.find(item => item.deviceId === 'plug.0.living')).to.include({
+            deviceName: 'Lampe',
+            nameMatched: true,
+            roomMatched: true,
+        });
+        expect(first.analysis?.devices?.find(item => item.deviceId === 'plug.0.standing')).to.include({
+            deviceName: 'Stehlampe',
+            nameMatched: false,
+            roomMatched: true,
+        });
+        expect(writes).to.be.empty;
+
+        const chosen = await controller.process(
+            {
+                requestId: 'direction-2',
+                text: 'ein',
+                mode: 'analyze',
+                clarificationId: first.clarification!.id,
+                selection: 'turnOn',
+            },
+            'admin.0',
+        );
+        expect(chosen.status).to.equal('success');
+        expect(chosen.intent).to.equal('device.turnOn');
+        expect(chosen.actions?.[0].deviceId).to.equal('plug.0.living');
+        expect(writes).to.be.empty;
+
+        const execute = await controller.process({ requestId: 'direction-3', text, mode: 'execute' }, 'admin.0');
+        expect(execute.clarification?.key).to.equal('action');
+        expect(writes).to.be.empty;
+        const unclear = await controller.process(
+            {
+                requestId: 'direction-unclear',
+                text: 'vielleicht',
+                mode: 'execute',
+                clarificationId: execute.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(unclear.clarification?.key).to.equal('action');
+        expect(writes).to.be.empty;
+        const switchedOff = await controller.process(
+            {
+                requestId: 'direction-4',
+                text: 'aus',
+                mode: 'execute',
+                clarificationId: execute.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(switchedOff.status).to.equal('success');
+        expect(switchedOff.intent).to.equal('device.turnOff');
+        expect(writes).to.deep.equal([{ id: 'plug.0.living.POWER', value: false }]);
+    });
+
     it('asks for a room when identical approved devices are in different rooms', async () => {
         const objects: ObjectSnapshot[] = [
             { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },

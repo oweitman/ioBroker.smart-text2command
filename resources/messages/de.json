@@ -2,6 +2,7 @@
   "clarificationCancelled": "Okay, die Anfrage wurde abgebrochen.",
   "clarificationMismatch": "Die Antwort passt nicht zur Rückfrage.",
   "deviceClarification": "Welches Gerät meinst du?",
+  "actionChoices": "Soll ich {device} einschalten oder ausschalten?",
   "roomChoices": "Ich habe den Raum nicht eindeutig verstanden. Meintest du {options}?",
   "roomSuggestion": "Meintest du den Raum {options}?",
   "deviceChoices": "Ich habe das Gerät nicht eindeutig verstanden. Meintest du {options}?",

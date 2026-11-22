@@ -2,6 +2,7 @@
   "clarificationCancelled": "Okay, I cancelled the request.",
   "clarificationMismatch": "That answer does not match the follow-up question.",
   "deviceClarification": "Which device do you mean?",
+  "actionChoices": "Should I turn {device} on or off?",
   "roomChoices": "I could not identify the room clearly. Did you mean {options}?",
   "roomSuggestion": "Did you mean the room {options}?",
   "deviceChoices": "I could not identify the device clearly. Did you mean {options}?",

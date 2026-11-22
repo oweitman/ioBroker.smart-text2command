@@ -24,6 +24,12 @@ export interface Resolution {
 }
 
 export interface ResolutionDiagnostics {
+    devices: Array<{
+        deviceId: string;
+        deviceName: string;
+        nameMatched: boolean;
+        roomMatched?: boolean;
+    }>;
     functions: Array<{
         deviceId: string;
         deviceName: string;
@@ -138,10 +144,17 @@ export class DeviceResolver {
                 return relevance(b) - relevance(a) || a.id.localeCompare(b.id);
             })
             .slice(0, 40);
+        const matchedDevices: ResolutionDiagnostics['devices'] = [];
         const functions: ResolutionDiagnostics['functions'] = [];
         const dataPoints: ResolutionDiagnostics['dataPoints'] = [];
         for (const device of devices) {
             const roomMatched = rooms.size ? device.roomIds.some(id => rooms.has(id)) : undefined;
+            matchedDevices.push({
+                deviceId: device.id,
+                deviceName: device.displayName,
+                nameMatched: nameMatched(device),
+                roomMatched,
+            });
             for (const functionId of device.functionIds) {
                 const configured = device.enumNames?.[functionId];
                 const name =
@@ -177,7 +190,7 @@ export class DeviceResolver {
                 });
             }
         }
-        return { functions: functions.slice(0, 100), dataPoints: dataPoints.slice(0, 120) };
+        return { devices: matchedDevices, functions: functions.slice(0, 100), dataPoints: dataPoints.slice(0, 120) };
     }
 
     public roomMatches(text: string, language: Language): Array<{ id: string; label: string }> {

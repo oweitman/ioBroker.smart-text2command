@@ -463,102 +463,122 @@ export class CommandController {
                     details,
                 );
             }
-            intent = pending.intent;
-            action = pending.action as ActionKind;
-            confidence = pending.confidence;
-            text = pending.request.text;
-            sourceRequest = pending.request;
-            forcedRoomId = pending.selectedRoomId;
-            const answer = request.selection ?? request.text;
-            if (pending.key === 'room') {
-                const matches = request.selection
-                    ? (pending.roomIds?.filter(id => id === request.selection) ?? [])
-                    : [
-                          ...new Set([
-                              ...matchingOptionIds(answer, pending.options ?? [], language),
-                              ...resolver.roomMatches(answer, language).map(room => room.id),
-                          ]),
-                      ].filter(id => pending.roomIds?.includes(id));
-                if (matches.length !== 1) {
+            if (pending.key === 'action') {
+                const answer = normalizeReply(request.selection ?? request.text);
+                const chosenAction = ['turnon', 'ein', 'an', 'einschalten', 'on'].includes(answer)
+                    ? 'turnOn'
+                    : ['turnoff', 'aus', 'ausschalten', 'off'].includes(answer)
+                      ? 'turnOff'
+                      : undefined;
+                if (!chosenAction) {
                     return this.repeatClarification(request, pending, model.version);
                 }
-                forcedRoomId = matches[0];
-            }
-            if (pending.key === 'device') {
-                const devices = this.catalog.list().filter(device => pending.deviceIds.includes(device.id));
-                const normalized = normalizeReply(answer);
-                const named = request.selection
-                    ? devices.filter(device => device.id === request.selection)
-                    : devices.filter(
-                          device =>
-                              matchingOptionIds(answer, pending.options ?? [], language).includes(device.id) ||
-                              [device.displayName, ...(device.aliases[language] ?? [])].some(
-                                  name => normalizeReply(name) === normalized,
-                              ),
-                      );
-                const rooms = request.selection
-                    ? []
-                    : resolver
-                          .roomMatches(answer, language)
-                          .map(room => room.id)
-                          .filter(id => devices.some(device => device.roomIds.includes(id)));
-                const matchingDevices = rooms.length
-                    ? (named.length ? named : devices).filter(device => device.roomIds.some(id => rooms.includes(id)))
-                    : named;
-                if (matchingDevices.length === 1) {
-                    forcedDeviceId = matchingDevices[0].id;
-                    forcedRoomId = rooms[0] ?? forcedRoomId;
-                } else if (rooms.length === 1 && matchingDevices.length > 1) {
-                    forcedRoomId = rooms[0];
-                } else {
-                    return this.repeatClarification(request, pending, model.version);
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                action = chosenAction;
+                intent = chosenAction === 'turnOn' ? 'device.turnOn' : 'device.turnOff';
+                confidence = 1;
+                text = `${pending.request.text} ${chosenAction === 'turnOn' ? (language === 'de' ? 'ein' : 'on') : language === 'de' ? 'aus' : 'off'}`;
+                sourceRequest = { ...pending.request, text };
+            } else {
+                intent = pending.intent;
+                action = pending.action as ActionKind;
+                confidence = pending.confidence;
+                text = pending.request.text;
+                sourceRequest = pending.request;
+                forcedRoomId = pending.selectedRoomId;
+                const answer = request.selection ?? request.text;
+                if (pending.key === 'room') {
+                    const matches = request.selection
+                        ? (pending.roomIds?.filter(id => id === request.selection) ?? [])
+                        : [
+                              ...new Set([
+                                  ...matchingOptionIds(answer, pending.options ?? [], language),
+                                  ...resolver.roomMatches(answer, language).map(room => room.id),
+                              ]),
+                          ].filter(id => pending.roomIds?.includes(id));
+                    if (matches.length !== 1) {
+                        return this.repeatClarification(request, pending, model.version);
+                    }
+                    forcedRoomId = matches[0];
                 }
-            } else if (pending.key === 'capability') {
-                const device = this.catalog.list().find(item => item.id === pending.selectedDeviceId);
-                const matches = request.selection
-                    ? (pending.stateIds?.filter(id => id === request.selection) ?? [])
-                    : [
-                          ...new Set([
-                              ...matchingOptionIds(answer, pending.options ?? [], language),
-                              ...(device?.discoveredCapabilities
-                                  .filter(
-                                      capability =>
-                                          pending.stateIds?.includes(capability.stateId) &&
-                                          [
-                                              capabilityLabel(language, capability),
-                                              capability.stateId.split('.').at(-1) ?? '',
-                                          ].some(label => normalizeReply(label) === normalizeReply(answer)),
-                                  )
-                                  .map(capability => capability.stateId) ?? []),
-                          ]),
-                      ];
-                if (matches.length !== 1) {
-                    return this.repeatClarification(request, pending, model.version);
-                }
-                forcedDeviceId = pending.selectedDeviceId;
-                selectedStateId = matches[0];
-            } else if (pending.key === 'value') {
-                const parsedAnswer = parseEntities(answer, language, rooms);
-                const stringTarget = this.catalog
-                    .list()
-                    .find(device => device.id === pending.selectedDeviceId)
-                    ?.discoveredCapabilities.some(
-                        capability =>
-                            pending.stateIds?.includes(capability.stateId) && capability.valueKind === 'string',
-                    );
-                if (
-                    stringTarget
-                        ? !answer.trim()
-                        : !parsedAnswer.entities.some(entity =>
-                              ['number', 'percent', 'temperature'].includes(entity.type),
+                if (pending.key === 'device') {
+                    const devices = this.catalog.list().filter(device => pending.deviceIds.includes(device.id));
+                    const normalized = normalizeReply(answer);
+                    const named = request.selection
+                        ? devices.filter(device => device.id === request.selection)
+                        : devices.filter(
+                              device =>
+                                  matchingOptionIds(answer, pending.options ?? [], language).includes(device.id) ||
+                                  [device.displayName, ...(device.aliases[language] ?? [])].some(
+                                      name => normalizeReply(name) === normalized,
+                                  ),
+                          );
+                    const rooms = request.selection
+                        ? []
+                        : resolver
+                              .roomMatches(answer, language)
+                              .map(room => room.id)
+                              .filter(id => devices.some(device => device.roomIds.includes(id)));
+                    const matchingDevices = rooms.length
+                        ? (named.length ? named : devices).filter(device =>
+                              device.roomIds.some(id => rooms.includes(id)),
                           )
-                ) {
-                    return this.repeatClarification(request, pending, model.version);
+                        : named;
+                    if (matchingDevices.length === 1) {
+                        forcedDeviceId = matchingDevices[0].id;
+                        forcedRoomId = rooms[0] ?? forcedRoomId;
+                    } else if (rooms.length === 1 && matchingDevices.length > 1) {
+                        forcedRoomId = rooms[0];
+                    } else {
+                        return this.repeatClarification(request, pending, model.version);
+                    }
+                } else if (pending.key === 'capability') {
+                    const device = this.catalog.list().find(item => item.id === pending.selectedDeviceId);
+                    const matches = request.selection
+                        ? (pending.stateIds?.filter(id => id === request.selection) ?? [])
+                        : [
+                              ...new Set([
+                                  ...matchingOptionIds(answer, pending.options ?? [], language),
+                                  ...(device?.discoveredCapabilities
+                                      .filter(
+                                          capability =>
+                                              pending.stateIds?.includes(capability.stateId) &&
+                                              [
+                                                  capabilityLabel(language, capability),
+                                                  capability.stateId.split('.').at(-1) ?? '',
+                                              ].some(label => normalizeReply(label) === normalizeReply(answer)),
+                                      )
+                                      .map(capability => capability.stateId) ?? []),
+                              ]),
+                          ];
+                    if (matches.length !== 1) {
+                        return this.repeatClarification(request, pending, model.version);
+                    }
+                    forcedDeviceId = pending.selectedDeviceId;
+                    selectedStateId = matches[0];
+                } else if (pending.key === 'value') {
+                    const parsedAnswer = parseEntities(answer, language, rooms);
+                    const stringTarget = this.catalog
+                        .list()
+                        .find(device => device.id === pending.selectedDeviceId)
+                        ?.discoveredCapabilities.some(
+                            capability =>
+                                pending.stateIds?.includes(capability.stateId) && capability.valueKind === 'string',
+                        );
+                    if (
+                        stringTarget
+                            ? !answer.trim()
+                            : !parsedAnswer.entities.some(entity =>
+                                  ['number', 'percent', 'temperature'].includes(entity.type),
+                              )
+                    ) {
+                        return this.repeatClarification(request, pending, model.version);
+                    }
+                    clarifiedStringValue = stringTarget ? answer.trim() : undefined;
+                    forcedDeviceId = pending.selectedDeviceId;
+                    selectedStateId = pending.stateIds?.[0];
+                    text = `${pending.request.text} ${answer}`;
                 }
-                clarifiedStringValue = stringTarget ? answer.trim() : undefined;
-                forcedDeviceId = pending.selectedDeviceId;
-                selectedStateId = pending.stateIds?.[0];
-                text = `${pending.request.text} ${answer}`;
             }
             this.sessions.consume(pending.id, clientKey, request.sessionId);
             if (CATALOG_INTENTS.has(intent)) {
@@ -621,6 +641,54 @@ export class CommandController {
                 explicitSendToIntent || explicitButtonPress || explicitSetpointWrite
                     ? [{ intent, confidence }]
                     : analysis.alternatives;
+            if (
+                (intent === 'device.turnOn' || intent === 'device.turnOff') &&
+                !explicitSendToIntent &&
+                !explicitStringIntent &&
+                !explicitButtonPress &&
+                !explicitSetpointWrite &&
+                !explicitNamedValueWrite &&
+                new RegExp(languageRules(language).buttonSwitchVerb, 'iu').test(text) &&
+                !new RegExp(languageRules(language).buttonStateQualifier, 'iu').test(text) &&
+                (resolver.resolve(text, language, 'turnOn').candidates.length > 0 ||
+                    resolver.resolve(text, language, 'turnOff').candidates.length > 0)
+            ) {
+                const device = new RegExp(languageRules(language).deviceBeforeRoom, 'iu').exec(text)?.groups?.device;
+                const question = responseText(language, 'actionChoices', {
+                    device: device ? `„${device.trim()}“` : language === 'de' ? 'das Gerät' : 'the device',
+                });
+                const options = [
+                    { id: 'turnOn', label: language === 'de' ? 'ein' : 'on' },
+                    { id: 'turnOff', label: language === 'de' ? 'aus' : 'off' },
+                ];
+                if (request.mode === 'analyze') {
+                    const diagnostics = resolver.diagnose(text, language, SYSTEM_ACTIONS[intent]);
+                    details.devices = diagnostics.devices;
+                    details.functions = diagnostics.functions;
+                    details.dataPoints = diagnostics.dataPoints;
+                }
+                const pending = this.sessions.create({
+                    key: 'action',
+                    clientKey,
+                    sessionId: request.sessionId,
+                    request: sourceRequest,
+                    language,
+                    action: 'turnOn',
+                    intent,
+                    confidence,
+                    deviceIds: [],
+                    options,
+                    question,
+                });
+                return {
+                    requestId: request.requestId,
+                    status: 'clarification',
+                    language,
+                    response: question,
+                    clarification: { id: pending.id, key: 'action', options },
+                    modelVersion: model.version,
+                };
+            }
             const second = analysis.alternatives.find(item => item.intent !== intent)?.confidence ?? 0;
             if (
                 !intent ||
@@ -640,6 +708,7 @@ export class CommandController {
                         undefined,
                         requestedDomain(intent, tentativeAction, text, language),
                     );
+                    details.devices = diagnostics.devices;
                     details.functions = diagnostics.functions;
                     details.dataPoints = diagnostics.dataPoints;
                 }
@@ -782,6 +851,7 @@ export class CommandController {
         const domain = requestedDomain(intent, action, stringMatch?.prefix ?? text, language);
         if (request.mode === 'analyze') {
             const diagnostics = resolver.diagnose(text, language, action, forcedRoomId, domain);
+            details.devices = diagnostics.devices;
             details.functions = diagnostics.functions;
             details.dataPoints = diagnostics.dataPoints;
         }

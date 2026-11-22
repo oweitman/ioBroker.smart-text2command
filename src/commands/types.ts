@@ -30,7 +30,7 @@ export interface CommandResult {
     actions?: ActionResult[];
     clarification?: {
         id: string;
-        key: 'room' | 'device' | 'capability' | 'value' | 'parameter';
+        key: 'action' | 'room' | 'device' | 'capability' | 'value' | 'parameter';
         parameter?: string;
         options?: Array<{ id: string; label: string }>;
     };
@@ -41,6 +41,12 @@ export interface CommandResult {
         alternatives?: Array<{ intent: string; confidence: number }>;
         entities?: Array<{ type: string; value: string | number; start: number; end: number }>;
         candidates?: Array<{ deviceId: string; score: number; reasons: string[] }>;
+        devices?: Array<{
+            deviceId: string;
+            deviceName: string;
+            nameMatched: boolean;
+            roomMatched?: boolean;
+        }>;
         functions?: Array<{
             deviceId: string;
             deviceName: string;
