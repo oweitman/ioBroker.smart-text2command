@@ -119,7 +119,7 @@ class SmartText2command extends utils.Adapter {
             },
             getState: async id => {
                 const state = await withTimeout(this.getForeignStateAsync(id), this);
-                return state ? { val: state.val } : undefined;
+                return state ? { val: state.val, q: state.q } : undefined;
             },
             setState: async (id, value) => {
                 await withTimeout(this.setForeignStateAsync(id, value, false), this);

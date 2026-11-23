@@ -16,6 +16,16 @@ import type { AuditRepository } from '../storage/AuditRepository';
 import { CommandExecutor } from './CommandExecutor';
 import { PolicyEngine } from './PolicyEngine';
 import { planAction } from './CommandPlanner';
+import {
+    enumRelativeTarget,
+    parseRelativeRequest,
+    profiles as defaultProfiles,
+    relativeLanguageRules,
+    relativeTarget,
+} from './RelativeValue';
+import type { RelativeProperty } from './RelativeValue';
+import { colorValue, matchEffectiveColor, matchNamedTemperature } from './NamedColors';
+import { adjustHexColor } from './ColorAdjust';
 import type { CommandResult, DeviceIO, PlannedAction } from './types';
 import {
     defaultLanguage as primaryLanguage,
@@ -174,6 +184,86 @@ function normalizeReply(value: string): string {
         .trim();
 }
 
+function namedColorDevices(text: string, language: Language, catalog: DeviceCatalogView): DeviceRecord[] {
+    const request = ` ${normalizeReply(text)} `;
+    return catalog
+        .list()
+        .filter(
+            device =>
+                device.status !== 'missing' &&
+                device.discoveredCapabilities.some(capability => capability.role?.startsWith('level.color.')) &&
+                [device.displayName, ...(device.aliases[language] ?? [])].some(
+                    name => name.trim() && request.includes(` ${normalizeReply(name)} `),
+                ),
+        );
+}
+
+function colorValuePhrase(phrase: string, devices: DeviceRecord[], language: Language): string {
+    const normalized = normalizeReply(phrase);
+    const labels = devices
+        .flatMap(device =>
+            device.discoveredCapabilities
+                .filter(capability => capability.role?.startsWith('level.color.'))
+                .map(capability => capabilityName(capability, language)),
+        )
+        .sort((a, b) => b.length - a.length);
+    const label = labels.find(name => normalized.startsWith(`${normalizeReply(name)} `));
+    return label ? phrase.trim().split(/\s+/).slice(label.trim().split(/\s+/).length).join(' ') : phrase.trim();
+}
+
+function relativePropertyForCapability(
+    capability: Capability,
+    requested?: RelativeProperty,
+): RelativeProperty | undefined {
+    if (capability.kind !== 'genericValue' || capability.valueKind !== 'number') {
+        return undefined;
+    }
+    const role = capability.role ?? '';
+    if (role === 'level.color.temperature' && capability.unit === 'K') {
+        return 'colorTemperature';
+    }
+    if (
+        (role === 'value.temperature' || role === 'level.temperature') &&
+        (capability.unit === '°C' || capability.unit === '°F')
+    ) {
+        return 'temperature';
+    }
+    if (role === 'level.blind') {
+        return 'position';
+    }
+    if (role === 'level.tilt') {
+        return 'tilt';
+    }
+    if (role === 'level.volume' || role === 'value.volume') {
+        return 'volume';
+    }
+    if (role === 'level.humidity' && capability.unit === '%') {
+        return 'humidity';
+    }
+    if (role === 'level.color.saturation') {
+        return 'saturation';
+    }
+    if (role === 'level.brightness' || role === 'value.brightness') {
+        return 'brightness';
+    }
+    if (role === 'value.humidity' && capability.unit === '%' && requested === 'humidity') {
+        return requested;
+    }
+    if (role === 'level' && requested === 'fanSpeed' && (capability.enumValues?.length ?? 0) > 1) {
+        return requested;
+    }
+    if (
+        role === 'level' &&
+        capability.unit === '%' &&
+        requested &&
+        requested !== 'temperature' &&
+        requested !== 'colorTemperature'
+    ) {
+        return requested;
+    }
+    return undefined;
+}
+
 function diagnosticSnapshot(value: unknown): unknown {
     try {
         const seen = new WeakSet<object>();
@@ -299,6 +389,7 @@ interface CachedRequest {
 
 export class CommandController {
     private readonly recent = new Map<string, CachedRequest>();
+    private readonly relativeQueues = new Map<string, Promise<void>>();
 
     public constructor(
         private readonly catalog: DeviceCatalogView,
@@ -432,6 +523,120 @@ export class CommandController {
                     response: languageMessage(language, 'clarificationCancelled'),
                 };
             }
+            if (pending.key === 'colorName' && !request.selection) {
+                const rules = relativeLanguageRules(language);
+                if (
+                    new RegExp(rules.colorSet, 'iu').test(request.text) &&
+                    new RegExp(rules.colorVerb, 'iu').test(request.text)
+                ) {
+                    this.sessions.consume(pending.id, clientKey, request.sessionId);
+                    return this.resolve({ ...request, clarificationId: undefined }, clientKey, language, details);
+                }
+            }
+            if (pending.key === 'relativeDevice') {
+                const options = pending.options ?? [];
+                const answer = request.selection ?? request.text;
+                const ids = matchingOptionIds(answer, options, language);
+                if (ids.length !== 1) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return this.processRelative(
+                    { ...pending.request, requestId: request.requestId },
+                    clientKey,
+                    language,
+                    resolver,
+                    details,
+                    model.version,
+                    ids[0],
+                );
+            }
+            if (pending.key === 'relativeCapability') {
+                const ids = matchingOptionIds(request.selection ?? request.text, pending.options ?? [], language);
+                if (ids.length !== 1 || !pending.selectedDeviceId) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return this.processRelative(
+                    { ...pending.request, requestId: request.requestId },
+                    clientKey,
+                    language,
+                    resolver,
+                    details,
+                    model.version,
+                    pending.selectedDeviceId,
+                    ids[0],
+                );
+            }
+            if (pending.key === 'colorName' || pending.key === 'colorDevice') {
+                const rules = relativeLanguageRules(language);
+                const originalPhrase = new RegExp(rules.colorSet, 'iu').exec(pending.request.text)?.[1];
+                const answer = request.selection ?? request.text;
+                const colorText =
+                    pending.key === 'colorName'
+                        ? answer
+                        : originalPhrase
+                          ? colorValuePhrase(
+                                originalPhrase,
+                                namedColorDevices(pending.request.text, language, this.catalog),
+                                language,
+                            )
+                          : undefined;
+                const named = colorText
+                    ? (matchNamedTemperature(colorText, language) ??
+                      matchEffectiveColor(colorText, language, this.catalog.getCustomColors?.()))
+                    : undefined;
+                if (!named || normalizeReply(colorText!) !== normalizeReply(named.name)) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                let deviceId: string | undefined;
+                if (pending.key === 'colorDevice') {
+                    const ids = matchingOptionIds(answer, pending.options ?? [], language);
+                    if (ids.length !== 1) {
+                        return this.repeatClarification(request, pending, model.version);
+                    }
+                    deviceId = ids[0];
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                const color =
+                    'kelvin' in named
+                        ? { kelvin: named.kelvin, name: named.name }
+                        : { hex: named.hex, name: named.name };
+                const source =
+                    pending.key === 'colorName' && originalPhrase
+                        ? {
+                              ...pending.request,
+                              text: pending.request.text.replace(originalPhrase, named.name),
+                              requestId: request.requestId,
+                          }
+                        : { ...pending.request, requestId: request.requestId };
+                return this.processNamedColor(
+                    source,
+                    clientKey,
+                    language,
+                    resolver,
+                    color,
+                    details,
+                    model.version,
+                    deviceId,
+                );
+            }
+            if (pending.key === 'mediaDevice') {
+                const ids = matchingOptionIds(request.selection ?? request.text, pending.options ?? [], language);
+                if (ids.length !== 1) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return this.processMedia(
+                    { ...pending.request, requestId: request.requestId },
+                    clientKey,
+                    language,
+                    resolver,
+                    details,
+                    model.version,
+                    ids[0],
+                );
+            }
             if (pending.key === 'parameter') {
                 const configured = userIntents.find(item => item.id === pending.intent && item.enabled);
                 if (configured?.action?.kind !== 'sendTo') {
@@ -465,9 +670,12 @@ export class CommandController {
             }
             if (pending.key === 'action') {
                 const answer = normalizeReply(request.selection ?? request.text);
-                const chosenAction = ['turnon', 'ein', 'an', 'einschalten', 'on'].includes(answer)
+                const chosenAction = [
+                    'turnon',
+                    ...languageRules(language).actionOnAnswers.map(normalizeReply),
+                ].includes(answer)
                     ? 'turnOn'
-                    : ['turnoff', 'aus', 'ausschalten', 'off'].includes(answer)
+                    : ['turnoff', ...languageRules(language).actionOffAnswers.map(normalizeReply)].includes(answer)
                       ? 'turnOff'
                       : undefined;
                 if (!chosenAction) {
@@ -477,7 +685,7 @@ export class CommandController {
                 action = chosenAction;
                 intent = chosenAction === 'turnOn' ? 'device.turnOn' : 'device.turnOff';
                 confidence = 1;
-                text = `${pending.request.text} ${chosenAction === 'turnOn' ? (language === 'de' ? 'ein' : 'on') : language === 'de' ? 'aus' : 'off'}`;
+                text = `${pending.request.text} ${languageMessage(language, chosenAction === 'turnOn' ? 'actionOnLabel' : 'actionOffLabel')}`;
                 sourceRequest = { ...pending.request, text };
             } else {
                 intent = pending.intent;
@@ -598,6 +806,141 @@ export class CommandController {
             const parsed = parseEntities(text, language, rooms);
             const roomMatches = resolver.roomMatches(text, language);
             details.entities = parsed.entities;
+            const relativeRequest = parseRelativeRequest(text, language);
+            const unsupported = relativeRequest?.explicitAmount
+                ? parsed.unsupported.filter(item => item !== 'unit')
+                : parsed.unsupported;
+            if (parsed.negated || hasUnsupportedSyntax(text, language, unsupported, roomMatches.length)) {
+                return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
+            }
+            if (!new RegExp(languageRules(language).buttonPressVerb, 'iu').test(text) && relativeRequest) {
+                return this.processRelative(request, clientKey, language, resolver, details, model.version);
+            }
+            const colorRules = relativeLanguageRules(language);
+            const normalizedMedia = normalizeReply(text);
+            const nextMedia = new RegExp(colorRules.mediaNext, 'iu').test(normalizedMedia);
+            const previousMedia = new RegExp(colorRules.mediaPrevious, 'iu').test(normalizedMedia);
+            if (
+                nextMedia !== previousMedia &&
+                this.catalog
+                    .list()
+                    .some(device =>
+                        device.discoveredCapabilities.some(
+                            capability =>
+                                capability.role === (nextMedia ? 'button.next' : 'button.previous') &&
+                                this.catalog.isAllowed(device.id, capability, 'press'),
+                        ),
+                    )
+            ) {
+                return this.processMedia(request, clientKey, language, resolver, details, model.version);
+            }
+            const colorPhrase = new RegExp(colorRules.colorSet, 'iu').exec(text)?.[1];
+            const colorDevices = namedColorDevices(text, language, this.catalog);
+            const valuePhrase = colorPhrase ? colorValuePhrase(colorPhrase, colorDevices, language) : undefined;
+            const namedColor = valuePhrase
+                ? matchEffectiveColor(valuePhrase, language, this.catalog.getCustomColors?.())
+                : undefined;
+            const namedTemperature = valuePhrase ? matchNamedTemperature(valuePhrase, language) : undefined;
+            const colorCommand = !!colorPhrase && new RegExp(colorRules.colorVerb, 'iu').test(text);
+            if (
+                colorCommand &&
+                colorDevices.length === 1 &&
+                roomMatches.length === 1 &&
+                !colorDevices[0].roomIds.includes(roomMatches[0].id)
+            ) {
+                if (request.mode === 'analyze') {
+                    const diagnostics = resolver.diagnose(text, language, 'setValue');
+                    details.devices = diagnostics.devices;
+                    details.functions = diagnostics.functions;
+                    details.dataPoints = diagnostics.dataPoints;
+                }
+                const device = colorDevices[0];
+                const actualRoom = device.roomIds[0] ? roomNames(device, device.roomIds[0], language).at(-1) : '';
+                return {
+                    requestId: request.requestId,
+                    status: 'rejected',
+                    language,
+                    intent: 'device.setColor',
+                    confidence: 1,
+                    errorCode: 'DEVICE_ROOM_MISMATCH',
+                    response: responseText(language, 'deviceRoomMismatch', {
+                        device: device.displayName.trim(),
+                        room: actualRoom ?? '',
+                        requested: roomMatches[0].label,
+                    }),
+                    modelVersion: model.version,
+                    analysis: request.mode === 'analyze' ? details : undefined,
+                };
+            }
+            if (
+                colorCommand &&
+                valuePhrase &&
+                (namedColor || namedTemperature) &&
+                normalizeReply(valuePhrase) === normalizeReply((namedTemperature || namedColor)!.name)
+            ) {
+                return this.processNamedColor(
+                    request,
+                    clientKey,
+                    language,
+                    resolver,
+                    namedTemperature
+                        ? { kelvin: namedTemperature.kelvin, name: namedTemperature.name }
+                        : { hex: namedColor!.hex, name: namedColor!.name },
+                    details,
+                    model.version,
+                );
+            }
+            if (
+                colorCommand &&
+                valuePhrase &&
+                !namedColor &&
+                !namedTemperature &&
+                /^[\p{L}\s-]+$/u.test(valuePhrase) &&
+                colorDevices.length === 1
+            ) {
+                const device = colorDevices[0];
+                if (
+                    !device.discoveredCapabilities.some(
+                        capability =>
+                            capability.role?.startsWith('level.color.') &&
+                            this.catalog.isAllowed(device.id, capability, 'setValue'),
+                    )
+                ) {
+                    if (request.mode === 'analyze') {
+                        const diagnostics = resolver.diagnose(text, language, 'setValue');
+                        details.devices = diagnostics.devices;
+                        details.functions = diagnostics.functions;
+                        details.dataPoints = diagnostics.dataPoints;
+                    }
+                    return {
+                        ...this.reject(request, language, 'ACTION_NOT_APPROVED', 'device.setColor', 1),
+                        analysis: request.mode === 'analyze' ? details : undefined,
+                    };
+                }
+                const question = languageMessage(language, 'colorNameQuestion');
+                const pending = this.sessions.create({
+                    key: 'colorName',
+                    clientKey,
+                    sessionId: request.sessionId,
+                    request,
+                    language,
+                    action: 'setValue',
+                    intent: 'device.setColor',
+                    confidence: 1,
+                    deviceIds: [],
+                    question,
+                });
+                return {
+                    requestId: request.requestId,
+                    status: 'clarification',
+                    language,
+                    intent: 'device.setColor',
+                    confidence: 1,
+                    response: question,
+                    clarification: { id: pending.id, key: 'colorName' },
+                    modelVersion: model.version,
+                };
+            }
             const analysis = await model.engine.analyze(text, language);
             const explicitSetpointWrite = isExplicitSetpointWrite(text, language);
             const explicitButtonPress = isExplicitButtonPress(text, language, this.catalog);
@@ -655,11 +998,13 @@ export class CommandController {
             ) {
                 const device = new RegExp(languageRules(language).deviceBeforeRoom, 'iu').exec(text)?.groups?.device;
                 const question = responseText(language, 'actionChoices', {
-                    device: device ? `„${device.trim()}“` : language === 'de' ? 'das Gerät' : 'the device',
+                    device: device
+                        ? responseText(language, 'actionQuotedDevice', { device: device.trim() })
+                        : languageMessage(language, 'actionDeviceGeneric'),
                 });
                 const options = [
-                    { id: 'turnOn', label: language === 'de' ? 'ein' : 'on' },
-                    { id: 'turnOff', label: language === 'de' ? 'aus' : 'off' },
+                    { id: 'turnOn', label: languageMessage(language, 'actionOnLabel') },
+                    { id: 'turnOff', label: languageMessage(language, 'actionOffLabel') },
                 ];
                 if (request.mode === 'analyze') {
                     const diagnostics = resolver.diagnose(text, language, SYSTEM_ACTIONS[intent]);
@@ -1323,6 +1668,685 @@ export class CommandController {
             actions: [executed],
             modelVersion: model.version,
         };
+    }
+
+    private async processMedia(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        resolver: DeviceResolver,
+        details: NonNullable<CommandResult['analysis']>,
+        modelVersion?: string,
+        forcedDeviceId?: string,
+    ): Promise<CommandResult> {
+        const rules = relativeLanguageRules(language);
+        const normalized = normalizeReply(request.text);
+        const next = new RegExp(rules.mediaNext, 'iu').test(normalized);
+        const previous = new RegExp(rules.mediaPrevious, 'iu').test(normalized);
+        if (next === previous) {
+            return this.reject(request, language, 'UNSUPPORTED_SYNTAX');
+        }
+        const role = next ? 'button.next' : 'button.previous';
+        const roomIds = new Set(resolver.roomMatches(request.text, language).map(room => room.id));
+        const eligible = this.catalog.list().flatMap(device => {
+            const capability = device.discoveredCapabilities.find(
+                item => item.role === role && this.catalog.isAllowed(device.id, item, 'press'),
+            );
+            if (
+                !capability ||
+                (forcedDeviceId && forcedDeviceId !== device.id) ||
+                (roomIds.size && !device.roomIds.some(id => roomIds.has(id)))
+            ) {
+                return [];
+            }
+            return [{ device, capability }];
+        });
+        const named = eligible.filter(({ device }) =>
+            [device.displayName, ...(device.aliases[language] ?? [])].some(name =>
+                ` ${normalized} `.includes(` ${normalizeReply(name)} `),
+            ),
+        );
+        const candidates = named.length ? named : eligible;
+        if (!candidates.length) {
+            return this.reject(
+                request,
+                language,
+                'DEVICE_NOT_FOUND_OR_NOT_APPROVED',
+                next ? 'device.next' : 'device.previous',
+                1,
+            );
+        }
+        if (candidates.length > 1) {
+            const options = candidates.slice(0, 8).map(({ device }) => ({ id: device.id, label: device.displayName }));
+            const question = responseText(language, 'deviceChoices', {
+                options: options.map(item => item.label).join(', '),
+            });
+            const pending = this.sessions.create({
+                key: 'mediaDevice',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'press',
+                intent: next ? 'device.next' : 'device.previous',
+                confidence: 1,
+                deviceIds: options.map(item => item.id),
+                options,
+                question,
+            });
+            return {
+                requestId: request.requestId,
+                status: 'clarification',
+                language,
+                intent: next ? 'device.next' : 'device.previous',
+                confidence: 1,
+                response: question,
+                clarification: { id: pending.id, key: 'mediaDevice', options },
+                modelVersion,
+            };
+        }
+        const { device, capability } = candidates[0];
+        const plan: PlannedAction = {
+            deviceId: device.id,
+            action: 'press',
+            capability,
+            operation: 'write',
+            stateId: capability.stateId,
+            value: true,
+        };
+        details.plan = { action: 'press', operation: 'write', stateId: plan.stateId, value: true };
+        const policy = new PolicyEngine(this.catalog, this.io);
+        const decision = await policy.validate(plan);
+        details.policyDecision = decision.allowed ? 'allowed' : decision.code;
+        if (!decision.allowed) {
+            return this.reject(request, language, decision.code, next ? 'device.next' : 'device.previous', 1);
+        }
+        const intent = next ? 'device.next' : 'device.previous';
+        if (request.mode === 'analyze') {
+            return {
+                requestId: request.requestId,
+                status: 'success',
+                language,
+                intent,
+                confidence: 1,
+                response: responseText(language, 'mediaPlanned', { device: device.displayName }),
+                actions: [{ deviceId: device.id, stateId: capability.stateId, status: 'planned', value: true }],
+                modelVersion,
+            };
+        }
+        const result = await new CommandExecutor(this.io, policy).execute(plan);
+        return {
+            requestId: request.requestId,
+            status: result.status === 'accepted' ? 'success' : 'error',
+            language,
+            intent,
+            confidence: 1,
+            response:
+                result.status === 'accepted'
+                    ? responseText(language, 'mediaAccepted', { device: device.displayName })
+                    : languageMessage(language, `error.${result.message ?? ''}`, 'executionFailed'),
+            actions: [result],
+            errorCode: result.message,
+            modelVersion,
+        };
+    }
+
+    private async processNamedColor(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        resolver: DeviceResolver,
+        color: { hex?: string; kelvin?: number; name: string },
+        details: NonNullable<CommandResult['analysis']>,
+        modelVersion?: string,
+        forcedDeviceId?: string,
+    ): Promise<CommandResult> {
+        const namedCandidates = resolver
+            .resolve(request.text, language, 'setValue')
+            .candidates.filter(candidate =>
+                forcedDeviceId
+                    ? candidate.deviceId === forcedDeviceId
+                    : candidate.reasons.includes('exact name or alias'),
+            );
+        const candidates = namedCandidates.filter(candidate =>
+            this.catalog
+                .list()
+                .some(
+                    device =>
+                        device.id === candidate.deviceId &&
+                        device.discoveredCapabilities.some(
+                            capability =>
+                                (color.kelvin !== undefined
+                                    ? capability.role === 'level.color.temperature'
+                                    : capability.role === 'level.color.rgb' ||
+                                      capability.role === 'level.color.rgbw') &&
+                                this.catalog.isAllowed(device.id, capability, 'setValue'),
+                        ),
+                ),
+        );
+        if (!candidates.length) {
+            if (
+                namedCandidates.some(candidate =>
+                    this.catalog
+                        .list()
+                        .some(
+                            device =>
+                                device.id === candidate.deviceId &&
+                                device.discoveredCapabilities.some(
+                                    capability =>
+                                        capability.role?.startsWith('level.color.') &&
+                                        this.catalog.isAllowed(device.id, capability, 'setValue'),
+                                ),
+                        ),
+                )
+            ) {
+                return this.reject(request, language, 'COLOR_FORMAT_UNSUPPORTED', 'device.setColor', 1);
+            }
+            return this.reject(request, language, 'DEVICE_NOT_FOUND_OR_NOT_APPROVED', 'device.setColor', 1);
+        }
+        if (!forcedDeviceId && candidates[1] && candidates[0].score - candidates[1].score <= 10) {
+            const options = candidates.slice(0, 8).map(candidate => ({
+                id: candidate.deviceId,
+                label: this.catalog.list().find(device => device.id === candidate.deviceId)!.displayName,
+            }));
+            const question = responseText(language, 'deviceChoices', {
+                options: options.map(item => item.label).join(', '),
+            });
+            const pending = this.sessions.create({
+                key: 'colorDevice',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'setValue',
+                intent: 'device.setColor',
+                confidence: 1,
+                deviceIds: options.map(item => item.id),
+                options,
+                question,
+            });
+            return {
+                requestId: request.requestId,
+                status: 'clarification',
+                language,
+                intent: 'device.setColor',
+                confidence: 1,
+                response: question,
+                clarification: { id: pending.id, key: 'colorDevice', options },
+                modelVersion,
+            };
+        }
+        const device = this.catalog.list().find(item => item.id === candidates[0].deviceId)!;
+        const capabilities = device.discoveredCapabilities.filter(
+            capability =>
+                (color.kelvin !== undefined
+                    ? capability.role === 'level.color.temperature'
+                    : capability.role === 'level.color.rgb' || capability.role === 'level.color.rgbw') &&
+                this.catalog.isAllowed(device.id, capability, 'setValue'),
+        );
+        if (capabilities.length !== 1) {
+            return this.reject(request, language, 'AMBIGUOUS_CAPABILITY', 'device.setColor', 1);
+        }
+        const capability = capabilities[0];
+        const value =
+            color.kelvin !== undefined
+                ? capability.unit === 'K' &&
+                  capability.valueKind === 'number' &&
+                  capability.min !== undefined &&
+                  capability.max !== undefined
+                    ? Math.max(capability.min, Math.min(capability.max, color.kelvin))
+                    : undefined
+                : color.hex
+                  ? colorValue(color.hex, capability.role ?? '')
+                  : undefined;
+        if (value === undefined || typeof value !== capability.valueKind) {
+            return this.reject(request, language, 'COLOR_FORMAT_UNSUPPORTED', 'device.setColor', 1);
+        }
+        const plan: PlannedAction = {
+            deviceId: device.id,
+            action: 'setValue',
+            capability,
+            operation: 'write',
+            stateId: capability.stateId,
+            value,
+        };
+        details.plan = { action: 'setValue', operation: 'write', stateId: plan.stateId, value };
+        const policy = new PolicyEngine(this.catalog, this.io);
+        const decision = await policy.validate(plan);
+        details.policyDecision = decision.allowed ? 'allowed' : decision.code;
+        if (!decision.allowed) {
+            return this.reject(request, language, decision.code, 'device.setColor', 1);
+        }
+        const values = { device: device.displayName, color: color.name };
+        if (request.mode === 'analyze') {
+            return {
+                requestId: request.requestId,
+                status: 'success',
+                language,
+                intent: 'device.setColor',
+                confidence: 1,
+                response: responseText(language, 'colorPlanned', values),
+                actions: [{ deviceId: device.id, stateId: capability.stateId, status: 'planned', value }],
+                modelVersion,
+            };
+        }
+        const result = await new CommandExecutor(this.io, policy).execute(plan);
+        return {
+            requestId: request.requestId,
+            status: result.status === 'accepted' ? 'success' : 'error',
+            language,
+            intent: 'device.setColor',
+            confidence: 1,
+            response:
+                result.status === 'accepted'
+                    ? responseText(language, 'colorAccepted', values)
+                    : languageMessage(language, `error.${result.message ?? ''}`, 'executionFailed'),
+            actions: [result],
+            errorCode: result.message,
+            modelVersion,
+        };
+    }
+
+    private async processRelative(
+        request: CommandRequest,
+        clientKey: string,
+        language: Language,
+        resolver: DeviceResolver,
+        details: NonNullable<CommandResult['analysis']>,
+        modelVersion?: string,
+        forcedDeviceId?: string,
+        forcedStateId?: string,
+    ): Promise<CommandResult> {
+        const relative = parseRelativeRequest(request.text, language)!;
+        if (
+            !relative.property &&
+            !relative.endpoint &&
+            relative.direction !== 'warmer' &&
+            relative.direction !== 'cooler'
+        ) {
+            return this.reject(request, language, 'CAPABILITY_UNSUPPORTED', 'device.adjust', 1);
+        }
+        if (request.mode === 'analyze') {
+            const diagnostics = resolver.diagnose(request.text, language, 'setValue');
+            details.devices = diagnostics.devices;
+            details.functions = diagnostics.functions;
+            details.dataPoints = diagnostics.dataPoints;
+        }
+        const normalized = normalizeReply(request.text);
+        const compact = normalized.replace(/ /g, '');
+        const matched = (name: string): number => {
+            const value = normalizeReply(name);
+            if (!value || value.length < 3) {
+                return 0;
+            }
+            return ` ${normalized} `.includes(` ${value} `)
+                ? 100
+                : compact.includes(value.replace(/ /g, '')) && value.length >= 5
+                  ? 40
+                  : 0;
+        };
+        const mentionedRooms = resolver.roomMatches(request.text, language);
+        const eligible = this.catalog
+            .list()
+            .flatMap(device => {
+                if (
+                    device.status === 'missing' ||
+                    (forcedDeviceId && device.id !== forcedDeviceId) ||
+                    (mentionedRooms.length === 1 && !device.roomIds.includes(mentionedRooms[0].id))
+                ) {
+                    return [];
+                }
+                let capabilities = device.discoveredCapabilities.filter(capability => {
+                    const property =
+                        relativePropertyForCapability(capability, relative.property) ??
+                        (relative.endpoint && capability.role === 'level' && capability.unit === '%'
+                            ? 'genericLevel'
+                            : undefined) ??
+                        ((capability.role === 'level.color.rgb' || capability.role === 'level.color.rgbw') &&
+                        (relative.property === 'brightness' || relative.property === 'saturation')
+                            ? relative.property
+                            : undefined);
+                    return (
+                        property &&
+                        (!relative.property || relative.property === property) &&
+                        (relative.property ||
+                            relative.endpoint ||
+                            property === 'temperature' ||
+                            property === 'colorTemperature') &&
+                        capability.readable &&
+                        capability.writable &&
+                        (!forcedStateId || capability.stateId === forcedStateId) &&
+                        this.catalog.isAllowed(device.id, capability, 'setValue')
+                    );
+                });
+                const named = capabilities.filter(capability => matched(capabilityName(capability, language)) === 100);
+                if (named.length) {
+                    capabilities = named;
+                } else {
+                    const specific = relative.property
+                        ? capabilities.filter(
+                              capability => relativePropertyForCapability(capability) === relative.property,
+                          )
+                        : [];
+                    if (specific.length) {
+                        capabilities = specific;
+                    }
+                    if (
+                        relative.property === 'brightness' &&
+                        capabilities.some(capability => capability.valueKind === 'number')
+                    ) {
+                        capabilities = capabilities.filter(capability => capability.valueKind === 'number');
+                    }
+                }
+                if (!capabilities.length) {
+                    return [];
+                }
+                const nameScore = Math.max(
+                    0,
+                    ...[device.displayName, ...(device.aliases[language] ?? [])].map(matched),
+                );
+                const roomScore = Math.max(
+                    0,
+                    ...device.roomIds.flatMap(id => roomNames(device, id, language).map(matched)),
+                );
+                const functionScore = Math.max(
+                    0,
+                    ...device.functionIds.map(id => {
+                        const name = device.enumNames?.[id];
+                        return matched(
+                            typeof name === 'string' ? name : (name?.[language] ?? id.split('.').at(-1) ?? id),
+                        );
+                    }),
+                );
+                if (!relative.property && nameScore === 0 && functionScore === 0) {
+                    return [];
+                }
+                const score = nameScore * 2 + roomScore + functionScore;
+                return score > 0 || forcedDeviceId ? [{ device, capabilities, score }] : [];
+            })
+            .sort((a, b) => b.score - a.score || a.device.id.localeCompare(b.device.id));
+        if (!eligible.length) {
+            return this.reject(request, language, 'DEVICE_NOT_FOUND_OR_NOT_APPROVED', 'device.adjust', 1);
+        }
+        if (!forcedDeviceId && eligible[1] && eligible[0].score - eligible[1].score <= 20) {
+            const options = eligible.slice(0, 8).map(item => ({ id: item.device.id, label: item.device.displayName }));
+            const question = responseText(language, 'deviceChoices', {
+                options: options.map(item => item.label).join(', '),
+            });
+            const pending = this.sessions.create({
+                key: 'relativeDevice',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'setValue',
+                intent: 'device.adjust',
+                confidence: 1,
+                deviceIds: options.map(item => item.id),
+                options,
+                question,
+            });
+            return {
+                requestId: request.requestId,
+                status: 'clarification',
+                language,
+                intent: 'device.adjust',
+                confidence: 1,
+                response: question,
+                clarification: { id: pending.id, key: 'relativeDevice', options },
+                modelVersion,
+            };
+        }
+        const { device, capabilities } = eligible[0];
+        const explicitlyNamed = device.discoveredCapabilities.filter(
+            capability => matched(capabilityName(capability, language)) === 100,
+        );
+        if (explicitlyNamed.length === 1 && !capabilities.some(item => item.stateId === explicitlyNamed[0].stateId)) {
+            const named = explicitlyNamed[0];
+            return this.reject(
+                request,
+                language,
+                this.catalog.isAllowed(device.id, named, 'setValue') ? 'CAPABILITY_UNSUPPORTED' : 'ACTION_NOT_APPROVED',
+                'device.adjust',
+                1,
+            );
+        }
+        if (capabilities.length !== 1) {
+            const exact = capabilities.filter(item => matched(capabilityName(item, language)) === 100);
+            if (exact.length === 1) {
+                capabilities.splice(0, capabilities.length, exact[0]);
+            }
+        }
+        if (capabilities.length !== 1) {
+            const options = capabilities.map(item => ({ id: item.stateId, label: capabilityName(item, language) }));
+            const question = responseText(language, 'capabilityChoices', {
+                options: options.map(item => item.label).join(', '),
+            });
+            const pending = this.sessions.create({
+                key: 'relativeCapability',
+                clientKey,
+                sessionId: request.sessionId,
+                request,
+                language,
+                action: 'setValue',
+                intent: 'device.adjust',
+                confidence: 1,
+                deviceIds: [device.id],
+                selectedDeviceId: device.id,
+                stateIds: options.map(item => item.id),
+                options,
+                question,
+            });
+            return {
+                requestId: request.requestId,
+                status: 'clarification',
+                language,
+                intent: 'device.adjust',
+                confidence: 1,
+                response: question,
+                clarification: { id: pending.id, key: 'relativeCapability', options },
+                modelVersion,
+            };
+        }
+        const capability = capabilities[0];
+        const rgbColor = capability.role === 'level.color.rgb' || capability.role === 'level.color.rgbw';
+        const property = rgbColor
+            ? relative.property!
+            : (relativePropertyForCapability(capability, relative.property) ?? 'genericLevel');
+        const discreteFan = property === 'fanSpeed' && (capability.enumValues?.length ?? 0) > 1;
+        if (!rgbColor && !discreteFan && (capability.min === undefined || capability.max === undefined)) {
+            return this.reject(request, language, 'MISSING_RANGE', 'device.adjust', 1);
+        }
+        const unit = discreteFan
+            ? 'enum'
+            : rgbColor
+              ? '%'
+              : property === 'colorTemperature'
+                ? 'K'
+                : (capability.unit ?? '');
+        if (property !== 'genericLevel' && !defaultProfiles[property][unit]) {
+            return this.reject(request, language, 'CAPABILITY_UNSUPPORTED', 'device.adjust', 1);
+        }
+        if (
+            capability.step !== undefined &&
+            (!Number.isFinite(capability.step) ||
+                capability.step <= 0 ||
+                (unit === '°C' ? capability.step % 0.5 !== 0 : !discreteFan && !Number.isInteger(capability.step)))
+        ) {
+            return this.reject(request, language, 'CAPABILITY_UNSUPPORTED', 'device.adjust', 1);
+        }
+        const basePlan: PlannedAction = {
+            deviceId: device.id,
+            action: 'setValue',
+            capability,
+            operation: 'write',
+            stateId: capability.stateId,
+        };
+        const run = async (): Promise<CommandResult> => {
+            const absoluteEndpoint = !!relative.endpoint && !rgbColor && !discreteFan;
+            const state = absoluteEndpoint ? undefined : await this.io.getState(capability.stateId);
+            if (!absoluteEndpoint) {
+                const currentState: NonNullable<CommandResult['analysis']>['currentState'] = {
+                    stateId: capability.stateId,
+                    valueType: !state ? 'missing' : state.val === null ? 'null' : typeof state.val,
+                    ...(state && (state.val === null || ['string', 'number', 'boolean'].includes(typeof state.val))
+                        ? { value: state.val as string | number | boolean | null }
+                        : {}),
+                    ...(state?.q !== undefined ? { quality: state.q } : {}),
+                };
+                details.currentState = currentState;
+                if (!state) {
+                    currentState.issue = 'missing';
+                    return this.reject(request, language, 'INVALID_CURRENT_VALUE', 'device.adjust', 1);
+                }
+                if (state.q !== undefined && state.q !== 0) {
+                    currentState.issue = 'quality';
+                    return this.reject(request, language, 'INVALID_CURRENT_VALUE', 'device.adjust', 1);
+                }
+                if (
+                    rgbColor
+                        ? typeof state.val !== 'string'
+                        : typeof state.val !== 'number' || !Number.isFinite(state.val)
+                ) {
+                    currentState.issue = 'type';
+                    return this.reject(request, language, 'INVALID_CURRENT_VALUE', 'device.adjust', 1);
+                }
+                if (
+                    !rgbColor &&
+                    !discreteFan &&
+                    ((state.val as number) < capability.min! || (state.val as number) > capability.max!)
+                ) {
+                    currentState.issue = 'range';
+                    return this.reject(request, language, 'INVALID_CURRENT_VALUE', 'device.adjust', 1);
+                }
+            }
+            const profileKey = `${property}:${unit}`;
+            const profile = {
+                ...(capability.step ? { step: capability.step } : {}),
+                ...(this.catalog.getRelativeProfiles?.()[profileKey] ?? {}),
+                ...(device.relativeProfiles?.[capability.stateId]?.[profileKey] ?? {}),
+            };
+            if (profile.enabled === false) {
+                return this.reject(request, language, 'CAPABILITY_UNSUPPORTED', 'device.adjust', 1);
+            }
+            if (
+                absoluteEndpoint &&
+                (!Number.isFinite(capability.min) ||
+                    !Number.isFinite(capability.max) ||
+                    capability.min! >= capability.max!)
+            ) {
+                return this.reject(request, language, 'MISSING_RANGE', 'device.adjust', 1);
+            }
+            const target = absoluteEndpoint
+                ? relative.endpoint === 'min'
+                    ? capability.min!
+                    : capability.max!
+                : rgbColor
+                  ? adjustHexColor(
+                        state!.val as string,
+                        capability.role!,
+                        property as 'brightness' | 'saturation',
+                        relative,
+                        profile,
+                    )
+                  : discreteFan
+                    ? enumRelativeTarget(state!.val as number, capability.enumValues!, relative, profile)
+                    : relativeTarget(
+                          state!.val as number,
+                          capability.min!,
+                          capability.max!,
+                          property as RelativeProperty,
+                          unit,
+                          relative,
+                          profile,
+                      );
+            if (target === undefined) {
+                return this.reject(request, language, 'CAPABILITY_UNSUPPORTED', 'device.adjust', 1);
+            }
+            details.relative = {
+                operation: relative.endpoint ? 'set' : discreteFan ? 'step' : 'adjust',
+                property,
+                intensity: relative.intensity,
+                ...(state ? { previousValue: state.val as number | string } : {}),
+                targetValue: target,
+                ...(state && typeof target === 'number' && typeof state.val === 'number'
+                    ? { appliedDelta: target - state.val }
+                    : {}),
+                unit,
+                source: Object.keys(device.relativeProfiles?.[capability.stateId]?.[profileKey] ?? {}).length
+                    ? 'device'
+                    : Object.keys(this.catalog.getRelativeProfiles?.()[profileKey] ?? {}).length
+                      ? 'global'
+                      : 'builtIn',
+            };
+            const plan: PlannedAction = { ...basePlan, value: target };
+            details.plan = { action: 'setValue', operation: 'write', stateId: plan.stateId, value: target };
+            const policy = new PolicyEngine(this.catalog, this.io);
+            const decision = await policy.validate(plan);
+            details.policyDecision = decision.allowed ? 'allowed' : decision.code;
+            if (!decision.allowed) {
+                return this.reject(request, language, decision.code, 'device.adjust', 1);
+            }
+            const values = { device: device.displayName, value: String(target), unit };
+            if (state && target === state.val) {
+                return {
+                    requestId: request.requestId,
+                    status: 'success',
+                    language,
+                    intent: 'device.adjust',
+                    confidence: 1,
+                    response: responseText(language, 'relativeNoChange', values),
+                    modelVersion,
+                    actions: [{ deviceId: device.id, stateId: capability.stateId, status: 'planned', value: target }],
+                };
+            }
+            if (request.mode === 'analyze') {
+                return {
+                    requestId: request.requestId,
+                    status: 'success',
+                    language,
+                    intent: 'device.adjust',
+                    confidence: 1,
+                    response: responseText(language, 'relativePlanned', values),
+                    modelVersion,
+                    actions: [{ deviceId: device.id, stateId: capability.stateId, status: 'planned', value: target }],
+                };
+            }
+            const result = await new CommandExecutor(this.io, policy).execute(plan);
+            return {
+                requestId: request.requestId,
+                status: result.status === 'accepted' ? 'success' : 'error',
+                language,
+                intent: 'device.adjust',
+                confidence: 1,
+                modelVersion,
+                errorCode: result.message,
+                response:
+                    result.status === 'accepted'
+                        ? responseText(language, 'relativeAccepted', values)
+                        : languageMessage(language, `error.${result.message ?? ''}`, 'executionFailed'),
+                actions: [result],
+            };
+        };
+        if (request.mode === 'analyze') {
+            return run();
+        }
+        const previous = this.relativeQueues.get(capability.stateId) ?? Promise.resolve();
+        let release!: () => void;
+        const barrier = new Promise<void>(resolve => {
+            release = resolve;
+        });
+        const next = previous.then(() => barrier);
+        this.relativeQueues.set(capability.stateId, next);
+        await previous;
+        try {
+            return await run();
+        } finally {
+            release();
+            if (this.relativeQueues.get(capability.stateId) === next) {
+                this.relativeQueues.delete(capability.stateId);
+            }
+        }
     }
 
     private catalogAnswer(

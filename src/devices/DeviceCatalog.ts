@@ -1,6 +1,7 @@
 import { DeviceRegistry } from './DeviceRegistry';
-import type { ActionKind, Capability, DeviceRecord } from './types';
+import type { ActionKind, Capability, DeviceRecord, DeviceStore } from './types';
 import type { DeviceRepository } from '../storage/DeviceRepository';
+import type { RelativeProfiles } from '../commands/RelativeValue';
 export class DeviceCatalog {
     private queue: Promise<void> = Promise.resolve();
     private constructor(
@@ -12,6 +13,25 @@ export class DeviceCatalog {
     }
     public list(): DeviceRecord[] {
         return this.registry.list();
+    }
+    public getRelativeProfiles(): RelativeProfiles {
+        return this.registry.getRelativeProfiles();
+    }
+    public getCustomColors(): NonNullable<DeviceStore['customColors']> {
+        return this.registry.getCustomColors();
+    }
+    public async setRelativeProfiles(profiles: RelativeProfiles): Promise<void> {
+        await this.update(registry => registry.setRelativeProfiles(profiles));
+    }
+    public async setCustomColors(colors: DeviceStore['customColors']): Promise<void> {
+        await this.update(registry => registry.setCustomColors(colors));
+    }
+    public async setDeviceRelativeProfiles(
+        deviceId: string,
+        stateId: string,
+        profiles: RelativeProfiles,
+    ): Promise<void> {
+        await this.update(registry => registry.setDeviceRelativeProfiles(deviceId, stateId, profiles));
     }
 
     public isAllowed(deviceId: string, capability: Capability, action: ActionKind): boolean {

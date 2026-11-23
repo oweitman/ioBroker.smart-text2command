@@ -1,4 +1,5 @@
 import type { Language } from '../types/api';
+import type { RelativeProfiles } from '../commands/RelativeValue';
 
 export type CapabilityKind = 'onOff' | 'genericValue' | 'button';
 export type ActionKind = 'turnOn' | 'turnOff' | 'setValue' | 'press' | 'getState' | 'getValue';
@@ -15,6 +16,7 @@ export interface Capability {
     valueKind: ValueKind;
     min?: number;
     max?: number;
+    step?: number;
     unit?: string;
     enumValues?: Array<string | number>;
     mapping?: {
@@ -35,6 +37,7 @@ export interface DeviceRecord {
     functionIds: string[];
     enumNames?: Record<string, string | Record<string, string>>;
     aliases: Partial<Record<Language, string[]>>;
+    relativeProfiles?: Record<string, RelativeProfiles>;
     discoveredCapabilities: Capability[];
     approvedCapabilities: Record<string, string>; // action:state ID -> approved fingerprint
     enabled: boolean;
@@ -53,6 +56,7 @@ export interface ObjectSnapshot {
         write?: boolean;
         min?: number;
         max?: number;
+        step?: number;
         unit?: string;
         states?: Record<string, string> | string;
         members?: string[];
@@ -70,4 +74,6 @@ export interface ObjectSnapshot {
 export interface DeviceStore {
     schemaVersion: 1;
     devices: DeviceRecord[];
+    relativeProfiles?: RelativeProfiles;
+    customColors?: Array<{ language: Language; name: string; hex: string }>;
 }

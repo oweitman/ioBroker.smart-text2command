@@ -1,5 +1,7 @@
 import type { Language } from '../types/api';
 import type { ActionKind, Capability, DeviceRecord } from './types';
+import type { RelativeProfiles } from '../commands/RelativeValue';
+import type { CustomColor } from '../commands/NamedColors';
 import { inferValueDomain, matchesValueDomain } from './ValueDomain';
 import type { ValueDomain } from './ValueDomain';
 import { capabilityName, capabilityNameMatches } from './CapabilityName';
@@ -9,6 +11,8 @@ import { similarNameDistance } from './NameSimilarity';
 export interface DeviceCatalogView {
     list(): DeviceRecord[];
     isAllowed(deviceId: string, capability: Capability, action: ActionKind): boolean;
+    getRelativeProfiles?(): RelativeProfiles;
+    getCustomColors?(): CustomColor[];
 }
 
 export interface Candidate {
@@ -28,6 +32,7 @@ export interface ResolutionDiagnostics {
         deviceId: string;
         deviceName: string;
         nameMatched: boolean;
+        fuzzyNameMatched?: boolean;
         roomMatched?: boolean;
     }>;
     functions: Array<{
@@ -131,13 +136,17 @@ export class DeviceResolver {
     ): ResolutionDiagnostics {
         const normalized = normalize(text);
         const rooms = new Set(forcedRoomId ? [forcedRoomId] : this.roomMatches(text, language).map(room => room.id));
-        const nameMatched = (device: DeviceRecord): boolean =>
-            [device.displayName, ...(device.aliases[language] ?? [])].some(name => matchScore(normalized, name) > 0);
+        const nameScore = (device: DeviceRecord): number =>
+            Math.max(
+                0,
+                ...[device.displayName, ...(device.aliases[language] ?? [])].map(name => matchScore(normalized, name)),
+            );
+        const nameMatched = (device: DeviceRecord): boolean => nameScore(device) >= 100;
         const inRoom = (device: DeviceRecord): boolean => device.roomIds.some(id => rooms.has(id));
         const devices = this.registry
             .list()
             .filter(device => device.status !== 'missing')
-            .filter(device => !rooms.size || inRoom(device) || nameMatched(device))
+            .filter(device => !rooms.size || inRoom(device) || nameScore(device) > 0)
             .sort((a, b) => {
                 const relevance = (device: DeviceRecord): number =>
                     Number(inRoom(device)) * 2 + Number(nameMatched(device));
@@ -153,6 +162,7 @@ export class DeviceResolver {
                 deviceId: device.id,
                 deviceName: device.displayName,
                 nameMatched: nameMatched(device),
+                ...(nameScore(device) > 0 && !nameMatched(device) ? { fuzzyNameMatched: true } : {}),
                 roomMatched,
             });
             for (const functionId of device.functionIds) {

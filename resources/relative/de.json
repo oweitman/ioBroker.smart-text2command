@@ -1,0 +1,74 @@
+{
+  "negation": "\\b(nicht|kein)\\b",
+  "directions": {
+    "increase": "\\b(heller|lauter|starker|schneller|hoher|feuchter|satter|kraftiger|intensiver|knalliger|greller)\\b",
+    "decrease": "\\b(dunkler|leiser|schwacher|langsamer|niedriger|trockener|blasser|sanfter|pastelliger|weniger gesattigt)\\b",
+    "warmer": "\\b(warmer)\\b",
+    "cooler": "\\b(kalter|kuhler)\\b",
+    "up": "\\b(hoch|hinauf|offner|weiter auf|flacher)\\b",
+    "down": "\\b(runter|herunter|weiter zu|steiler)\\b"
+  },
+  "intensities": {
+    "tiny": "\\b(minimal|ganz wenig|klein wenig)\\b",
+    "small": "\\b(etwas|ein wenig|bisschen)\\b",
+    "large": "\\b(deutlich|wesentlich|sehr viel|viel)\\b",
+    "max": "\\b(maximal|maximum|so weit wie moglich)\\b"
+  },
+  "properties": {
+    "brightness": "\\b(heller|dunkler)\\b",
+    "volume": "\\b(lauter|leiser)\\b",
+    "saturation": "\\b(satter|kraftiger|intensiver|knalliger|greller|blasser|sanfter|pastelliger|weniger gesattigt)\\b",
+    "tilt": "\\b(steiler|flacher)\\b",
+    "humidity": "\\b(feuchter|trockener)\\b",
+    "position": "\\b(hoch|hinauf|runter|herunter|offner|weiter auf|weiter zu)\\b",
+    "fanSpeed": "\\b(starker|schwacher|schneller|langsamer|stufe)\\b"
+  },
+  "amount": "\\b(?:um)\\s+(\\d+(?:[.,]\\d+)?)\\s*(°\\s*[cf]|grad|prozent|%|kelvin|k|stufen?)(?!\\p{L})",
+  "colorSet": "\\b(?:auf)\\s+(.+)$",
+  "colorVerb": "\\b(?:stelle|stell|setze|setz|mach)\\b",
+  "mediaNext": "\\b(?:weiter|nachster\\s+(?:titel|sender|track)|vor)\\b",
+  "mediaPrevious": "\\b(?:zuruck|vorheriger\\s+(?:titel|sender|track))\\b",
+  "unitAliases": {
+    "°C": ["°c", "grad"],
+    "°F": ["°f"],
+    "K": ["k", "kelvin"],
+    "%": ["%", "prozent"],
+    "enum": ["stufe", "stufen"]
+  },
+  "endpoints": [
+    {
+      "pattern": "\\bauf\\s+(?:das\\s+)?maximum\\b",
+      "direction": "increase",
+      "value": "max"
+    },
+    {
+      "pattern": "\\bauf\\s+(?:das\\s+)?minimum\\b",
+      "direction": "decrease",
+      "value": "min"
+    },
+    {
+      "pattern": "\\b(?:auf\\s+maximale\\s+helligkeit|volle\\s+helligkeit)\\b",
+      "property": "brightness",
+      "direction": "increase",
+      "value": "max"
+    },
+    {
+      "pattern": "\\b(?:auf\\s+minimale\\s+helligkeit)\\b",
+      "property": "brightness",
+      "direction": "decrease",
+      "value": "min"
+    },
+    {
+      "pattern": "\\b(?:ganz\\s+offnen|vollstandig\\s+offnen|offne\\s+.+\\s+ganz)\\b",
+      "property": "position",
+      "direction": "up",
+      "value": "min"
+    },
+    {
+      "pattern": "\\b(?:ganz\\s+schliessen|vollstandig\\s+schliessen|schliesse\\s+.+\\s+ganz)\\b",
+      "property": "position",
+      "direction": "down",
+      "value": "max"
+    }
+  ]
+}

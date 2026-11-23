@@ -1,0 +1,1306 @@
+{
+  "0_userdata.0": {
+    "_id": "0_userdata.0",
+    "type": "meta",
+    "common": {
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGhlaWdodD0iMjRweCIgdmlld0JveD0iMCAwIDI0IDI0IiB3aWR0aD0iMjRweCI+DQogICAgPGcgZmlsbD0iY3VycmVudENvbG9yIj4NCiAgICAgICAgPHBhdGggZD0iTTE5LDV2MTRINVY1SDE5IE0xOSwzSDVDMy45LDMsMywzLjksMyw1djE0YzAsMS4xLDAuOSwyLDIsMmgxNGMxLjEsMCwyLTAuOSwyLTJWNUMyMSwzLjksMjAuMSwzLDE5LDNMMTksM3oiLz4NCiAgICAgICAgPHBhdGggZD0iTTE0LDE3SDd2LTJoN1YxN3ogTTE3LDEzSDd2LTJoMTBWMTN6IE0xNyw5SDdWN2gxMFY5eiIvPg0KICAgIDwvZz4NCjwvc3ZnPg==",
+      "name": {
+        "en": "User objects and files root folder",
+        "de": "Stammordner für Benutzerobjekte und Dateien",
+        "ru": "Корневая папка пользовательских объектов и файлов",
+        "pt": "Pasta raiz de objetos e arquivos do usuário",
+        "nl": "Hoofdmap van objecten en bestanden van gebruikers",
+        "fr": "Objets utilisateur et dossier racine des fichiers",
+        "it": "Cartella principale di oggetti e file dell'utente",
+        "es": "Carpeta raíz de objetos y archivos de usuario",
+        "pl": "Folder główny obiektów i plików użytkownika",
+        "uk": "Коренева папка об'єктів користувача та файлів",
+        "zh-cn": "用户对象和文件根文件夹"
+      },
+      "desc": {
+        "en": "Here you can upload your files or create your private objects and states",
+        "de": "Hier können eigene Dateien hochgeladen oder private Objekte und Zustände erstellt werden",
+        "ru": "Здесь вы можете загрузить свои файлы или создать свои личные объекты и состояния",
+        "pt": "Aqui você pode enviar seus arquivos ou criar seus objetos e estados particulares",
+        "nl": "Hier kunt u uw bestanden uploaden of uw privé-objecten en statussen maken",
+        "fr": "Ici, vous pouvez télécharger vos fichiers ou créer vos objets et états privés",
+        "it": "Qui puoi caricare i tuoi file o creare oggetti e stati privati",
+        "es": "Aquí puede cargar sus archivos o crear sus objetos y estados privados",
+        "pl": "Tutaj możesz przesyłać pliki lub tworzyć prywatne obiekty i stany",
+        "uk": "Тут ви можете завантажити свої файли або створити свої приватні об'єкти та стани",
+        "zh-cn": "在这里您可以上传文件或创建私有对象和状态"
+      },
+      "type": "meta.user",
+      "dontDelete": true
+    },
+    "acl": {
+      "owner": "system.user.admin",
+      "ownerGroup": "system.group.administrator",
+      "object": 1604
+    },
+    "from": "system.host.dev-smart-text2command-vaarai.cli",
+    "ts": 1794302975519
+  },
+  "0_userdata.0.test_heizung_wohnzimmer": {
+    "common": {
+      "name": "Heizung",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.heizung",
+          "common": {
+            "name": "Heizung",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.wohnzimmer",
+          "common": {
+            "name": "Wohnzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_heizung_wohnzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794329233781
+  },
+  "0_userdata.0.test_heizung_wohnzimmer.IST": {
+    "common": {
+      "name": "IST",
+      "desc": "Manually created",
+      "role": "level.temperature",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 35,
+      "unit": "°C"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_heizung_wohnzimmer.IST",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794330064643,
+    "val": 20,
+    "ack": false
+  },
+  "0_userdata.0.test_klima_schlafzimmer": {
+    "common": {
+      "name": "Klima",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.klima",
+          "common": {
+            "name": "Klima",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.schlafzimmer",
+          "common": {
+            "name": "Schlafzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_klima_schlafzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794446905023
+  },
+  "0_userdata.0.test_klima_schlafzimmer.boost": {
+    "common": {
+      "name": "boost",
+      "desc": "Manually created",
+      "role": "button",
+      "type": "boolean",
+      "read": false,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_klima_schlafzimmer.boost",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794446962060,
+    "val": true,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe1_relais_lampenzimmer": {
+    "common": {
+      "name": "lampe1",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe1_relais_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386773409
+  },
+  "0_userdata.0.test_lampe1_relais_lampenzimmer.Power": {
+    "common": {
+      "name": "Power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe1_relais_lampenzimmer.Power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795385096540,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe2_dimmer_lampenzimmer": {
+    "common": {
+      "name": "lampe2 ",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe2_dimmer_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386782033
+  },
+  "0_userdata.0.test_lampe2_dimmer_lampenzimmer.Power": {
+    "common": {
+      "name": "Power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe2_dimmer_lampenzimmer.Power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795385107091,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe2_dimmer_lampenzimmer.dimmer": {
+    "common": {
+      "name": "dimmer",
+      "desc": "Manually created",
+      "role": "level",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe2_dimmer_lampenzimmer.dimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389775449,
+    "val": 0,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe3_weissdimm_lampenzimmer": {
+    "common": {
+      "name": "lampe3 ",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe3_weissdimm_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386791481
+  },
+  "0_userdata.0.test_lampe3_weissdimm_lampenzimmer.Power": {
+    "common": {
+      "name": "Power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe3_weissdimm_lampenzimmer.Power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795385115514,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe3_weissdimm_lampenzimmer.dimmer": {
+    "common": {
+      "name": "dimmer",
+      "desc": "Manually created",
+      "role": "level",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe3_weissdimm_lampenzimmer.dimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389766344,
+    "val": 0,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer": {
+    "common": {
+      "name": "lampe4",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386800025
+  },
+  "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.Power": {
+    "common": {
+      "name": "Power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.Power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795385125092,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.dimmer": {
+    "common": {
+      "name": "dimmer",
+      "desc": "Manually created",
+      "role": "level",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.dimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795391327777,
+    "val": 0,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.temperature": {
+    "common": {
+      "name": "temperature",
+      "desc": "Manually created",
+      "role": "level.color.temperature",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 2200,
+      "max": 6500,
+      "unit": "K"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe4_tunableweissdimm_lampenzimmer.temperature",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389756457,
+    "val": 2200,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe5_rgb_lampenzimmer": {
+    "common": {
+      "name": "lampe5 ",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe5_rgb_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386809521
+  },
+  "0_userdata.0.test_lampe5_rgb_lampenzimmer.Power": {
+    "common": {
+      "name": "Power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe5_rgb_lampenzimmer.Power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795385138122,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe5_rgb_lampenzimmer.color": {
+    "common": {
+      "name": "color",
+      "desc": "Manually created",
+      "role": "level.color.rgb",
+      "type": "string",
+      "read": true,
+      "write": true,
+      "def": 0
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe5_rgb_lampenzimmer.color",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386421889,
+    "val": "#ffffff",
+    "ack": false
+  },
+  "0_userdata.0.test_lampe5_rgb_lampenzimmer.dimmer": {
+    "common": {
+      "name": "dimmer",
+      "desc": "Manually created",
+      "role": "level",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe5_rgb_lampenzimmer.dimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389740473,
+    "val": 0,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe5_rgb_lampenzimmer.temperature": {
+    "common": {
+      "name": "temperature",
+      "desc": "Manually created",
+      "role": "level.color.temperature",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 2200,
+      "max": 6500,
+      "unit": "K"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe5_rgb_lampenzimmer.temperature",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389745056,
+    "val": 5000,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe6_rgbw_lampenzimmer": {
+    "common": {
+      "name": "lampe6 ",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.lampenzimmer",
+          "common": {
+            "name": "Lampenzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe6_rgbw_lampenzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386817617
+  },
+  "0_userdata.0.test_lampe6_rgbw_lampenzimmer.color": {
+    "common": {
+      "name": "color",
+      "desc": "Manually created",
+      "role": "level.color.rgbw",
+      "type": "string",
+      "read": true,
+      "write": true,
+      "def": ""
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe6_rgbw_lampenzimmer.color",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389721912,
+    "val": "#ffffffff",
+    "ack": false
+  },
+  "0_userdata.0.test_lampe6_rgbw_lampenzimmer.power": {
+    "common": {
+      "name": "power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe6_rgbw_lampenzimmer.power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795386533529,
+    "val": false,
+    "ack": true
+  },
+  "0_userdata.0.test_lampe_kitchen": {
+    "common": {
+      "name": "Lampe",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.küche",
+          "common": {
+            "name": "Küche",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "device",
+    "_id": "0_userdata.0.test_lampe_kitchen",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794450131316
+  },
+  "0_userdata.0.test_lampe_kitchen.power": {
+    "common": {
+      "name": "power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe_kitchen.power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794450167444,
+    "val": true,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe_schlafzimmer": {
+    "common": {
+      "name": "Lampe",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.schlafzimmer",
+          "common": {
+            "name": "Schlafzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe_schlafzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794306008381
+  },
+  "0_userdata.0.test_lampe_schlafzimmer.POWER": {
+    "common": {
+      "name": "POWER",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe_schlafzimmer.POWER",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794306085560,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe_wohnzimmer": {
+    "common": {
+      "name": "Lampe",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.wohnzimmer",
+          "common": {
+            "name": "Wohnzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_lampe_wohnzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794303825398
+  },
+  "0_userdata.0.test_lampe_wohnzimmer.HELLIGKEIT": {
+    "common": {
+      "name": "HELLIGKEIT",
+      "desc": "Manually created",
+      "role": "level.brightness",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe_wohnzimmer.HELLIGKEIT",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794305952735,
+    "val": 80,
+    "ack": false
+  },
+  "0_userdata.0.test_lampe_wohnzimmer.POWER": {
+    "common": {
+      "name": "POWER",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_lampe_wohnzimmer.POWER",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794304062876,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_musik_wohnzimmer": {
+    "common": {
+      "name": "Musik",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.musik",
+          "common": {
+            "name": "Musik",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.wohnzimmer",
+          "common": {
+            "name": "Wohnzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_musik_wohnzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794568501920
+  },
+  "0_userdata.0.test_musik_wohnzimmer.Favorit": {
+    "common": {
+      "name": "Favorit",
+      "desc": "Manually created",
+      "role": "value",
+      "type": "string",
+      "read": true,
+      "write": true,
+      "def": ""
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_musik_wohnzimmer.Favorit",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794569560732,
+    "val": "jackson palace",
+    "ack": false
+  },
+  "0_userdata.0.test_musik_wohnzimmer.FavoritState": {
+    "common": {
+      "name": "FavoritState",
+      "desc": "Manually created",
+      "role": "state",
+      "type": "string",
+      "read": true,
+      "write": true,
+      "def": ""
+    },
+    "type": "state",
+    "native": {},
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794573182903,
+    "_id": "0_userdata.0.test_musik_wohnzimmer.FavoritState",
+    "val": "0",
+    "ack": false
+  },
+  "0_userdata.0.test_musik_wohnzimmer.musik": {
+    "common": {
+      "name": "Musik",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_musik_wohnzimmer.musik",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794568434833,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_musik_wohnzimmer.playstate": {
+    "common": {
+      "name": "playstate",
+      "desc": "Manually created",
+      "role": "state",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0
+    },
+    "type": "state",
+    "native": {},
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794568617787,
+    "_id": "0_userdata.0.test_musik_wohnzimmer.playstate",
+    "val": 2,
+    "ack": false
+  },
+  "0_userdata.0.test_rolladen_wohnzimmer": {
+    "common": {
+      "name": "Rolladen",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.rolladen",
+          "common": {
+            "name": "Rolladen",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.wohnzimmer",
+          "common": {
+            "name": "Wohnzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_rolladen_wohnzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794444019105
+  },
+  "0_userdata.0.test_rolladen_wohnzimmer.lamellen": {
+    "common": {
+      "name": "Lamellen",
+      "desc": "Manually created",
+      "role": "level.tilt",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_rolladen_wohnzimmer.lamellen",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794520073132,
+    "val": 30,
+    "ack": false
+  },
+  "0_userdata.0.test_rolladen_wohnzimmer.position": {
+    "common": {
+      "name": "Position",
+      "desc": "Manually created",
+      "role": "level.blind",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_rolladen_wohnzimmer.position",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389683729,
+    "val": 10,
+    "ack": false
+  },
+  "0_userdata.0.test_sensor_schlafzimmer": {
+    "common": {
+      "name": "Temperatursensor",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.heizung",
+          "common": {
+            "name": "Heizung",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.schlafzimmer",
+          "common": {
+            "name": "Schlafzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_sensor_schlafzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794306155276
+  },
+  "0_userdata.0.test_sensor_schlafzimmer.IST": {
+    "common": {
+      "name": "IST",
+      "desc": "Manually created",
+      "role": "value.temperature",
+      "type": "number",
+      "read": true,
+      "write": false,
+      "def": 0,
+      "unit": "°C"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_sensor_schlafzimmer.IST",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794306408921,
+    "val": 19,
+    "ack": false
+  },
+  "0_userdata.0.test_stehlampe_wohnzimmer": {
+    "common": {
+      "name": "Stehlampe",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.licht",
+          "common": {
+            "name": "Licht",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.wohnzimmer",
+          "common": {
+            "name": "Wohnzimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "_id": "0_userdata.0.test_stehlampe_wohnzimmer",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794535655558
+  },
+  "0_userdata.0.test_stehlampe_wohnzimmer.POWER": {
+    "common": {
+      "name": "POWER",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": false
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_stehlampe_wohnzimmer.POWER",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1794535685606,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_thermostat_thermozimmer": {
+    "common": {
+      "name": "test_thermostat_thermozimmer",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.heizung",
+          "common": {
+            "name": "Heizung",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.thermozimmer",
+          "common": {
+            "name": "Thermozimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795387044187,
+    "_id": "0_userdata.0.test_thermostat_thermozimmer"
+  },
+  "0_userdata.0.test_thermostat_thermozimmer.ist": {
+    "common": {
+      "name": "ist",
+      "desc": "Manually created",
+      "role": "level.temperature",
+      "type": "number",
+      "read": true,
+      "write": false,
+      "def": 0,
+      "min": 17,
+      "max": 26,
+      "unit": "°C"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_thermostat_thermozimmer.ist",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795387184429,
+    "val": 20,
+    "ack": false
+  },
+  "0_userdata.0.test_thermostat_thermozimmer.soll": {
+    "common": {
+      "name": "soll",
+      "desc": "Manually created",
+      "role": "value.temperature",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 17,
+      "max": 26,
+      "unit": "°C"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_thermostat_thermozimmer.soll",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795389620498,
+    "val": 21,
+    "ack": false
+  },
+  "0_userdata.0.test_thermostat_thermozimmer.windowopen": {
+    "common": {
+      "name": "windowopen",
+      "desc": "Manually created",
+      "role": "sensor.window",
+      "type": "boolean",
+      "read": true,
+      "write": false,
+      "def": 0
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_thermostat_thermozimmer.windowopen",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795387286185,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_ventilator_ventizimmer": {
+    "common": {
+      "name": "test_ventilator_ventizimmer",
+      "desc": "Manually created",
+      "role": "",
+      "icon": "",
+      "enums": [
+        {
+          "_id": "enum.functions.ventilator",
+          "common": {
+            "name": "Ventilator",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        },
+        {
+          "_id": "enum.rooms.ventizimmer",
+          "common": {
+            "name": "Ventizimmer",
+            "color": "",
+            "desc": ""
+          },
+          "native": {},
+          "type": "enum"
+        }
+      ]
+    },
+    "type": "channel",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795387700914,
+    "_id": "0_userdata.0.test_ventilator_ventizimmer"
+  },
+  "0_userdata.0.test_ventilator_ventizimmer.power": {
+    "common": {
+      "name": "power",
+      "desc": "Manually created",
+      "role": "switch",
+      "type": "boolean",
+      "read": true,
+      "write": true,
+      "def": 0
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_ventilator_ventizimmer.power",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795387743401,
+    "val": false,
+    "ack": false
+  },
+  "0_userdata.0.test_ventilator_ventizimmer.speed": {
+    "common": {
+      "name": "speed",
+      "desc": "Manually created",
+      "role": "level",
+      "type": "number",
+      "read": true,
+      "write": true,
+      "def": 0,
+      "min": 0,
+      "max": 100,
+      "unit": "%"
+    },
+    "type": "state",
+    "native": {},
+    "_id": "0_userdata.0.test_ventilator_ventizimmer.speed",
+    "from": "system.adapter.admin.0",
+    "user": "system.user.admin",
+    "ts": 1795391351576,
+    "val": 0,
+    "ack": true
+  }
+}

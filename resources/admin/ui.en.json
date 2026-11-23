@@ -148,6 +148,7 @@
   "ui.selected": "Selected",
   "ui.yes": "Yes",
   "ui.no": "No",
+  "ui.similar": "Similar",
   "ui.conversation": "Conversation",
   "ui.no_messages_yet": "No messages yet. Enter a command to start the conversation.",
   "ui.you": "You",

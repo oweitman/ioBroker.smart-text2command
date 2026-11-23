@@ -1,0 +1,13 @@
+{
+  "brightness:%": [2, 5, 10, 20, 35],
+  "temperature:°C": [0.5, 1, 2, 3, 4],
+  "temperature:°F": [1, 2, 4, 6, 8],
+  "colorTemperature:K": [2, 5, 10, 20, 35],
+  "volume:%": [2, 5, 10, 20, 30],
+  "saturation:%": [2, 5, 10, 20, 35],
+  "position:%": [3, 5, 10, 20, 30],
+  "tilt:%": [3, 5, 10, 20, 30],
+  "humidity:%": [1, 2, 5, 10, 15],
+  "fanSpeed:%": [2, 5, 10, 20, 30],
+  "fanSpeed:enum": [1, 1, 1, 2, 3]
+}

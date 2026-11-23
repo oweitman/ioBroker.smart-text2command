@@ -1,0 +1,1890 @@
+{
+  "#b5b8b1": {
+    "de": "Achatgrau",
+    "en": "Agate Gray"
+  },
+  "#f0f8ff": {
+    "de": "Aliceblau",
+    "en": "Alice Blue"
+  },
+  "#fdf5e6": {
+    "de": "Altgold",
+    "en": "Antique Gold"
+  },
+  "#d36e70": {
+    "de": "Altrosa",
+    "en": "Dusty Pink"
+  },
+  "#293133": {
+    "de": "Anthrazitgrau",
+    "en": "Anthracite Gray"
+  },
+  "#faebd7": {
+    "de": "Antikes Weiß",
+    "en": "Antique White"
+  },
+  "#7fffd4": {
+    "de": "Aquamarinblau",
+    "en": "Aquamarine Blue"
+  },
+  "#025669": {
+    "de": "Azurblau",
+    "en": "Azure Blue"
+  },
+  "#ebbce3": {
+    "de": "Babyrosa",
+    "en": "Baby Pink"
+  },
+  "#dae3c4": {
+    "de": "Balance",
+    "en": "Balance"
+  },
+  "#7f8da8": {
+    "de": "Basaltblau",
+    "en": "Basalt Blue"
+  },
+  "#4e5754": {
+    "de": "Basaltgrau",
+    "en": "Basalt Gray"
+  },
+  "#a45054": {
+    "de": "Beerenrot",
+    "en": "Berry Red"
+  },
+  "#c2b078": {
+    "de": "Beige",
+    "en": "Beige"
+  },
+  "#79553d": {
+    "de": "Beigebraun",
+    "en": "Beige-Brown"
+  },
+  "#dfcba4": {
+    "de": "Beigegelb",
+    "en": "Beige-Yellow"
+  },
+  "#6d6552": {
+    "de": "Beigegrau",
+    "en": "Beige-Gray"
+  },
+  "#c1876b": {
+    "de": "Beigerot",
+    "en": "Beige-Red"
+  },
+  "#686c5e": {
+    "de": "Betongrau",
+    "en": "Concrete Gray"
+  },
+  "#fce876": {
+    "de": "Bienengelb",
+    "en": "Bee Yellow"
+  },
+  "#f2af7a": {
+    "de": "Biscotti",
+    "en": "Biscotti"
+  },
+  "#755c48": {
+    "de": "Blassbraun",
+    "en": "Pale Brown"
+  },
+  "#eee8aa": {
+    "de": "Blasse Goldrutenfarbe",
+    "en": "Pale Goldenrod"
+  },
+  "#afeeee": {
+    "de": "Blasses Türkis",
+    "en": "Pale Turquoise"
+  },
+  "#db7093": {
+    "de": "Blasses Violettrot",
+    "en": "Pale Violet-Red"
+  },
+  "#89ac76": {
+    "de": "Blassgrün",
+    "en": "Pale Green"
+  },
+  "#0000ff": {
+    "de": "Blau",
+    "en": "Blue"
+  },
+  "#2f3b5d": {
+    "de": "Blaue Stunde",
+    "en": "Blue Hour"
+  },
+  "#474b4e": {
+    "de": "Blaugrau",
+    "en": "Blue-Gray"
+  },
+  "#1f3a3d": {
+    "de": "Blaugrün",
+    "en": "Blue-Green"
+  },
+  "#6c4675": {
+    "de": "Blaulila",
+    "en": "Blue-Lilac"
+  },
+  "#8a2be2": {
+    "de": "Blauviolett",
+    "en": "Blue-Violet"
+  },
+  "#fffaf0": {
+    "de": "Blütenweiß",
+    "en": "Blossom White"
+  },
+  "#cb2821": {
+    "de": "Blutorange",
+    "en": "Blood Orange"
+  },
+  "#641c34": {
+    "de": "Bordeauxviolett",
+    "en": "Bordeaux-Violet"
+  },
+  "#a52a2a": {
+    "de": "Braun",
+    "en": "Brown"
+  },
+  "#8a6642": {
+    "de": "Braunbeige",
+    "en": "Brown-Beige"
+  },
+  "#464531": {
+    "de": "Braungrau",
+    "en": "Brown-Gray"
+  },
+  "#39352a": {
+    "de": "Braungrün",
+    "en": "Brown-Green"
+  },
+  "#25221b": {
+    "de": "Braunoliv",
+    "en": "Brown-Olive"
+  },
+  "#781f19": {
+    "de": "Braunrot",
+    "en": "Brown-Red"
+  },
+  "#005a99": {
+    "de": "Bremerblau",
+    "en": "Bremen Blue"
+  },
+  "#3e5f8a": {
+    "de": "Brillantblau",
+    "en": "Brilliant Blue"
+  },
+  "#4f422c": {
+    "de": "Bronzebraun",
+    "en": "Bronze-Brown"
+  },
+  "#fff600": {
+    "de": "Cadmiumgelb",
+    "en": "Cadmium Yellow"
+  },
+  "#1b5583": {
+    "de": "Capriblau",
+    "en": "Capri Blue"
+  },
+  "#fffacd": {
+    "de": "Chiffongelb",
+    "en": "Chiffon Yellow"
+  },
+  "#afa468": {
+    "de": "Chinaseidengelb",
+    "en": "Chinese Silk Yellow"
+  },
+  "#2e3a23": {
+    "de": "Chromoxidgrün",
+    "en": "Chrome Oxide Green"
+  },
+  "#0091c6": {
+    "de": "Coelinblau",
+    "en": "Coelin Blue (Cerulean)"
+  },
+  "#f4ece0": {
+    "de": "Cremebeige",
+    "en": "Cream-Beige"
+  },
+  "#fdf4e3": {
+    "de": "Cremeweiß",
+    "en": "Cream White"
+  },
+  "#f5fffa": {
+    "de": "Cremig Pfefferminz",
+    "en": "Creamy Peppermint"
+  },
+  "#ffefd5": {
+    "de": "Cremiges Papaya",
+    "en": "Creamy Papaya"
+  },
+  "#8a6973": {
+    "de": "Cupcake",
+    "en": "Cupcake"
+  },
+  "#9d9101": {
+    "de": "Currygelb",
+    "en": "Curry Yellow"
+  },
+  "#f3a505": {
+    "de": "Dahliengelb",
+    "en": "Dahlia Yellow"
+  },
+  "#aac8dd": {
+    "de": "Delphinblau",
+    "en": "Dolphin Blue"
+  },
+  "#d8bfd8": {
+    "de": "Distel",
+    "en": "Thistle"
+  },
+  "#1e90ff": {
+    "de": "Dodger-Blau",
+    "en": "Dodger Blue"
+  },
+  "#51b7a6": {
+    "de": "Drachengrün",
+    "en": "Dragon Green"
+  },
+  "#5f7aa4": {
+    "de": "Dragonerblau",
+    "en": "Dragoon Blue"
+  },
+  "#00008b": {
+    "de": "Dunkelblau",
+    "en": "Dark Blue"
+  },
+  "#a9a9a9": {
+    "de": "Dunkelgrau",
+    "en": "Dark Gray"
+  },
+  "#006400": {
+    "de": "Dunkelgrün",
+    "en": "Dark Green"
+  },
+  "#8b0000": {
+    "de": "Dunkelrot",
+    "en": "Dark Red"
+  },
+  "#3e4345": {
+    "de": "Dunkle Eleganz",
+    "en": "Dark Elegance"
+  },
+  "#b8860b": {
+    "de": "Dunkle Goldrutenfarbe",
+    "en": "Dark Goldenrod"
+  },
+  "#e9967a": {
+    "de": "Dunkle Lachsfarbe",
+    "en": "Dark Salmon"
+  },
+  "#9932cc": {
+    "de": "Dunkle Orchideenfarbe",
+    "en": "Dark Orchid"
+  },
+  "#bdb76b": {
+    "de": "Dunkles Khaki",
+    "en": "Dark Khaki"
+  },
+  "#8b008b": {
+    "de": "Dunkles Magentarot",
+    "en": "Dark Magenta"
+  },
+  "#556b2f": {
+    "de": "Dunkles Olivgrün",
+    "en": "Dark Olive Green"
+  },
+  "#ff8c00": {
+    "de": "Dunkles Orange",
+    "en": "Dark Orange"
+  },
+  "#483d8b": {
+    "de": "Dunkles Schieferblau",
+    "en": "Dark Slate Blue"
+  },
+  "#2f4f4f": {
+    "de": "Dunkles Schiefergrau",
+    "en": "Dark Slate Gray"
+  },
+  "#8fbc8f": {
+    "de": "Dunkles Seegrün",
+    "en": "Dark Sea Green"
+  },
+  "#00ced1": {
+    "de": "Dunkles Türkis",
+    "en": "Dark Turquoise"
+  },
+  "#9400d3": {
+    "de": "Dunkles Violett",
+    "en": "Dark Violet"
+  },
+  "#008b8b": {
+    "de": "Dunkles Zyanblau",
+    "en": "Dark Cyan"
+  },
+  "#b4a8ad": {
+    "de": "Edles Mauve",
+    "en": "Elegant Mauve"
+  },
+  "#f5eed1": {
+    "de": "Ein Hauch von Gelb",
+    "en": "A Touch of Yellow"
+  },
+  "#f8ebe6": {
+    "de": "Einhornrosa",
+    "en": "Unicorn Pink"
+  },
+  "#fdfef6": {
+    "de": "Eisbärweiß",
+    "en": "Polar Bear White"
+  },
+  "#c8d6d3": {
+    "de": "Eisblau",
+    "en": "Ice Blue"
+  },
+  "#cce8e6": {
+    "de": "Eisbonbon",
+    "en": "Ice Candy"
+  },
+  "#434b4d": {
+    "de": "Eisengrau",
+    "en": "Iron Gray"
+  },
+  "#d7d4d1": {
+    "de": "Elefantengrau",
+    "en": "Elephant Gray"
+  },
+  "#e1cc4f": {
+    "de": "Elfenbein",
+    "en": "Ivory"
+  },
+  "#008080": {
+    "de": "Entenbraun",
+    "en": "Duck Brown"
+  },
+  "#0e294b": {
+    "de": "Enzianblau",
+    "en": "Gentian Blue"
+  },
+  "#d53032": {
+    "de": "Erdbeerrot",
+    "en": "Strawberry Red"
+  },
+  "#de4c8a": {
+    "de": "Erikaviolett",
+    "en": "Heather Violet"
+  },
+  "#aaae99": {
+    "de": "Eukalyptusgrün",
+    "en": "Eucalyptus Green"
+  },
+  "#3d642d": {
+    "de": "Farngrün",
+    "en": "Fern Green"
+  },
+  "#78858b": {
+    "de": "Fehgrau",
+    "en": "Squirrel Gray"
+  },
+  "#645363": {
+    "de": "Feigenviolett",
+    "en": "Fig Violet"
+  },
+  "#8f8c86": {
+    "de": "Felsgrau",
+    "en": "Rock Gray"
+  },
+  "#9da1aa": {
+    "de": "Fenstergrau",
+    "en": "Window Gray"
+  },
+  "#49678d": {
+    "de": "Fernblau",
+    "en": "Distance Blue"
+  },
+  "#ba342b": {
+    "de": "Feuerrot",
+    "en": "Fire Red"
+  },
+  "#e3edf0": {
+    "de": "Fischblau",
+    "en": "Fish Blue"
+  },
+  "#fbd3d6": {
+    "de": "Flamingorosa",
+    "en": "Flamingo Pink"
+  },
+  "#8a2a36": {
+    "de": "Flammendes Herz",
+    "en": "Flaming Heart"
+  },
+  "#343b29": {
+    "de": "Flaschengrün",
+    "en": "Bottle Green"
+  },
+  "#cab1cb": {
+    "de": "Fliederfest",
+    "en": "Lilac Festival"
+  },
+  "#e0e0e0": {
+    "de": "Friedhofsblond",
+    "en": "Cemetery Blonde"
+  },
+  "#6aba71": {
+    "de": "Froschgrün",
+    "en": "Frog Green"
+  },
+  "#00ff7f": {
+    "de": "Frühlingsgrün",
+    "en": "Spring Green"
+  },
+  "#c8cf5c": {
+    "de": "Frühlingswiese",
+    "en": "Spring Meadow"
+  },
+  "#ff00ff": {
+    "de": "Fuchsie",
+    "en": "Fuchsia"
+  },
+  "#ffb972": {
+    "de": "Fuchsorange",
+    "en": "Fox Orange"
+  },
+  "#dcdcdc": {
+    "de": "Gainsboro",
+    "en": "Gainsboro"
+  },
+  "#9dd1c7": {
+    "de": "Geckogrün",
+    "en": "Gecko Green"
+  },
+  "#f8f8ff": {
+    "de": "Geisterweiß",
+    "en": "Ghost White"
+  },
+  "#ffff00": {
+    "de": "Gelb",
+    "en": "Yellow"
+  },
+  "#d2b48c": {
+    "de": "Gelbbraun",
+    "en": "Yellow-Brown"
+  },
+  "#8f8b66": {
+    "de": "Gelbgrau",
+    "en": "Yellow-Gray"
+  },
+  "#57a639": {
+    "de": "Gelbgrün",
+    "en": "Yellow-Green"
+  },
+  "#47402e": {
+    "de": "Gelboliv",
+    "en": "Yellow-Olive"
+  },
+  "#ed760e": {
+    "de": "Gelborange",
+    "en": "Yellow-Orange"
+  },
+  "#94fb4d": {
+    "de": "Giftgrün",
+    "en": "Poison Green"
+  },
+  "#d6ae01": {
+    "de": "Ginstergelb",
+    "en": "Broom Yellow"
+  },
+  "#94b0b7": {
+    "de": "Gletscherblau",
+    "en": "Glacier Blue"
+  },
+  "#ec612b": {
+    "de": "Glutorange",
+    "en": "Glowing Orange"
+  },
+  "#ffd700": {
+    "de": "Gold",
+    "en": "Gold"
+  },
+  "#cda434": {
+    "de": "Goldgelb",
+    "en": "Golden Yellow"
+  },
+  "#daa520": {
+    "de": "Goldrute",
+    "en": "Goldenrod"
+  },
+  "#2f353b": {
+    "de": "Granitgrau",
+    "en": "Granite Gray"
+  },
+  "#474a51": {
+    "de": "Graphitgrau",
+    "en": "Graphite Gray"
+  },
+  "#1c1c1c": {
+    "de": "Graphitschwarz",
+    "en": "Graphite Black"
+  },
+  "#66a23f": {
+    "de": "Grasgrün",
+    "en": "Grass Green"
+  },
+  "#808080": {
+    "de": "Grau",
+    "en": "Gray"
+  },
+  "#8f8f8f": {
+    "de": "Graualuminium",
+    "en": "Gray Aluminum"
+  },
+  "#9e9764": {
+    "de": "Graubeige",
+    "en": "Gray-Beige"
+  },
+  "#26252d": {
+    "de": "Graublau",
+    "en": "Gray-Blue"
+  },
+  "#403a3a": {
+    "de": "Graubraun",
+    "en": "Gray-Brown"
+  },
+  "#3e3b32": {
+    "de": "Grauoliv",
+    "en": "Gray-Olive"
+  },
+  "#dad4db": {
+    "de": "Grauviolett",
+    "en": "Gray-Violet"
+  },
+  "#e7ebda": {
+    "de": "Grauweiß",
+    "en": "Gray-White"
+  },
+  "#deb887": {
+    "de": "Grobes Braun",
+    "en": "Coarse Brown"
+  },
+  "#008000": {
+    "de": "Grün",
+    "en": "Green"
+  },
+  "#bebd7f": {
+    "de": "Grünbeige",
+    "en": "Green-Beige"
+  },
+  "#1f3438": {
+    "de": "Grünblau",
+    "en": "Green-Blue"
+  },
+  "#826c34": {
+    "de": "Grünbraun",
+    "en": "Green-Brown"
+  },
+  "#679f2e": {
+    "de": "Grüne Neune",
+    "en": "Grüne Neune"
+  },
+  "#d8ee9c": {
+    "de": "Grüne Poesie",
+    "en": "Green Poetry"
+  },
+  "#adff2f": {
+    "de": "Grüngelb",
+    "en": "Green-Yellow"
+  },
+  "#4d5645": {
+    "de": "Grüngrau",
+    "en": "Green-Gray"
+  },
+  "#e6c37e": {
+    "de": "Hafergelb",
+    "en": "Oat Yellow"
+  },
+  "#e7dece": {
+    "de": "Hamsterbeige",
+    "en": "Hamster Beige"
+  },
+  "#ffb856": {
+    "de": "Happy Weekend",
+    "en": "Happy Weekend"
+  },
+  "#ffffff": {
+    "de": "Held",
+    "en": "Hero"
+  },
+  "#add8e6": {
+    "de": "Hellblau",
+    "en": "Light Blue"
+  },
+  "#ffa07a": {
+    "de": "Helle Lachsfarbe",
+    "en": "Light Salmon"
+  },
+  "#e6d690": {
+    "de": "Hellelfenbein",
+    "en": "Light Ivory"
+  },
+  "#e0ffff": {
+    "de": "Helles Cyanblau",
+    "en": "Light Cyan Blue"
+  },
+  "#fafad2": {
+    "de": "Helles Goldrutengelb",
+    "en": "Light Goldenrod Yellow"
+  },
+  "#87cefa": {
+    "de": "Helles Himmelblau",
+    "en": "Light Sky Blue"
+  },
+  "#f08080": {
+    "de": "Helles Korallenrot",
+    "en": "Light Coral Red"
+  },
+  "#778899": {
+    "de": "Helles Schiefergrau",
+    "en": "Light Slate Gray"
+  },
+  "#20b2aa": {
+    "de": "Helles Seegrün",
+    "en": "Light Sea Green"
+  },
+  "#b0c4de": {
+    "de": "Helles Stahlblau",
+    "en": "Light Steel Blue"
+  },
+  "#ffffe0": {
+    "de": "Hellgelb",
+    "en": "Light Yellow"
+  },
+  "#d3d3d3": {
+    "de": "Hellgrau",
+    "en": "Light Gray"
+  },
+  "#90ee90": {
+    "de": "Hellgrün",
+    "en": "Light Green"
+  },
+  "#ea899a": {
+    "de": "Hellrosa",
+    "en": "Light Pink"
+  },
+  "#f75e25": {
+    "de": "Hellrotorange",
+    "en": "Light Red-Orange"
+  },
+  "#c51d34": {
+    "de": "Himbeerrot",
+    "en": "Raspberry Red"
+  },
+  "#bae2eb": {
+    "de": "Himmelblau",
+    "en": "Sky Blue"
+  },
+  "#a98307": {
+    "de": "Honiggelb",
+    "en": "Honey Yellow"
+  },
+  "#f0fff0": {
+    "de": "Honigmelone",
+    "en": "Honeydew (Melon)"
+  },
+  "#d37972": {
+    "de": "Hula Hoop",
+    "en": "Hula Hoop"
+  },
+  "#4b0082": {
+    "de": "Indigo",
+    "en": "Indigo"
+  },
+  "#deb943": {
+    "de": "Indischgelb",
+    "en": "Indian Yellow"
+  },
+  "#cd5c5c": {
+    "de": "Indischrot",
+    "en": "Indian Red"
+  },
+  "#5f9ea0": {
+    "de": "Kadettblau",
+    "en": "Cadet Blue"
+  },
+  "#f67066": {
+    "de": "Käferrot",
+    "en": "Beetle Red"
+  },
+  "#3f2917": {
+    "de": "Kaffeebraun",
+    "en": "Coffee Brown"
+  },
+  "#f8ecd3": {
+    "de": "Kängurubeige",
+    "en": "Kangaroo Beige"
+  },
+  "#dc143c": {
+    "de": "Karmesinrot",
+    "en": "Crimson"
+  },
+  "#a2231d": {
+    "de": "Karminrot",
+    "en": "Carmine"
+  },
+  "#633a34": {
+    "de": "Kastanienbraun",
+    "en": "Chestnut Brown"
+  },
+  "#f0e68c": {
+    "de": "Khaki",
+    "en": "Khaki"
+  },
+  "#6a5f31": {
+    "de": "Khakigrau",
+    "en": "Khaki Gray"
+  },
+  "#2c5545": {
+    "de": "Kieferngrün",
+    "en": "Pine Green"
+  },
+  "#b8b799": {
+    "de": "Kieselgrau",
+    "en": "Pebble Gray"
+  },
+  "#c1c4c5": {
+    "de": "Kieselstrand",
+    "en": "Pebble Beach"
+  },
+  "#e43426": {
+    "de": "Knallrot",
+    "en": "Bright Red"
+  },
+  "#fbea4e": {
+    "de": "Knatschgelb",
+    "en": "Vivid Yellow"
+  },
+  "#1e213d": {
+    "de": "Kobaltblau",
+    "en": "Cobalt Blue"
+  },
+  "#1c1b1b": {
+    "de": "Kohlrabenschwarz",
+    "en": "Raven Black"
+  },
+  "#bbd9c6": {
+    "de": "Kolibrigrün",
+    "en": "Hummingbird Green"
+  },
+  "#4169e1": {
+    "de": "Königsblau",
+    "en": "Royal Blue"
+  },
+  "#ff7f50": {
+    "de": "Koralle",
+    "en": "Coral"
+  },
+  "#e87c8d": {
+    "de": "Korallenpink",
+    "en": "Coral Pink"
+  },
+  "#b32821": {
+    "de": "Korallenrot",
+    "en": "Coral Red"
+  },
+  "#7069d8": {
+    "de": "Kornblumenblau",
+    "en": "Cornflower Blue"
+  },
+  "#6f011e": {
+    "de": "Krapplack",
+    "en": "Madder Lake"
+  },
+  "#dbe3e4": {
+    "de": "Kreideblau",
+    "en": "Chalk Blue"
+  },
+  "#f1ebe4": {
+    "de": "Kreideweiß",
+    "en": "Chalk White"
+  },
+  "#f7eec1": {
+    "de": "Kükengelb",
+    "en": "Chick Yellow"
+  },
+  "#8e402a": {
+    "de": "Kupferbraun",
+    "en": "Copper Brown"
+  },
+  "#bc7b59": {
+    "de": "Kupferorange",
+    "en": "Copper Orange"
+  },
+  "#fa8072": {
+    "de": "Lachs",
+    "en": "Salmon"
+  },
+  "#e55137": {
+    "de": "Lachsorange",
+    "en": "Salmon Orange"
+  },
+  "#d95030": {
+    "de": "Lachsrot",
+    "en": "Salmon Red"
+  },
+  "#2d572c": {
+    "de": "Blattgrün",
+    "en": "Leaf Green"
+  },
+  "#e6e6fa": {
+    "de": "Lavendelfarbe",
+    "en": "Lavender"
+  },
+  "#b9b3bd": {
+    "de": "Lavendelviolett",
+    "en": "Lavender Violet"
+  },
+  "#c9cedb": {
+    "de": "Lehmblau",
+    "en": "Clay Blue"
+  },
+  "#734222": {
+    "de": "Lehmbraun",
+    "en": "Clay Brown"
+  },
+  "#faf0e6": {
+    "de": "Leinenfarbe",
+    "en": "Linen"
+  },
+  "#ebe8e0": {
+    "de": "Leinenweiß",
+    "en": "Linen White"
+  },
+  "#ff69b4": {
+    "de": ["Leuchtendes Rosa", "Pink"],
+    "en": ["Bright Pink", "Hot Pink"]
+  },
+  "#fefe01": {
+    "de": "Leuchtgelb",
+    "en": "Luminous Yellow"
+  },
+  "#00bb2d": {
+    "de": "Leuchtgrün",
+    "en": "Luminous Green"
+  },
+  "#ffa420": {
+    "de": "Leuchthellorange",
+    "en": "Bright Light Orange"
+  },
+  "#fe0000": {
+    "de": "Leuchthellrot",
+    "en": "Bright Light Red"
+  },
+  "#ff2301": {
+    "de": "Leuchtorange",
+    "en": "Bright Orange"
+  },
+  "#cfe7ef": {
+    "de": "Libellenblau",
+    "en": "Dragonfly Blue"
+  },
+  "#f7ebb3": {
+    "de": "Lichtes Gelb",
+    "en": "Pale Yellow"
+  },
+  "#e8e9e7": {
+    "de": "Lilienweiß",
+    "en": "Lily White"
+  },
+  "#94c9e4": {
+    "de": "Luftschloss",
+    "en": "Dreamy Blue (Air-Castle Blue)"
+  },
+  "#fe01fe": {
+    "de": "Magentarot",
+    "en": "Magenta"
+  },
+  "#4c2f27": {
+    "de": "Mahagonibraun",
+    "en": "Mahogany Brown"
+  },
+  "#4c9141": {
+    "de": "Maigrün",
+    "en": "May Green"
+  },
+  "#fff8dc": {
+    "de": "Mais",
+    "en": "Corn"
+  },
+  "#e4a010": {
+    "de": "Maisgelb",
+    "en": "Corn Yellow"
+  },
+  "#eddfce": {
+    "de": "Mandelbeige",
+    "en": "Almond Beige"
+  },
+  "#f6d8e0": {
+    "de": "Mandelblüte",
+    "en": "Almond Blossom"
+  },
+  "#ffebcd": {
+    "de": "Mandelweiß",
+    "en": "Almond White"
+  },
+  "#000080": {
+    "de": "Marineblau",
+    "en": "Navy Blue"
+  },
+  "#ed9d59": {
+    "de": "Marrakesch",
+    "en": "Marrakech"
+  },
+  "#696969": {
+    "de": "Mattes Grau",
+    "en": "Matte Gray"
+  },
+  "#a5a5a5": {
+    "de": "Mausgrau",
+    "en": "Mouse Gray"
+  },
+  "#f4a900": {
+    "de": "Melonengelb",
+    "en": "Melon Yellow"
+  },
+  "#497e76": {
+    "de": "Minttürkis",
+    "en": "Mint Turquoise"
+  },
+  "#20603d": {
+    "de": "Minzgrün",
+    "en": "Mint Green"
+  },
+  "#0000cc": {
+    "de": "Mittelblau",
+    "en": "Medium Blue"
+  },
+  "#fdfd02": {
+    "de": "Mittelgelb",
+    "en": "Medium Yellow"
+  },
+  "#20a040": {
+    "de": "Mittelgrün",
+    "en": "Medium Green"
+  },
+  "#ff0040": {
+    "de": "Mittelrot",
+    "en": "Medium Red"
+  },
+  "#191970": {
+    "de": "Mitternachtsblau",
+    "en": "Midnight Blue"
+  },
+  "#ba55d3": {
+    "de": "Mittlere Orchideenfarbe",
+    "en": "Medium Orchid"
+  },
+  "#66cdaa": {
+    "de": "Mittleres Aquamarinblau",
+    "en": "Medium Aquamarine"
+  },
+  "#00fa9a": {
+    "de": "Mittleres Frühlingsgrün",
+    "en": "Medium Spring Green"
+  },
+  "#7b68ee": {
+    "de": "Mittleres Schieferblau",
+    "en": "Medium Slate Blue"
+  },
+  "#3cb371": {
+    "de": "Mittleres Seegrün",
+    "en": "Medium Sea Green"
+  },
+  "#48d1cc": {
+    "de": "Mittleres Türkis",
+    "en": "Medium Turquoise"
+  },
+  "#9370db": {
+    "de": "Mittleres Violett",
+    "en": "Medium Violet"
+  },
+  "#c71585": {
+    "de": "Mittleres Violettrot",
+    "en": "Medium Violet-Red"
+  },
+  "#ebe5e0": {
+    "de": "Mondgrau",
+    "en": "Moon Gray"
+  },
+  "#6c7059": {
+    "de": "Moosgrau",
+    "en": "Moss Gray"
+  },
+  "#2f4538": {
+    "de": "Moosgrün",
+    "en": "Moss Green"
+  },
+  "#5a697c": {
+    "de": "Morgendunst Blau",
+    "en": "Morning Mist Blue"
+  },
+  "#fff5ee": {
+    "de": "Muschel",
+    "en": "Shell"
+  },
+  "#f2eadc": {
+    "de": "Muschelweiß",
+    "en": "Shell White"
+  },
+  "#232144": {
+    "de": "Nachtblau",
+    "en": "Night Blue"
+  },
+  "#53453f": {
+    "de": "Nachtbraun",
+    "en": "Night Brown"
+  },
+  "#dc9d00": {
+    "de": "Narzissengelb",
+    "en": "Narcissus Yellow"
+  },
+  "#ffdead": {
+    "de": "Navajoweiß",
+    "en": "Navajo White"
+  },
+  "#a5a2a1": {
+    "de": "Nebel im November",
+    "en": "November Mist"
+  },
+  "#cac6c3": {
+    "de": "Nebelzauber",
+    "en": "Mist Magic"
+  },
+  "#1f2299": {
+    "de": "Nilblau",
+    "en": "Nile Blue"
+  },
+  "#dcd8e3": {
+    "de": "Nilpferdlila",
+    "en": "Hippo Lilac"
+  },
+  "#627791": {
+    "de": "Nordmeer",
+    "en": "North Sea"
+  },
+  "#5b3a29": {
+    "de": "Nussbraun",
+    "en": "Nut Brown"
+  },
+  "#dba621": {
+    "de": "Ocker",
+    "en": "Ochre"
+  },
+  "#955f20": {
+    "de": "Ockerbraun",
+    "en": "Ochre Brown"
+  },
+  "#aea04b": {
+    "de": "Ockergelb",
+    "en": "Ochre Yellow"
+  },
+  "#beb9ca": {
+    "de": "Oktopuslila",
+    "en": "Octopus Lilac"
+  },
+  "#6f4f28": {
+    "de": "Olivbraun",
+    "en": "Olive Brown"
+  },
+  "#6b8e23": {
+    "de": "Olivfarbiges Graubraun",
+    "en": "Olive-toned Gray-Brown"
+  },
+  "#999950": {
+    "de": "Olivgelb",
+    "en": "Olive Yellow"
+  },
+  "#7e7b52": {
+    "de": "Olivgrau",
+    "en": "Olive Gray"
+  },
+  "#424632": {
+    "de": "Olivgrün",
+    "en": "Olive Green"
+  },
+  "#015d52": {
+    "de": "Opalgrün",
+    "en": "Opal Green"
+  },
+  "#ffa500": {
+    "de": "Orange",
+    "en": "Orange"
+  },
+  "#a65e2e": {
+    "de": "Orangebraun",
+    "en": "Orange Brown"
+  },
+  "#ff4500": {
+    "de": "Orangenrot",
+    "en": "Orange-Red"
+  },
+  "#da70d6": {
+    "de": "Orchidee",
+    "en": "Orchid"
+  },
+  "#b32428": {
+    "de": "Orientrot",
+    "en": "Oriental Red"
+  },
+  "#642424": {
+    "de": "Oxidrot",
+    "en": "Oxide Red"
+  },
+  "#1d334a": {
+    "de": "Ozeanblau",
+    "en": "Ocean Blue"
+  },
+  "#ccdea1": {
+    "de": "Papageiengrün",
+    "en": "Parrot Green"
+  },
+  "#ffc9a9": {
+    "de": "Papayaorange",
+    "en": "Papaya Orange"
+  },
+  "#d8d8d8": {
+    "de": "Papyrusweiß",
+    "en": "Papyrus White"
+  },
+  "#4040ff": {
+    "de": "Pariserblau",
+    "en": "Paris Blue"
+  },
+  "#e393b9": {
+    "de": "Party Pink",
+    "en": "Party Pink"
+  },
+  "#5d9b9b": {
+    "de": "Pastellblau",
+    "en": "Pastel Blue"
+  },
+  "#efa94a": {
+    "de": "Pastellgelb",
+    "en": "Pastel Yellow"
+  },
+  "#ff7514": {
+    "de": "Pastellorange",
+    "en": "Pastel Orange"
+  },
+  "#7fb5b5": {
+    "de": "Pastelltürkis",
+    "en": "Pastel Turquoise"
+  },
+  "#a18594": {
+    "de": "Pastellviolett",
+    "en": "Pastel Violet"
+  },
+  "#316650": {
+    "de": "Patinagrün",
+    "en": "Patina Green"
+  },
+  "#293c42": {
+    "de": "Paynesgrau",
+    "en": "Payne’s Gray"
+  },
+  "#202128": {
+    "de": "Pechschwarz",
+    "en": "Pitch Black"
+  },
+  "#6a5d4d": {
+    "de": "Perlbeige",
+    "en": "Pearl Beige"
+  },
+  "#6c6874": {
+    "de": "Perlbrombeer",
+    "en": "Pearl Blackberry"
+  },
+  "#828282": {
+    "de": "Perldunkelgrau",
+    "en": "Pearl Dark Gray"
+  },
+  "#2a6478": {
+    "de": "Perlenzian",
+    "en": "Pearl Gentian"
+  },
+  "#705335": {
+    "de": "Perlgold",
+    "en": "Pearl Gold"
+  },
+  "#1c542d": {
+    "de": "Perlgrün",
+    "en": "Pearl Green"
+  },
+  "#9c9c9c": {
+    "de": "Perlhellgrau",
+    "en": "Pearl Light Gray"
+  },
+  "#763c28": {
+    "de": "Perlkupfer",
+    "en": "Pearl Copper"
+  },
+  "#898176": {
+    "de": "Perlmausgrau",
+    "en": "Pearl Mouse Gray"
+  },
+  "#102c54": {
+    "de": "Perlnachtblau",
+    "en": "Pearl Night Blue"
+  },
+  "#193737": {
+    "de": "Perlopalgrün",
+    "en": "Pearl Opal Green"
+  },
+  "#c35831": {
+    "de": "Perlorange",
+    "en": "Pearl Orange"
+  },
+  "#b44c43": {
+    "de": "Perlrosa",
+    "en": "Pearl Pink"
+  },
+  "#721422": {
+    "de": "Perlrubinrot",
+    "en": "Pearl Ruby Red"
+  },
+  "#8673a1": {
+    "de": "Perlviolett",
+    "en": "Pearl Violet"
+  },
+  "#eae6ca": {
+    "de": "Perlweiß",
+    "en": "Pearl White"
+  },
+  "#cd853f": {
+    "de": "Peru",
+    "en": "Peru"
+  },
+  "#2e7b7f": {
+    "de": "Petrol de Luxe",
+    "en": "Petrol de Luxe"
+  },
+  "#ffdab9": {
+    "de": "Pfirsich",
+    "en": "Peach"
+  },
+  "#dda0dd": {
+    "de": "Pflaume",
+    "en": "Plum"
+  },
+  "#123524": {
+    "de": "Phthalogrün",
+    "en": "Phthalo Green"
+  },
+  "#c2c7aa": {
+    "de": "Pistaziengrün",
+    "en": "Pistachio Green"
+  },
+  "#7f7679": {
+    "de": "Platingrau",
+    "en": "Platinum Gray"
+  },
+  "#c5c2bf": {
+    "de": "Poesie der Stille",
+    "en": "Poetry of Silence"
+  },
+  "#5d6c7d": {
+    "de": "Porzellanblau",
+    "en": "Porcelain Blue"
+  },
+  "#003153": {
+    "de": "Preußischblau",
+    "en": "Prussian Blue"
+  },
+  "#75151e": {
+    "de": "Purpurrot",
+    "en": "Purple"
+  },
+  "#4a192c": {
+    "de": "Purpurviolett",
+    "en": "Purple-Violet"
+  },
+  "#6c6960": {
+    "de": "Quarzgrau",
+    "en": "Quartz Gray"
+  },
+  "#f2ea4f": {
+    "de": "Quietschgelb",
+    "en": "Screaming Yellow"
+  },
+  "#0f2e53": {
+    "de": "Rabenblau",
+    "en": "Raven Blue"
+  },
+  "#f3da0b": {
+    "de": "Rapsgelb",
+    "en": "Rapeseed Yellow"
+  },
+  "#686f84": {
+    "de": "Rauchblau",
+    "en": "Smoke Blue"
+  },
+  "#f5f5f5": {
+    "de": "Rauchiges Weiß",
+    "en": "Smoky White"
+  },
+  "#e9f6c7": {
+    "de": "Raupengrün",
+    "en": "Caterpillar Green"
+  },
+  "#59351f": {
+    "de": "Rehbraun",
+    "en": "Fawn Brown"
+  },
+  "#008f39": {
+    "de": "Reingrün",
+    "en": "Pure Green"
+  },
+  "#f44611": {
+    "de": "Reinorange",
+    "en": "Pure Orange"
+  },
+  "#cb3234": {
+    "de": "Reinrot",
+    "en": "Pure Red"
+  },
+  "#fefefe": {
+    "de": "Reinweiß",
+    "en": "Pure White"
+  },
+  "#587246": {
+    "de": "Resedagrün",
+    "en": "Reseda Green"
+  },
+  "#ac7870": {
+    "de": "Rhabarberrot",
+    "en": "Rhubarb Red"
+  },
+  "#ffc0cb": {
+    "de": "Rosa",
+    "en": "Pink"
+  },
+  "#e63244": {
+    "de": "Rosé",
+    "en": "Rosé"
+  },
+  "#fbdad6": {
+    "de": "Rosérot",
+    "en": "Rosy Red"
+  },
+  "#fff0f5": {
+    "de": "Rosige Lavenderfarbe",
+    "en": "Rosy Lavender"
+  },
+  "#bc8f8f": {
+    "de": "Rosiges Braun",
+    "en": "Rosy Brown"
+  },
+  "#6a8974": {
+    "de": "Rosmaringrün",
+    "en": "Rosemary Green"
+  },
+  "#7f3523": {
+    "de": "Rostbraun",
+    "en": "Rust Brown"
+  },
+  "#ff0000": {
+    "de": "Rot",
+    "en": "Red"
+  },
+  "#592321": {
+    "de": "Rotbraun",
+    "en": "Red-Brown"
+  },
+  "#c55954": {
+    "de": "Roter Ahorn",
+    "en": "Red Maple"
+  },
+  "#6d3f5b": {
+    "de": "Rotlila",
+    "en": "Red-lilac"
+  },
+  "#c93c20": {
+    "de": "Rotorange",
+    "en": "Red-orange"
+  },
+  "#922b3e": {
+    "de": "Rotviolett",
+    "en": "Red-violet"
+  },
+  "#9b111e": {
+    "de": "Rubinrot",
+    "en": "Ruby red"
+  },
+  "#f5d033": {
+    "de": "Safrangelb",
+    "en": "Saffron yellow"
+  },
+  "#e0ceb6": {
+    "de": "Sandbeige",
+    "en": "Sand beige"
+  },
+  "#f4a460": {
+    "de": "Sandbraun",
+    "en": "Sand brown"
+  },
+  "#c6a664": {
+    "de": "Sandgelb",
+    "en": "Sand yellow"
+  },
+  "#816e60": {
+    "de": "Sanfte Erde",
+    "en": "Soft earth"
+  },
+  "#ebddcd": {
+    "de": "Sanftes Cashmere",
+    "en": "Soft cashmere"
+  },
+  "#384361": {
+    "de": "Saphirblau",
+    "en": "Sapphire blue"
+  },
+  "#8b4513": {
+    "de": "Sattelbraun",
+    "en": "Saddle brown"
+  },
+  "#ff2400": {
+    "de": "Scharlachrot",
+    "en": "Scarlet red"
+  },
+  "#6a5acd": {
+    "de": "Schieferblau",
+    "en": "Slate blue"
+  },
+  "#434750": {
+    "de": "Schiefergrau",
+    "en": "Slate gray"
+  },
+  "#6c7156": {
+    "de": "Schilfgrün",
+    "en": "Reed green"
+  },
+  "#f2f6f7": {
+    "de": "Schneeweiß",
+    "en": "Snow white"
+  },
+  "#3d261b": {
+    "de": "Schokobraun",
+    "en": "Chocolate brown"
+  },
+  "#d2691e": {
+    "de": "Schokolade",
+    "en": "Chocolate"
+  },
+  "#000000": {
+    "de": "Schwarz",
+    "en": "Black"
+  },
+  "#18171c": {
+    "de": "Schwarzblau",
+    "en": "Black-blue"
+  },
+  "#212121": {
+    "de": "Schwarzbraun",
+    "en": "Black-brown"
+  },
+  "#23282b": {
+    "de": "Schwarzgrau",
+    "en": "Black-gray"
+  },
+  "#343e40": {
+    "de": "Schwarzgrün",
+    "en": "Black-green"
+  },
+  "#3b3c36": {
+    "de": "Schwarzoliv",
+    "en": "Black-olive"
+  },
+  "#412227": {
+    "de": "Schwarzrot",
+    "en": "Black-red"
+  },
+  "#edff21": {
+    "de": "Schwefelgelb",
+    "en": "Sulfur yellow"
+  },
+  "#f8dce5": {
+    "de": "Schweinchenrosa",
+    "en": "Piggy pink"
+  },
+  "#6092b5": {
+    "de": "Seebärblau",
+    "en": "Seal blue"
+  },
+  "#2e8b57": {
+    "de": "Seegrün",
+    "en": "Sea green"
+  },
+  "#ffe0b4": {
+    "de": "Seesternorange",
+    "en": "Starfish orange"
+  },
+  "#cac4b0": {
+    "de": "Seidengrau",
+    "en": "Silk gray"
+  },
+  "#704214": {
+    "de": "Sepia",
+    "en": "Sepia"
+  },
+  "#382c1e": {
+    "de": "Sepiabraun",
+    "en": "Sepia brown"
+  },
+  "#1e2460": {
+    "de": "Signalblau",
+    "en": "Signal blue"
+  },
+  "#6c3b2a": {
+    "de": "Signalbraun",
+    "en": "Signal brown"
+  },
+  "#e5be01": {
+    "de": "Signalgelb",
+    "en": "Signal yellow"
+  },
+  "#969992": {
+    "de": "Signalgrau",
+    "en": "Signal gray"
+  },
+  "#317f43": {
+    "de": "Signalgrün",
+    "en": "Signal green"
+  },
+  "#d84b20": {
+    "de": "Signalorange",
+    "en": "Signal orange"
+  },
+  "#a52019": {
+    "de": "Signalrot",
+    "en": "Signal red"
+  },
+  "#282828": {
+    "de": "Signalschwarz",
+    "en": "Signal black"
+  },
+  "#924e7d": {
+    "de": "Signalviolett",
+    "en": "Signal violet"
+  },
+  "#f4f4f4": {
+    "de": "Signalweiß",
+    "en": "Signal white"
+  },
+  "#c0c0c0": {
+    "de": "Silber",
+    "en": "Silver"
+  },
+  "#8a9597": {
+    "de": "Silbergrau",
+    "en": "Silver gray"
+  },
+  "#763f4f": {
+    "de": "Sinfonie",
+    "en": "Symphony"
+  },
+  "#287233": {
+    "de": "Smaragdgrün",
+    "en": "Emerald green"
+  },
+  "#fcdd61": {
+    "de": "Sommerzeit",
+    "en": "Summertime"
+  },
+  "#f39f18": {
+    "de": "Sonnengelb",
+    "en": "Sun yellow"
+  },
+  "#fde389": {
+    "de": "Sonnenstrahl",
+    "en": "Sunbeam"
+  },
+  "#9e9e9e": {
+    "de": "Stadtgeflüster",
+    "en": "City whisper"
+  },
+  "#7a8aa5": {
+    "de": "Stahlblau",
+    "en": "Steel blue"
+  },
+  "#7d7f7d": {
+    "de": "Staubgrau",
+    "en": "Dust gray"
+  },
+  "#8b8c7a": {
+    "de": "Steingrau",
+    "en": "Stone gray"
+  },
+  "#d0e3ed": {
+    "de": "Stilles Wasser",
+    "en": "Still water"
+  },
+  "#d4c5b2": {
+    "de": "Straßenköterblond",
+    "en": "Mousy blonde"
+  },
+  "#f7e780": {
+    "de": "Strohgelb",
+    "en": "Straw yellow"
+  },
+  "#fbe1c1": {
+    "de": "Süsses Heim",
+    "en": "Sweet home"
+  },
+  "#28362d": {
+    "de": "Tannengrün",
+    "en": "Fir green"
+  },
+  "#606e8c": {
+    "de": "Taubenblau",
+    "en": "Dove blue"
+  },
+  "#bda78c": {
+    "de": "Tea Time",
+    "en": "Tea time"
+  },
+  "#cf3476": {
+    "de": "Telemagenta",
+    "en": "Telemagenta"
+  },
+  "#4e3b31": {
+    "de": "Terrabraun",
+    "en": "Terra brown"
+  },
+  "#431832": {
+    "de": "Tiefer Traum",
+    "en": "Deep dream"
+  },
+  "#00bfff": {
+    "de": "Tiefes Himmelblau",
+    "en": "Deep sky blue"
+  },
+  "#ec7c26": {
+    "de": "Tieforange",
+    "en": "Deep orange"
+  },
+  "#ff1493": {
+    "de": "Tiefrosa",
+    "en": "Deep pink"
+  },
+  "#0a0a0a": {
+    "de": "Tiefschwarz",
+    "en": "Deep black"
+  },
+  "#eae1d7": {
+    "de": "Tochter der Antike",
+    "en": "Daughter of antiquity"
+  },
+  "#ffe4c4": {
+    "de": "Tomatencreme",
+    "en": "Tomato cream"
+  },
+  "#a12312": {
+    "de": "Tomatenrot",
+    "en": "Tomato red"
+  },
+  "#674e3f": {
+    "de": "Torfbraun",
+    "en": "Peat brown"
+  },
+  "#00ffff": {
+    "de": ["Türkis", "Cyan"],
+    "en": ["Turquoise", "Cyan"]
+  },
+  "#3b8587": {
+    "de": "Türkisblau",
+    "en": "Turquoise-blue"
+  },
+  "#1e5945": {
+    "de": "Türkisgrün",
+    "en": "Turquoise-green"
+  },
+  "#20214f": {
+    "de": "Ultramarinblau",
+    "en": "Ultramarine blue"
+  },
+  "#635147": {
+    "de": "Umbra",
+    "en": "Umber"
+  },
+  "#332f2c": {
+    "de": "Umbragrau",
+    "en": "Umber gray"
+  },
+  "#fbeebf": {
+    "de": "Vanillegelb",
+    "en": "Vanilla yellow"
+  },
+  "#d57453": {
+    "de": "Venezianischrot",
+    "en": "Venetian red"
+  },
+  "#1e1e1e": {
+    "de": "Verkehrs-schwarz",
+    "en": "Traffic black"
+  },
+  "#063971": {
+    "de": "Verkehrsblau",
+    "en": "Traffic blue"
+  },
+  "#fad201": {
+    "de": "Verkehrsgelb",
+    "en": "Traffic yellow"
+  },
+  "#8d948d": {
+    "de": "Verkehrsgrau A",
+    "en": "Traffic gray A"
+  },
+  "#4e5452": {
+    "de": "Verkehrsgrau B",
+    "en": "Traffic gray B"
+  },
+  "#308446": {
+    "de": "Verkehrsgrün",
+    "en": "Traffic green"
+  },
+  "#f54021": {
+    "de": "Verkehrsorange",
+    "en": "Traffic orange"
+  },
+  "#a03472": {
+    "de": "Verkehrspurpur",
+    "en": "Traffic purple"
+  },
+  "#cc0605": {
+    "de": "Verkehrsrot",
+    "en": "Traffic red"
+  },
+  "#f6f6f6": {
+    "de": "Verkehrsweiß",
+    "en": "Traffic white"
+  },
+  "#ddcebf": {
+    "de": "Vers in Pastell",
+    "en": "Verse in Pastel"
+  },
+  "#a146ff": {
+    "de": "Violett",
+    "en": "Violet"
+  },
+  "#354d73": {
+    "de": "Violettblau",
+    "en": "Violet-blue"
+  },
+  "#228b22": {
+    "de": "Waldgrün",
+    "en": "Forest green"
+  },
+  "#b6ae8b": {
+    "de": "Wanderlust",
+    "en": "Wanderlust"
+  },
+  "#256d7b": {
+    "de": "Wasserblau",
+    "en": "Water blue"
+  },
+  "#b4dabf": {
+    "de": "Wasserfall",
+    "en": "Waterfall"
+  },
+  "#dcccb5": {
+    "de": "Weicher Sand",
+    "en": "Soft sand"
+  },
+  "#5e2129": {
+    "de": "Weinrot",
+    "en": "Wine red"
+  },
+  "#fdfdfd": {
+    "de": "Weiß",
+    "en": "White"
+  },
+  "#a6a6a6": {
+    "de": "Weißaluminium",
+    "en": "White aluminum"
+  },
+  "#bdecb6": {
+    "de": "Weißgrün",
+    "en": "White-green"
+  },
+  "#3788ae": {
+    "de": "Weiter Horizont",
+    "en": "Wide horizon"
+  },
+  "#f5deb3": {
+    "de": "Weizen",
+    "en": "Wheat"
+  },
+  "#b8d6e5": {
+    "de": "Wellenblau",
+    "en": "Wave blue"
+  },
+  "#2b875c": {
+    "de": "Wildes Paradies",
+    "en": "Wild paradise"
+  },
+  "#c4c0be": {
+    "de": "Wolkengrau",
+    "en": "Cloud gray"
+  },
+  "#f6f3ec": {
+    "de": "Wolkenreise",
+    "en": "Cloud journey"
+  },
+  "#c0b4a9": {
+    "de": "Zartes Puder",
+    "en": "Soft powder"
+  },
+  "#f9ebe5": {
+    "de": "Zartorange",
+    "en": "Soft orange"
+  },
+  "#c3bcb0": {
+    "de": "Zauber der Wüste",
+    "en": "Magic of the desert"
+  },
+  "#4c514a": {
+    "de": "Zeltgrau",
+    "en": "Tent gray"
+  },
+  "#7d8471": {
+    "de": "Zementgrau",
+    "en": "Cement gray"
+  },
+  "#b22222": {
+    "de": "Ziegelfarbe",
+    "en": "Brick color"
+  },
+  "#f8f32b": {
+    "de": "Zinkgelb",
+    "en": "Zinc yellow"
+  },
+  "#fe0101": {
+    "de": "Zinnoberrot",
+    "en": "Vermilion"
+  },
+  "#c7b446": {
+    "de": "Zitronengelb",
+    "en": "Lemon yellow"
+  },
+  "#00ff00": {
+    "de": "Zitronengrün",
+    "en": "Lemon green"
+  },
+  "#0f05a0": {
+    "de": "Züriblau",
+    "en": "Zurich blue"
+  },
+  "#01fefe": {
+    "de": "Zyanblau",
+    "en": "Cyan blue"
+  },
+  "#800080": {
+    "de": "Lila",
+    "en": "Lila"
+  }
+}

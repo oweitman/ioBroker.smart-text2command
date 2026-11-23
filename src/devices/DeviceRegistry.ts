@@ -1,5 +1,8 @@
 import type { ActionKind, Capability, DeviceRecord, DeviceStore } from './types';
 import { capabilityFingerprint } from './CapabilityMapper';
+import { profiles as defaultProfiles, validateRelativeProfile } from '../commands/RelativeValue';
+import type { RelativeProfiles } from '../commands/RelativeValue';
+import { validateCustomColors } from '../commands/NamedColors';
 
 function approvalKey(action: ActionKind, stateId: string): string {
     return `${action}:${stateId}`;
@@ -30,6 +33,8 @@ function copy<T>(value: T): T {
 }
 export class DeviceRegistry {
     private devices = new Map<string, DeviceRecord>();
+    private relativeProfiles: RelativeProfiles = {};
+    private customColors: DeviceStore['customColors'] = [];
     public constructor(saved?: DeviceStore) {
         if (saved) {
             if (saved.schemaVersion !== 1 || !Array.isArray(saved.devices)) {
@@ -38,13 +43,76 @@ export class DeviceRegistry {
             for (const device of saved.devices) {
                 this.devices.set(device.id, copy(device));
             }
+            this.relativeProfiles = copy(saved.relativeProfiles ?? {});
+            this.customColors = copy(saved.customColors ?? []);
         }
     }
     public list(): DeviceRecord[] {
         return [...this.devices.values()].map(copy).sort((a, b) => a.id.localeCompare(b.id));
     }
     public snapshot(): DeviceStore {
-        return { schemaVersion: 1, devices: this.list() };
+        return {
+            schemaVersion: 1,
+            devices: this.list(),
+            relativeProfiles: copy(this.relativeProfiles),
+            customColors: copy(this.customColors),
+        };
+    }
+    public getRelativeProfiles(): RelativeProfiles {
+        return copy(this.relativeProfiles);
+    }
+    public getCustomColors(): NonNullable<DeviceStore['customColors']> {
+        return copy(this.customColors ?? []);
+    }
+    public setRelativeProfiles(profiles: RelativeProfiles): void {
+        const validated = this.validateProfiles(profiles);
+        if (Object.values(validated).some(profile => profile.inverted !== undefined)) {
+            throw new Error('Direction override is device-specific');
+        }
+        this.relativeProfiles = validated;
+    }
+    public setCustomColors(colors: DeviceStore['customColors']): void {
+        this.customColors = validateCustomColors(colors);
+    }
+    public setDeviceRelativeProfiles(deviceId: string, stateId: string, profiles: RelativeProfiles): void {
+        const device = this.requireDevice(deviceId);
+        if (
+            !device.discoveredCapabilities.some(
+                capability =>
+                    capability.stateId === stateId &&
+                    capability.kind === 'genericValue' &&
+                    capability.valueKind === 'number' &&
+                    capability.readable &&
+                    capability.writable,
+            )
+        ) {
+            throw new Error('Relative capability not supported');
+        }
+        const validated = this.validateProfiles(profiles);
+        device.relativeProfiles = { ...(device.relativeProfiles ?? {}), [stateId]: validated };
+    }
+    private validateProfiles(profiles: RelativeProfiles): RelativeProfiles {
+        if (!profiles || typeof profiles !== 'object' || Array.isArray(profiles)) {
+            throw new Error('Invalid relative profiles');
+        }
+        const result: RelativeProfiles = {};
+        for (const [key, value] of Object.entries(profiles)) {
+            const [property, unit] = key.split(':');
+            if (
+                !Object.prototype.hasOwnProperty.call(
+                    defaultProfiles[property as keyof typeof defaultProfiles] ?? {},
+                    unit,
+                )
+            ) {
+                throw new Error('Invalid relative profile key');
+            }
+            result[key] = validateRelativeProfile(value);
+            const step = result[key].step;
+            if (step !== undefined && (key.endsWith(':°C') ? step % 0.5 !== 0 : !Number.isInteger(step))) {
+                throw new Error('Invalid relative step grid');
+            }
+        }
+        return result;
     }
     public reconcile(discovered: DeviceRecord[]): void {
         const seen = new Set<string>();
@@ -66,6 +134,7 @@ export class DeviceRegistry {
             this.devices.set(fresh.id, {
                 ...fresh,
                 aliases: old.aliases,
+                relativeProfiles: old.relativeProfiles,
                 enabled: old.enabled,
                 approvedCapabilities,
                 discoveredCapabilities: capabilities,

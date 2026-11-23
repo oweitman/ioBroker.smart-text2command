@@ -103,10 +103,6 @@
     "de": "Blassgrün",
     "en": "Pale Green"
   },
-  "#00524e": {
-    "de": "Blattgrün",
-    "en": "Leaf Green"
-  },
   "#0000ff": {
     "de": "Blau",
     "en": "Blue"
@@ -226,10 +222,6 @@
   "#9d9101": {
     "de": "Currygelb",
     "en": "Curry Yellow"
-  },
-  "#007eff": {
-    "de": "Cyanblau",
-    "en": "Cyan Blue"
   },
   "#f3a505": {
     "de": "Dahliengelb",
@@ -836,7 +828,7 @@
     "en": "Salmon Red"
   },
   "#2d572c": {
-    "de": "Laubgrün",
+    "de": "Blattgrün",
     "en": "Leaf Green"
   },
   "#e6e6fa": {
@@ -887,29 +879,13 @@
     "de": "Leuchtorange",
     "en": "Bright Orange"
   },
-  "#f80000": {
-    "de": "Leuchtrot",
-    "en": "Bright Red"
-  },
   "#cfe7ef": {
     "de": "Libellenblau",
     "en": "Dragonfly Blue"
   },
-  "#3b83bd": {
-    "de": "Lichtblau",
-    "en": "Light Blue"
-  },
   "#f7ebb3": {
     "de": "Lichtes Gelb",
     "en": "Pale Yellow"
-  },
-  "#d7d7d7": {
-    "de": "Lichtgrau",
-    "en": "Light Gray"
-  },
-  "#84c3be": {
-    "de": "Lichtgrün",
-    "en": "Light Green"
   },
   "#e8e9e7": {
     "de": "Lilienweiß",
@@ -970,10 +946,6 @@
   "#f4a900": {
     "de": "Melonengelb",
     "en": "Melon Yellow"
-  },
-  "#72b9d1": {
-    "de": "Messerblau",
-    "en": "Steel Blue"
   },
   "#497e76": {
     "de": "Minttürkis",
@@ -1325,7 +1297,7 @@
   },
   "#75151e": {
     "de": "Purpurrot",
-    "en": "Crimson"
+    "en": "Purple"
   },
   "#4a192c": {
     "de": "Purpurviolett",
@@ -1342,10 +1314,6 @@
   "#0f2e53": {
     "de": "Rabenblau",
     "en": "Raven Blue"
-  },
-  "#141313": {
-    "de": "Rabenschwarz",
-    "en": "Raven Black"
   },
   "#f3da0b": {
     "de": "Rapsgelb",
@@ -1507,10 +1475,6 @@
     "de": "Schokolade",
     "en": "Chocolate"
   },
-  "#45322e": {
-    "de": "Schokoladen-braun",
-    "en": "Chocolate brown"
-  },
   "#000000": {
     "de": "Schwarz",
     "en": "Black"
@@ -1664,11 +1628,11 @@
     "en": "Mousy blonde"
   },
   "#f7e780": {
-    "de": "Strohblond",
-    "en": "Straw blonde"
+    "de": "Strohgelb",
+    "en": "Straw yellow"
   },
   "#fbe1c1": {
-    "de": "Sweet Home",
+    "de": "Süsses Heim",
     "en": "Sweet home"
   },
   "#28362d": {

@@ -3,6 +3,7 @@ import { discoverDevices } from '../src/devices/DeviceDiscovery';
 import { mapCapability } from '../src/devices/CapabilityMapper';
 import { capabilityName } from '../src/devices/CapabilityName';
 import { DeviceRegistry } from '../src/devices/DeviceRegistry';
+import { isVisibleDevice } from '../src/devices/DeviceVisibility';
 import type { ObjectSnapshot } from '../src/devices/types';
 
 const base: ObjectSnapshot[] = [
@@ -16,6 +17,72 @@ const base: ObjectSnapshot[] = [
 ];
 
 describe('device discovery and approvals', () => {
+    it('shows a fan assigned to a room and function even though its IDs contain ventilator', () => {
+        const id = '0_userdata.0.test_ventilator_ventizimmer';
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'venti' } },
+            {
+                id: `${id}.power`,
+                type: 'state',
+                common: { name: 'power', role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: `${id}.speed`,
+                type: 'state',
+                common: {
+                    name: 'speed',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            { id: 'enum.rooms.ventizimmer', type: 'enum', common: { name: 'Ventizimmer', members: [id] } },
+            { id: 'enum.functions.ventilator', type: 'enum', common: { name: 'Ventilator', members: [id] } },
+        ];
+        const [device] = discoverDevices(objects);
+        expect(device.discoveredCapabilities.map(item => item.stateId)).to.deep.equal([`${id}.power`, `${id}.speed`]);
+        expect(device.roomIds).to.deep.equal(['enum.rooms.ventizimmer']);
+        expect(device.functionIds).to.deep.equal(['enum.functions.ventilator']);
+        expect(isVisibleDevice(device)).to.equal(true);
+    });
+    it('keeps global and device relative profiles across discovery without granting writes', () => {
+        const id = 'lamp.0.room';
+        const stateId = `${id}.LEVEL`;
+        const registry = new DeviceRegistry();
+        const objects: ObjectSnapshot[] = [
+            ...base,
+            {
+                id: stateId,
+                type: 'state',
+                common: {
+                    role: 'level.brightness',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+        ];
+        registry.reconcile(discoverDevices(objects));
+        registry.setRelativeProfiles({ 'brightness:%': { small: 7 } });
+        registry.setDeviceRelativeProfiles(id, stateId, { 'brightness:%': { small: 9, inverted: true } });
+        registry.setCustomColors([{ language: 'de', name: 'Lila', hex: '#112233' }]);
+        registry.reconcile(discoverDevices(objects));
+        const reloaded = new DeviceRegistry(registry.snapshot());
+        expect(reloaded.getRelativeProfiles()['brightness:%'].small).to.equal(7);
+        expect(reloaded.list()[0].relativeProfiles?.[stateId]['brightness:%'].small).to.equal(9);
+        expect(reloaded.getCustomColors()[0].hex).to.equal('#112233');
+        expect(reloaded.list()[0].approvedCapabilities).to.deep.equal({});
+        expect(() => registry.setRelativeProfiles({ 'temperature:°C': { step: 0.3 } })).to.throw();
+        expect(() => registry.setRelativeProfiles({ 'brightness:%': { inverted: true } })).to.throw();
+        expect(() => registry.setRelativeProfiles({ 'temperature:%': { small: 3 } })).to.throw();
+    });
     it('discovers writable buttons as press only, without on/off or read actions', () => {
         const id = 'test.0.blind';
         const states: ObjectSnapshot[] = [
@@ -233,7 +300,7 @@ describe('device discovery and approvals', () => {
         );
     });
 
-    it('does not map a measured temperature, critical role or unresolved alias to a write action', () => {
+    it('does not map a measured temperature, unsupported role or unresolved alias to a write action', () => {
         const objects: ObjectSnapshot[] = [
             {
                 id: 'sensor.0.TEMP',
@@ -270,7 +337,7 @@ describe('device discovery and approvals', () => {
         ).to.equal(true);
     });
 
-    it('requires review for unknown roles and blocks critical function enums', () => {
+    it('requires review for unknown roles and leaves function-mapped switches subject to approval', () => {
         const devices = discoverDevices([
             {
                 id: 'special.0.MODE',
@@ -285,8 +352,14 @@ describe('device discovery and approvals', () => {
             { id: 'enum.functions.alarm', type: 'enum', common: { members: ['secure.0.POWER'] } },
         ]);
         expect(devices).to.have.length(2);
-        expect(devices.every(device => device.status === 'needsReview')).to.equal(true);
-        expect(devices.every(device => device.discoveredCapabilities.length === 0)).to.equal(true);
+        const unknown = devices.find(device => device.id === 'special.0.MODE');
+        const switchDevice = devices.find(device => device.id === 'secure.0.POWER');
+        expect(unknown?.status).to.equal('needsReview');
+        expect(unknown?.discoveredCapabilities).to.be.empty;
+        expect(switchDevice?.functionIds).to.deep.equal(['enum.functions.alarm']);
+        expect(switchDevice?.discoveredCapabilities[0].kind).to.equal('onOff');
+        expect(switchDevice?.enabled).to.equal(false);
+        expect(switchDevice?.approvedCapabilities).to.deep.equal({});
     });
 
     it('lists a device object without known state roles as disabled', () => {

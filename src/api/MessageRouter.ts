@@ -180,6 +180,24 @@ export class MessageRouter {
             if (command === 'getDiagnostics') {
                 return this.options.diagnostics();
             }
+            if (command === 'getRelativeSettings') {
+                return {
+                    profiles: this.options.catalog.getRelativeProfiles(),
+                    customColors: this.options.catalog.getCustomColors(),
+                };
+            }
+            if (command === 'updateRelativeSettings') {
+                if ((payload.profiles === undefined) === (payload.customColors === undefined)) {
+                    throw new Error('Update exactly one relative setting');
+                }
+                if (payload.profiles !== undefined) {
+                    await this.options.catalog.setRelativeProfiles(payload.profiles as never);
+                }
+                if (payload.customColors !== undefined) {
+                    await this.options.catalog.setCustomColors(payload.customColors as never);
+                }
+                return { status: 'updated' };
+            }
             if (command === 'rescanDevices') {
                 await this.options.rescanDevices();
                 return { status: 'updated' };
@@ -262,7 +280,8 @@ export class MessageRouter {
             payload.aliases === undefined &&
             payload.approval === undefined &&
             payload.approvals === undefined &&
-            payload.revocations === undefined
+            payload.revocations === undefined &&
+            payload.relativeProfiles === undefined
         ) {
             throw new Error('No device update');
         }
@@ -340,6 +359,10 @@ export class MessageRouter {
         }
         if (payload.aliases !== undefined) {
             await this.options.catalog.setAliases(deviceId, payload.aliases);
+        }
+        if (payload.relativeProfiles !== undefined) {
+            const stateId = this.string(payload.stateId);
+            await this.options.catalog.setDeviceRelativeProfiles(deviceId, stateId, payload.relativeProfiles as never);
         }
         if (approval) {
             const stateId = this.string(approval.stateId);

@@ -30,7 +30,18 @@ export interface CommandResult {
     actions?: ActionResult[];
     clarification?: {
         id: string;
-        key: 'action' | 'room' | 'device' | 'capability' | 'value' | 'parameter';
+        key:
+            | 'action'
+            | 'room'
+            | 'device'
+            | 'relativeDevice'
+            | 'relativeCapability'
+            | 'colorDevice'
+            | 'colorName'
+            | 'mediaDevice'
+            | 'capability'
+            | 'value'
+            | 'parameter';
         parameter?: string;
         options?: Array<{ id: string; label: string }>;
     };
@@ -45,6 +56,7 @@ export interface CommandResult {
             deviceId: string;
             deviceName: string;
             nameMatched: boolean;
+            fuzzyNameMatched?: boolean;
             roomMatched?: boolean;
         }>;
         functions?: Array<{
@@ -70,6 +82,23 @@ export interface CommandResult {
             roomMatched?: boolean;
         }>;
         policyDecision?: string;
+        relative?: {
+            operation: 'set' | 'adjust' | 'step';
+            property: string;
+            intensity: string;
+            previousValue?: number | string;
+            targetValue: number | string;
+            appliedDelta?: number;
+            unit: string;
+            source: 'builtIn' | 'global' | 'device';
+        };
+        currentState?: {
+            stateId: string;
+            value?: boolean | number | string | null;
+            valueType: string;
+            quality?: number;
+            issue?: 'missing' | 'quality' | 'type' | 'range';
+        };
         plan?: { action: ActionKind; operation: 'read' | 'write'; stateId: string; value?: boolean | number | string };
         sendTo?: {
             instance: string;
@@ -85,6 +114,6 @@ export interface CommandResult {
 
 export interface DeviceIO {
     getObject(id: string): Promise<ObjectSnapshot | undefined>;
-    getState(id: string): Promise<{ val: unknown } | undefined>;
+    getState(id: string): Promise<{ val: unknown; q?: number } | undefined>;
     setState(id: string, value: boolean | number | string): Promise<void>;
 }

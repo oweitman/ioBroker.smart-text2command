@@ -6,6 +6,7 @@ import { capabilityNameMatches } from '../devices/CapabilityName';
 import type { ValueDomain } from '../devices/ValueDomain';
 import type { ParsedText } from '../nlp/EntityParser';
 import { normalizedValue } from './ValueNormalizer';
+import { colorValue, matchEffectiveColor, normalizeColorName } from './NamedColors';
 import type { PlannedAction } from './types';
 
 export type PlanOutcome =
@@ -48,7 +49,25 @@ export function planAction(
     }
     const capability = selected[0];
     const operation = action === 'getState' || action === 'getValue' ? 'read' : 'write';
-    const value = normalizedValue(action, capability, parsed, stringValue);
+    let preparedStringValue = stringValue;
+    if (action === 'setValue' && capability.valueKind === 'string' && capability.role?.startsWith('level.color.')) {
+        if (capability.role !== 'level.color.rgb' && capability.role !== 'level.color.rgbw') {
+            return { error: 'COLOR_FORMAT_UNSUPPORTED' };
+        }
+        if (stringValue !== undefined) {
+            const color = matchEffectiveColor(stringValue, language, catalog.getCustomColors?.());
+            const hex =
+                color && normalizeColorName(stringValue) === normalizeColorName(color.name)
+                    ? color.hex
+                    : stringValue.trim();
+            preparedStringValue =
+                colorValue(hex, capability.role) ??
+                (capability.role === 'level.color.rgbw' && /^#[0-9a-f]{8}$/iu.test(hex)
+                    ? hex.toLowerCase()
+                    : undefined);
+        }
+    }
+    const value = normalizedValue(action, capability, parsed, preparedStringValue);
     if (operation === 'write' && value === undefined) {
         return stringValue !== undefined ||
             parsed.entities.some(entity => ['number', 'percent', 'temperature'].includes(entity.type))

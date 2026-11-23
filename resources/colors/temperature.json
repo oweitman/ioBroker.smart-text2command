@@ -1,0 +1,10 @@
+{
+  "de": [
+    { "name": "Warmweiß", "kelvin": 2200 },
+    { "name": "Kaltweiß", "kelvin": 6500 }
+  ],
+  "en": [
+    { "name": "Warm White", "kelvin": 2200 },
+    { "name": "Cool White", "kelvin": 6500 }
+  ]
+}

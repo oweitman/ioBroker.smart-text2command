@@ -28,6 +28,7 @@ describe('command pipeline', () => {
         sessions?: SessionStore,
         nlpConfidence = 0.95,
         userIntents: IntentDefinition[] = [],
+        stateQuality?: number,
     ): {
         registry: DeviceRegistry;
         controller: CommandController;
@@ -40,7 +41,8 @@ describe('command pipeline', () => {
         let live = states;
         const io: DeviceIO = {
             getObject: id => Promise.resolve(live.find(item => item.id === id)),
-            getState: () => Promise.resolve({ val: stateValue }),
+            getState: () =>
+                Promise.resolve({ val: stateValue, ...(stateQuality !== undefined ? { q: stateQuality } : {}) }),
             setState: (id, value) => {
                 writes.push({ id, value });
                 return Promise.resolve();
@@ -90,6 +92,732 @@ describe('command pipeline', () => {
             common: { role: 'switch', type: 'boolean', read: true, write: true },
         },
     ];
+
+    it('plans and executes an approved relative brightness change', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.dimmer', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'plug.0.dimmer.LEVEL',
+                type: 'state',
+                common: {
+                    name: 'Helligkeit',
+                    role: 'level.brightness',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', 50, undefined, 0.3);
+        registry.setEnabled('plug.0.dimmer', true);
+        registry.approve('plug.0.dimmer', 'plug.0.dimmer.LEVEL', 'setValue');
+        const analyzed = await controller.process(
+            { requestId: 'relative-1', text: 'Mach die Lampe etwas heller', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(analyzed.status).to.equal('success');
+        expect(analyzed.actions?.[0].value).to.equal(55);
+        expect(writes).to.be.empty;
+        const executed = await controller.process(
+            { requestId: 'relative-2', text: 'Mach die Lampe etwas heller', mode: 'execute' },
+            'admin.0',
+        );
+        expect(executed.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: 'plug.0.dimmer.LEVEL', value: 55 }]);
+    });
+
+    it('uses a unique generic percentage state on an arbitrarily named device and asks when two qualify', async () => {
+        const id = 'test.0.orion';
+        const alpha = `${id}.alpha`;
+        const beta = `${id}.beta`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Orion' } },
+            {
+                id: alpha,
+                type: 'state',
+                common: {
+                    name: 'Alpha',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            {
+                id: beta,
+                type: 'state',
+                common: {
+                    name: 'Beta',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', 50);
+        registry.setEnabled(id, true);
+        registry.approve(id, alpha, 'setValue');
+        const unique = await controller.process(
+            { requestId: 'unique-generic', text: 'Mach Orion etwas heller', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(unique.status).to.equal('success');
+        expect(unique.actions?.[0].stateId).to.equal(alpha);
+        registry.approve(id, beta, 'setValue');
+        const question = await controller.process(
+            { requestId: 'ambiguous-generic', text: 'Mach Orion etwas heller', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('relativeCapability');
+        expect(question.clarification?.options?.map(item => item.label)).to.deep.equal(['Alpha', 'Beta']);
+        expect(writes).to.be.empty;
+        const answer = await controller.process(
+            {
+                requestId: 'selected-generic',
+                text: 'Beta',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: beta, value: 55 }]);
+    });
+
+    it('sets a unique fan percentage state to maximum without using an unconfirmed current value', async () => {
+        const id = 'test.0.venti';
+        const speed = `${id}.speed`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'venti' } },
+            {
+                id: `${id}.power`,
+                type: 'state',
+                common: { name: 'power', role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            {
+                id: speed,
+                type: 'state',
+                common: {
+                    name: 'speed',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            { id: 'enum.rooms.ventizimmer', type: 'enum', common: { name: 'Ventizimmer', members: [id] } },
+            { id: 'enum.functions.ventilator', type: 'enum', common: { name: 'Ventilator', members: [id] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.press', 0, undefined, 0.95, [], 32);
+        registry.setEnabled(id, true);
+        registry.approve(id, speed, 'setValue');
+        const planned = await controller.process(
+            { requestId: 'venti-maximum-analyze', text: 'mach den venti im ventizimmer auf maximum', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(planned.status).to.equal('success');
+        expect(planned.actions?.[0].value).to.equal(100);
+        expect(writes).to.be.empty;
+        const result = await controller.process(
+            { requestId: 'venti-maximum', text: 'mach den venti im ventizimmer auf maximum', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: speed, value: 100 }]);
+        const relative = await controller.process(
+            { requestId: 'venti-schneller-quality', text: 'mach den venti im ventizimmer schneller', mode: 'execute' },
+            'admin.0',
+            true,
+        );
+        expect(relative.errorCode).to.equal('INVALID_CURRENT_VALUE');
+        expect(relative.analysis?.currentState?.quality).to.equal(32);
+        expect(writes).to.have.length(1);
+    });
+
+    it('asks which percentage state to set when a named device has two maximum candidates', async () => {
+        const id = 'test.0.venti';
+        const speed = `${id}.speed`;
+        const light = `${id}.light`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'venti' } },
+            {
+                id: speed,
+                type: 'state',
+                common: {
+                    name: 'Geschwindigkeit',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            {
+                id: light,
+                type: 'state',
+                common: {
+                    name: 'Helligkeit',
+                    role: 'level.brightness',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.press', 0);
+        registry.setEnabled(id, true);
+        registry.approve(id, speed, 'setValue');
+        registry.approve(id, light, 'setValue');
+        const question = await controller.process(
+            { requestId: 'venti-maximum-ambiguous', text: 'mach venti auf maximum', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('relativeCapability');
+        expect(writes).to.be.empty;
+        const answer = await controller.process(
+            {
+                requestId: 'venti-maximum-selected',
+                text: 'Geschwindigkeit',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: speed, value: 100 }]);
+    });
+
+    it('selects the named generic dimmer state over RGB and handles a current value of zero', async () => {
+        const id = '0_userdata.0.test_lampe5_rgb_lampenzimmer';
+        const dimmer = `${id}.dimmer`;
+        const color = `${id}.color`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'lampe5 ' } },
+            {
+                id: dimmer,
+                type: 'state',
+                common: {
+                    name: 'dimmer',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            {
+                id: color,
+                type: 'state',
+                common: { name: 'color', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+            {
+                id: `${id}.temperature`,
+                type: 'state',
+                common: {
+                    name: 'temperature',
+                    role: 'level.color.temperature',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 2200,
+                    max: 6500,
+                    unit: 'K',
+                },
+            },
+            { id: 'enum.rooms.lampenzimmer', type: 'enum', common: { name: 'Lampenzimmer', members: [id] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', 0);
+        registry.setEnabled(id, true);
+        registry.approve(id, dimmer, 'setValue');
+        registry.approve(id, color, 'setValue');
+        const result = await controller.process(
+            { requestId: 'lamp5-dimmer-zero', text: 'mach den dimmer der lampe5 viel heller', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: dimmer, value: 20 }]);
+        registry.revoke(id, dimmer, 'setValue');
+        const unapproved = await controller.process(
+            { requestId: 'lamp5-dimmer-unapproved', text: 'mach den dimmer der lampe5 viel heller', mode: 'execute' },
+            'admin.0',
+        );
+        expect(unapproved.errorCode).to.equal('ACTION_NOT_APPROVED');
+        expect(writes).to.have.length(1);
+    });
+
+    it('reports the selected state and value type when a relative current value is invalid', async () => {
+        const id = 'test.0.lampe5';
+        const stateId = `${id}.dimmer`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe5' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: {
+                    name: 'Regler',
+                    role: 'level',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', '0');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        const result = await controller.process(
+            { requestId: 'invalid-dimmer-state', text: 'mach lampe5 viel heller', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(result.errorCode).to.equal('INVALID_CURRENT_VALUE');
+        expect(result.analysis?.currentState).to.deep.equal({
+            stateId,
+            valueType: 'string',
+            value: '0',
+            issue: 'type',
+        });
+        expect(writes).to.be.empty;
+    });
+
+    it('does not guess between room temperature and light color temperature', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.heater', type: 'channel', common: { name: 'Heizung' } },
+            {
+                id: 'plug.0.heater.SET',
+                type: 'state',
+                common: {
+                    role: 'value.temperature',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 17,
+                    max: 26,
+                    unit: '°C',
+                },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['plug.0.heater'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOn', 21);
+        registry.setEnabled('plug.0.heater', true);
+        registry.approve('plug.0.heater', 'plug.0.heater.SET', 'setValue');
+        const result = await controller.process(
+            { requestId: 'warm-room-only', text: 'Mach es im Wohnzimmer wärmer', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('rejected');
+        expect(writes).to.be.empty;
+    });
+
+    it('plans a named RGB color without switching the lamp on', async () => {
+        const objects: ObjectSnapshot[] = [
+            { id: 'plug.0.rgb', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'plug.0.rgb.COLOR',
+                type: 'state',
+                common: {
+                    name: 'Farbe',
+                    role: 'level.color.rgb',
+                    type: 'string',
+                    read: true,
+                    write: true,
+                },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { members: ['plug.0.rgb'] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', '#ffffff', undefined, 0.3);
+        registry.setEnabled('plug.0.rgb', true);
+        registry.approve('plug.0.rgb', 'plug.0.rgb.COLOR', 'setValue');
+        const result = await controller.process(
+            { requestId: 'named-color', text: 'Stelle die Lampe auf Türkis', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(result.actions?.[0].value).to.equal('#00ffff');
+        expect(writes).to.be.empty;
+        const unnamed = await controller.process(
+            { requestId: 'unnamed-color', text: 'Stelle im Wohnzimmer auf Türkis', mode: 'execute' },
+            'admin.0',
+        );
+        expect(unnamed.status).to.equal('rejected');
+        expect(writes).to.be.empty;
+    });
+
+    it('uses a supplied catalog color on the first request for an exact device name', async () => {
+        const id = 'test.0.lampe5';
+        const stateId = `${id}.color`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'lampe5 ' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+            {
+                id: `${id}.temperature`,
+                type: 'state',
+                common: {
+                    name: 'temperature',
+                    role: 'level.color.temperature',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 2200,
+                    max: 6500,
+                    unit: 'K',
+                },
+            },
+            { id: 'test.0.lampe', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lampe.color',
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+            { id: 'test.0.lampe6', type: 'channel', common: { name: 'lampe6' } },
+            {
+                id: 'test.0.lampe6.color',
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgbw', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setTemperature', '#000000', undefined, 0.71);
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        registry.setEnabled('test.0.lampe', true);
+        registry.approve('test.0.lampe', 'test.0.lampe.color', 'setValue');
+        registry.setEnabled('test.0.lampe6', true);
+        registry.approve('test.0.lampe6', 'test.0.lampe6.color', 'setValue');
+        const result = await controller.process(
+            { requestId: 'strohgelb-first', text: 'stelle lampe5 auf strohgelb', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: stateId, value: '#f7e780' }]);
+        const lila = await controller.process(
+            { requestId: 'lila-first', text: 'stelle lampe5 auf lila', mode: 'execute' },
+            'admin.0',
+        );
+        expect(lila.status).to.equal('success');
+        expect(writes).to.deep.equal([
+            { id: stateId, value: '#f7e780' },
+            { id: stateId, value: '#800080' },
+        ]);
+    });
+
+    it('asks for an unknown color name and then applies only a known color', async () => {
+        const id = 'plug.0.rgb';
+        const stateId = `${id}.COLOR`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', '#808080');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        const question = await controller.process(
+            { requestId: 'unknown-color', text: 'Stelle die Lampe auf Quatschfarbe', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.status).to.equal('clarification');
+        expect(question.clarification?.key).to.equal('colorName');
+        expect(writes).to.be.empty;
+        const answer = await controller.process(
+            { requestId: 'known-color', text: 'Lila', mode: 'execute', clarificationId: question.clarification!.id },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: stateId, value: '#800080' }]);
+    });
+
+    it('converts a color-name answer for an RGB string state before writing', async () => {
+        const id = 'test.0.lampe5';
+        const stateId = `${id}.color`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe5' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setValue', '#000000');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        const question = await controller.process(
+            { requestId: 'rgb-value-question', text: 'Setze den Wert von Lampe5', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('value');
+        const answer = await controller.process(
+            {
+                requestId: 'rgb-value-answer',
+                text: 'Lila',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: stateId, value: '#800080' }]);
+        const secondQuestion = await controller.process(
+            { requestId: 'rgb-value-question-2', text: 'Setze den Wert von Lampe5', mode: 'execute' },
+            'admin.0',
+        );
+        const secondAnswer = await controller.process(
+            {
+                requestId: 'rgb-value-answer-2',
+                text: 'Strohgelb',
+                mode: 'execute',
+                clarificationId: secondQuestion.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(secondAnswer.status).to.equal('success');
+        expect(writes[1]).to.deep.equal({ id: stateId, value: '#f7e780' });
+        const invalidQuestion = await controller.process(
+            { requestId: 'rgb-value-question-3', text: 'Setze den Wert von Lampe5', mode: 'execute' },
+            'admin.0',
+        );
+        const invalid = await controller.process(
+            {
+                requestId: 'rgb-value-invalid',
+                text: 'blabla',
+                mode: 'execute',
+                clarificationId: invalidQuestion.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(invalid.status).to.equal('rejected');
+        expect(invalid.errorCode).to.equal('INVALID_VALUE');
+        expect(writes).to.have.length(2);
+    });
+
+    it('treats a complete color command as a new request during a color-name clarification', async () => {
+        const id = 'test.0.lampe5';
+        const stateId = `${id}.color`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'lampe5 ' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setTemperature', '#000000');
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        const question = await controller.process(
+            { requestId: 'color-unknown', text: 'stelle lampe5 auf blabla', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('colorName');
+        const result = await controller.process(
+            {
+                requestId: 'color-restart',
+                text: 'stelle lampe5 auf strohgelb',
+                mode: 'execute',
+                clarificationId: question.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(result.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: stateId, value: '#f7e780' }]);
+        const analysisQuestion = await controller.process(
+            { requestId: 'color-unknown-analyze', text: 'stelle lampe5 auf blabla', mode: 'analyze' },
+            'admin.0',
+        );
+        const analysis = await controller.process(
+            {
+                requestId: 'color-restart-analyze',
+                text: 'stelle lampe5 auf strohgelb',
+                mode: 'analyze',
+                clarificationId: analysisQuestion.clarification!.id,
+            },
+            'admin.0',
+        );
+        expect(analysis.status).to.equal('success');
+        expect(analysis.actions?.[0].value).to.equal('#f7e780');
+        expect(writes).to.have.length(1);
+    });
+
+    it('sets warm white in Kelvin and adjusts RGB saturation', async () => {
+        const id = 'plug.0.light';
+        const temperatureId = `${id}.TEMPERATURE`;
+        const colorId = `${id}.COLOR`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: temperatureId,
+                type: 'state',
+                common: {
+                    role: 'level.color.temperature',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 2200,
+                    max: 6500,
+                    unit: 'K',
+                },
+            },
+            {
+                id: colorId,
+                type: 'state',
+                common: { role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff', '#804040');
+        registry.setEnabled(id, true);
+        registry.approve(id, temperatureId, 'setValue');
+        registry.approve(id, colorId, 'setValue');
+        const white = await controller.process(
+            { requestId: 'warm-white', text: 'Stelle die Lampe auf Warmweiß', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(white.actions?.[0].value).to.equal(2200);
+        const saturated = await controller.process(
+            { requestId: 'saturate-rgb', text: 'Mach die Lampe etwas satter', mode: 'execute' },
+            'admin.0',
+        );
+        expect(saturated.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: colorId, value: '#803a3a' }]);
+    });
+
+    it('uses only approved next and previous buttons for media changes', async () => {
+        const id = 'plug.0.music';
+        const nextId = `${id}.NEXT`;
+        const previousId = `${id}.PREVIOUS`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Musik' } },
+            { id: nextId, type: 'state', common: { role: 'button.next', type: 'boolean', write: true } },
+            { id: previousId, type: 'state', common: { role: 'button.previous', type: 'boolean', write: true } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.turnOff');
+        registry.setEnabled(id, true);
+        registry.approve(id, nextId, 'press');
+        const next = await controller.process(
+            { requestId: 'media-next', text: 'Musik weiter', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(next.status).to.equal('success');
+        expect(next.actions?.[0].stateId).to.equal(nextId);
+        expect(writes).to.be.empty;
+        const previous = await controller.process(
+            { requestId: 'media-previous', text: 'Musik zurück', mode: 'execute' },
+            'admin.0',
+        );
+        expect(previous.status).not.to.equal('success');
+        expect(writes).to.be.empty;
+        registry.approve(id, previousId, 'press');
+        const approved = await controller.process(
+            { requestId: 'media-previous-approved', text: 'Musik zurück', mode: 'execute' },
+            'admin.0',
+        );
+        expect(approved.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: previousId, value: true }]);
+    });
+
+    it('rejects an approved but unsupported CIE color format explicitly', async () => {
+        const id = 'plug.0.cie';
+        const stateId = `${id}.COLOR`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { role: 'level.color.cie', type: 'string', read: true, write: true },
+            },
+        ];
+        const { registry, controller, writes } = fixture(objects);
+        registry.setEnabled(id, true);
+        registry.approve(id, stateId, 'setValue');
+        const result = await controller.process(
+            { requestId: 'cie-color', text: 'Stelle Lampe auf Lila', mode: 'execute' },
+            'admin.0',
+        );
+        expect(result.errorCode).to.equal('COLOR_FORMAT_UNSUPPORTED');
+        expect(writes).to.be.empty;
+    });
+
+    it('reports the Lampe5 room conflict and missing color approval before asking for a color', async () => {
+        const lamp5 = 'test.0.lampe5';
+        const colorId = `${lamp5}.color`;
+        const objects: ObjectSnapshot[] = [
+            { id: 'test.0.lampe', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lampe.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: lamp5, type: 'channel', common: { name: 'lampe5 ' } },
+            {
+                id: colorId,
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { name: 'Wohnzimmer', members: ['test.0.lampe'] } },
+            { id: 'enum.rooms.lampenzimmer', type: 'enum', common: { name: 'Lampenzimmer', members: [lamp5] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setTemperature', '#000000', undefined, 0.71);
+        const mismatch = await controller.process(
+            { requestId: 'lamp5-wrong-room', text: 'Stelle Lampe5 im Wohnzimmer auf Farbe blabla', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(mismatch.errorCode).to.equal('DEVICE_ROOM_MISMATCH');
+        expect(mismatch.response).to.include('Lampenzimmer');
+        expect(
+            mismatch.analysis?.entities?.some(
+                entity => entity.type === 'room' && String(entity.value).toLocaleLowerCase() === 'wohnzimmer',
+            ),
+        ).to.equal(true);
+        expect(mismatch.analysis?.devices?.find(item => item.deviceId === lamp5)).to.include({
+            nameMatched: true,
+            roomMatched: false,
+        });
+        const unapproved = await controller.process(
+            { requestId: 'lamp5-unapproved', text: 'Stelle Lampe5 im Lampenzimmer auf Farbe blabla', mode: 'analyze' },
+            'admin.0',
+        );
+        expect(unapproved.errorCode).to.equal('ACTION_NOT_APPROVED');
+        registry.setEnabled(lamp5, true);
+        registry.approve(lamp5, colorId, 'setValue');
+        const question = await controller.process(
+            { requestId: 'lamp5-approved', text: 'Stelle Lampe5 im Lampenzimmer auf Farbe blabla', mode: 'execute' },
+            'admin.0',
+        );
+        expect(question.clarification?.key).to.equal('colorName');
+        const answer = await controller.process(
+            { requestId: 'lamp5-answer', text: 'Lila', mode: 'execute', clarificationId: question.clarification!.id },
+            'admin.0',
+        );
+        expect(answer.status).to.equal('success');
+        expect(writes).to.deep.equal([{ id: colorId, value: '#800080' }]);
+    });
 
     it('answers room, device and function inventory using only approved devices', async () => {
         const objects: ObjectSnapshot[] = [

@@ -50,6 +50,9 @@ import ImportContactsIcon from '@mui/icons-material/ImportContacts';
 import type { AdminApi } from '../../src/shared/AdminApi';
 import { normalizeIntentDraft, parseAliases, validateApproval, validateIntentDraft } from '../../src/shared/AdminForms';
 import type { DeviceRecord, Capability, ActionKind } from '../../src/devices/types';
+import type { RelativeProfiles } from '../../src/commands/RelativeValue';
+import type { CustomColor } from '../../src/commands/NamedColors';
+import { CustomColorsEditor, ProfileDialog, profileKeysFor, relativeWords } from './RelativeSettings';
 import { capabilityName as displayCapabilityName } from '../../src/devices/CapabilityName';
 import type { IntentDefinition, SendToIntentAction } from '../../src/nlp/types';
 import type { CommandResult } from '../../src/commands/types';
@@ -101,9 +104,12 @@ function createBrowserId(): string {
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-const localeFiles = import.meta.glob<Record<string, string>>('./myi18n/*.json', { eager: true, import: 'default' });
+const localeFiles = import.meta.glob<Record<string, string>>('../../resources/admin/ui.*.json', {
+    eager: true,
+    import: 'default',
+});
 const dictionaries: Record<Language, Record<string, string>> = Object.fromEntries(
-    languageOptions.map(item => [item.code, localeFiles[`./myi18n/${item.code}.json`] ?? {}]),
+    languageOptions.map(item => [item.code, localeFiles[`../../resources/admin/ui.${item.code}.json`] ?? {}]),
 );
 const actions: Record<Capability['kind'], ActionKind[]> = {
     onOff: ['turnOn', 'turnOff', 'getState'],
@@ -222,13 +228,15 @@ function DeviceCard({
     onToggle,
     update,
     onError,
+    globalProfiles,
 }: {
     device: DeviceRecord;
     language: Language;
     expanded: boolean;
     onToggle: () => void;
-    update: (payload: Record<string, unknown>) => Promise<void>;
+    update: (payload: Record<string, unknown>) => Promise<boolean>;
     onError: (message: string) => void;
+    globalProfiles: RelativeProfiles;
 }): React.JSX.Element {
     const t = labels(language);
     const [aliasRows, setAliasRows] = useState<LanguageRow[]>(() =>
@@ -237,6 +245,11 @@ function DeviceCard({
             language,
         ),
     );
+    const [relativeStateId, setRelativeStateId] = useState<string>();
+    const relativeCapability = device.discoveredCapabilities.find(item => item.stateId === relativeStateId);
+    const relativeKeys =
+        relativeCapability &&
+        profileKeysFor(relativeCapability.role, relativeCapability.unit, relativeCapability.enumValues);
     const eligibleApprovals = device.discoveredCapabilities.flatMap(capability =>
         availableActions(capability).map(action => ({ capability, action, key: approvalKey(action, capability) })),
     );
@@ -586,6 +599,9 @@ function DeviceCard({
                                     .join(' / ')}
                                 {capability.min !== undefined ? ` · ${t('ui.minimum')} ${capability.min}` : ''}
                                 {capability.max !== undefined ? ` · ${t('ui.maximum')} ${capability.max}` : ''}
+                                {capability.step !== undefined
+                                    ? ` · ${relativeWords(language).step} ${capability.step}`
+                                    : ''}
                                 {capability.unit ? ` · ${capability.unit}` : ''}
                                 {capability.mapping ? ` · ${JSON.stringify(capability.mapping)}` : ''}
                             </Typography>
@@ -594,6 +610,20 @@ function DeviceCard({
                                 spacing={1}
                                 sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}
                             >
+                                {capability.valueKind === 'number' &&
+                                    capability.readable &&
+                                    capability.writable &&
+                                    capability.min !== undefined &&
+                                    capability.max !== undefined &&
+                                    profileKeysFor(capability.role, capability.unit, capability.enumValues).length >
+                                        0 && (
+                                        <Button
+                                            size="small"
+                                            onClick={() => setRelativeStateId(capability.stateId)}
+                                        >
+                                            {relativeWords(language).advanced}
+                                        </Button>
+                                    )}
                                 {availableActions(capability).map(action => {
                                     const approved =
                                         device.approvedCapabilities[approvalKey(action, capability)] ===
@@ -621,6 +651,19 @@ function DeviceCard({
                         </Box>
                     ))}
                 </Collapse>
+                <ProfileDialog
+                    open={!!relativeStateId && !!relativeKeys?.length}
+                    language={language}
+                    title={`${relativeWords(language).device}: ${device.displayName} / ${relativeCapability?.stateId ?? ''}`}
+                    keys={relativeKeys ?? []}
+                    profiles={device.relativeProfiles?.[relativeStateId ?? ''] ?? {}}
+                    inherited={globalProfiles}
+                    allowDirection
+                    onClose={() => setRelativeStateId(undefined)}
+                    onSave={profiles =>
+                        update({ deviceId: device.id, stateId: relativeStateId, relativeProfiles: profiles })
+                    }
+                />
             </CardContent>
         </Card>
     );
@@ -638,6 +681,11 @@ export default function AdminPanel({
     const [diagnostics, setDiagnostics] = useState<Diagnostics>({});
     const [training, setTraining] = useState<Training>({ status: 'idle' });
     const [deviceList, setDeviceList] = useState<DeviceList>({ total: 0, devices: [] });
+    const [relativeSettings, setRelativeSettings] = useState<{
+        profiles: RelativeProfiles;
+        customColors: CustomColor[];
+    }>({ profiles: {}, customColors: [] });
+    const [globalProfileOpen, setGlobalProfileOpen] = useState(false);
     const [intents, setIntents] = useState<IntentDefinition[]>([]);
     const [filter, setFilter] = useState('');
     const [room, setRoom] = useState('');
@@ -659,7 +707,7 @@ export default function AdminPanel({
 
     const refresh = useCallback(
         async (offset = 0): Promise<void> => {
-            const [devices, status, model, listed] = await Promise.all([
+            const [devices, status, model, listed, relative] = await Promise.all([
                 api.call<DeviceList>('listDevices', {
                     offset,
                     limit: 50,
@@ -674,11 +722,13 @@ export default function AdminPanel({
                 api.call<{
                     intents: IntentDefinition[];
                 }>('listIntents'),
+                api.call<{ profiles: RelativeProfiles; customColors: CustomColor[] }>('getRelativeSettings'),
             ]);
             setDeviceList(devices);
             setDiagnostics(status);
             setTraining(model);
             setIntents(listed.intents);
+            setRelativeSettings(relative);
         },
         [api, filter, room, functionId, capability, defaultLanguage],
     );
@@ -701,7 +751,7 @@ export default function AdminPanel({
         return () => window.clearInterval(timer);
     }, [api, training.status]);
 
-    async function mutate(command: string, payload: Record<string, unknown>, message?: string): Promise<void> {
+    async function mutateResult(command: string, payload: Record<string, unknown>, message?: string): Promise<boolean> {
         setBusy(true);
         try {
             await api.call(command, payload);
@@ -709,11 +759,17 @@ export default function AdminPanel({
             if (message) {
                 setNotice(message);
             }
+            return true;
         } catch (error) {
             setError(displayError(error));
+            return false;
         } finally {
             setBusy(false);
         }
+    }
+
+    async function mutate(command: string, payload: Record<string, unknown>, message?: string): Promise<void> {
+        await mutateResult(command, payload, message);
     }
 
     async function exportIntents(): Promise<void> {
@@ -989,6 +1045,7 @@ export default function AdminPanel({
                         <DeviceCard
                             key={device.id}
                             device={device}
+                            globalProfiles={relativeSettings.profiles}
                             language={defaultLanguage}
                             expanded={expandedOverrides[device.id] ?? expandAllDevices}
                             onToggle={() =>
@@ -998,7 +1055,7 @@ export default function AdminPanel({
                                 }))
                             }
                             onError={setError}
-                            update={payload => mutate('updateDevice', payload, t('ui.device_saved'))}
+                            update={payload => mutateResult('updateDevice', payload, t('ui.device_saved'))}
                         />
                     ))}
                     {deviceList.total > 50 && (
@@ -1037,6 +1094,18 @@ export default function AdminPanel({
             )}
             {page === 'settings' && (
                 <Stack spacing={2}>
+                    <Button
+                        variant="outlined"
+                        sx={{ alignSelf: 'start' }}
+                        onClick={() => setGlobalProfileOpen(true)}
+                    >
+                        {relativeWords(defaultLanguage).global}
+                    </Button>
+                    <CustomColorsEditor
+                        language={defaultLanguage}
+                        colors={relativeSettings.customColors}
+                        onSave={customColors => mutateResult('updateRelativeSettings', { customColors })}
+                    />
                     <TextField
                         select
                         label={t('ui.default_language')}
@@ -1121,6 +1190,14 @@ export default function AdminPanel({
                     </Stack>
                 </Stack>
             )}
+            <ProfileDialog
+                open={globalProfileOpen}
+                language={defaultLanguage}
+                title={relativeWords(defaultLanguage).global}
+                profiles={relativeSettings.profiles}
+                onClose={() => setGlobalProfileOpen(false)}
+                onSave={profiles => mutateResult('updateRelativeSettings', { profiles })}
+            />
             <Dialog
                 open={exportDialogOpen}
                 onClose={() => setExportDialogOpen(false)}
@@ -2242,7 +2319,13 @@ function TestLab({ api, language }: { api: AdminApi; language: Language }): Reac
                                                             {item.deviceId}
                                                         </Typography>
                                                     </TableCell>
-                                                    <TableCell>{item.nameMatched ? t('ui.yes') : t('ui.no')}</TableCell>
+                                                    <TableCell>
+                                                        {item.nameMatched
+                                                            ? t('ui.yes')
+                                                            : item.fuzzyNameMatched
+                                                              ? t('ui.similar')
+                                                              : t('ui.no')}
+                                                    </TableCell>
                                                     <TableCell>
                                                         {item.roomMatched === undefined
                                                             ? '—'

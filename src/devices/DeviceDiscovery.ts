@@ -72,7 +72,6 @@ export function discoverDevices(objects: ObjectSnapshot[], now = new Date().toIS
                     item.common.members?.some(member => inherited.some(id => matchesMember(member, id))),
             )
             .map(item => item.id);
-        const critical = functionIds.some(id => /lock|alarm|garage|door|gate|security|schloss|tor/i.test(id));
         let device = devices.get(parentId);
         if (!device) {
             device = {
@@ -86,13 +85,13 @@ export function discoverDevices(objects: ObjectSnapshot[], now = new Date().toIS
                 approvedCapabilities: {},
                 enabled: false,
                 lastSeenAt: now,
-                status: capability && !critical ? 'available' : 'needsReview',
+                status: capability ? 'available' : 'needsReview',
             };
             devices.set(parentId, device);
         }
         device.roomIds = [...new Set([...device.roomIds, ...roomIds])];
         device.functionIds = [...new Set([...device.functionIds, ...functionIds])];
-        if (capability && !critical) {
+        if (capability) {
             device.discoveredCapabilities.push(capability);
         } else {
             device.status = 'needsReview';

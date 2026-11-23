@@ -8,6 +8,8 @@ export interface LanguageRules {
     spokenNumbers: SpokenNumberRules;
     cancelPhrases: string[];
     confirmationPhrases: string[];
+    actionOnAnswers: string[];
+    actionOffAnswers: string[];
     unsupported: Record<'group' | 'exception' | 'time' | 'multipleActions' | 'unit', string>;
     actionVerbs: string;
     negation: string;

@@ -1,0 +1,69 @@
+{
+  "negation": "\\b(not|don't|do not)\\b",
+  "directions": {
+    "increase": "\\b(brighter|louder|stronger|faster|higher|more humid|saturated)\\b",
+    "decrease": "\\b(darker|quieter|softer|slower|lower|drier|paler)\\b",
+    "warmer": "\\bwarmer\\b",
+    "cooler": "\\b(cooler|colder)\\b",
+    "up": "\\b(up|open more)\\b",
+    "down": "\\b(down|close more)\\b"
+  },
+  "intensities": {
+    "tiny": "\\b(barely|a tiny bit)\\b",
+    "small": "\\b(a little|slightly)\\b",
+    "large": "\\b(much|significantly|a lot)\\b",
+    "max": "\\b(maximum|all the way)\\b"
+  },
+  "properties": {
+    "brightness": "\\b(brighter|darker)\\b",
+    "volume": "\\b(louder|quieter)\\b",
+    "saturation": "\\b(saturated|paler)\\b",
+    "tilt": "\\b(steeper|flatter)\\b",
+    "humidity": "\\b(more humid|drier)\\b",
+    "position": "\\b(up|down|open more|close more)\\b",
+    "fanSpeed": "\\b(stronger|softer|faster|slower|steps?)\\b"
+  },
+  "amount": "\\b(?:by)\\s+(\\d+(?:[.,]\\d+)?)\\s*(°\\s*[cf]|degrees?|percent|%|kelvin|k|steps?)(?!\\p{L})",
+  "colorSet": "\\b(?:to)\\s+(.+)$",
+  "colorVerb": "\\b(?:set|turn)\\b",
+  "mediaNext": "\\b(?:next|skip forward)\\b",
+  "mediaPrevious": "\\b(?:previous|skip back)\\b",
+  "unitAliases": {
+    "°C": ["°c", "degree", "degrees"],
+    "°F": ["°f"],
+    "K": ["k", "kelvin"],
+    "%": ["%", "percent"],
+    "enum": ["step", "steps"]
+  },
+  "endpoints": [
+    {
+      "pattern": "\\bto\\s+(?:the\\s+)?maximum\\b",
+      "direction": "increase",
+      "value": "max"
+    },
+    {
+      "pattern": "\\bto\\s+(?:the\\s+)?minimum\\b",
+      "direction": "decrease",
+      "value": "min"
+    },
+    {
+      "pattern": "\\b(?:maximum\\s+brightness|full\\s+brightness)\\b",
+      "property": "brightness",
+      "direction": "increase",
+      "value": "max"
+    },
+    { "pattern": "\\b(?:minimum\\s+brightness)\\b", "property": "brightness", "direction": "decrease", "value": "min" },
+    {
+      "pattern": "\\b(?:fully\\s+open|open\\s+.+\\s+fully)\\b",
+      "property": "position",
+      "direction": "up",
+      "value": "min"
+    },
+    {
+      "pattern": "\\b(?:fully\\s+close|close\\s+.+\\s+fully)\\b",
+      "property": "position",
+      "direction": "down",
+      "value": "max"
+    }
+  ]
+}

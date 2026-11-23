@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { Capability, CapabilityKind, ObjectSnapshot } from './types';
 
-const criticalRole = /lock|alarm|garage|door|gate|security|schloss|tor/i;
 export function capabilityFingerprint(capability: Omit<Capability, 'fingerprint' | 'needsReview'>): string {
     const relevant = {
         kind: capability.kind,
@@ -13,6 +12,7 @@ export function capabilityFingerprint(capability: Omit<Capability, 'fingerprint'
         valueKind: capability.valueKind,
         min: capability.min,
         max: capability.max,
+        step: capability.step,
         unit: capability.unit,
         enumValues: capability.enumValues,
         mapping: capability.mapping,
@@ -37,9 +37,6 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
     }
     const common = object.common;
     const role = common.role ?? '';
-    if (criticalRole.test(role) || criticalRole.test(object.id)) {
-        return undefined;
-    }
     const valueKind = common.type;
     if (valueKind !== 'boolean' && valueKind !== 'number' && valueKind !== 'string') {
         return undefined;
@@ -78,6 +75,7 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
         valueKind,
         min: common.min,
         max: common.max,
+        step: common.step,
         unit: common.unit,
         enumValues: enumValues(common.states),
         mapping: kind === 'onOff' ? { on: true, off: false } : undefined,

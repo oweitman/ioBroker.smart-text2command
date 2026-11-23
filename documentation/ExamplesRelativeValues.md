@@ -9,6 +9,10 @@
   Steuert die Farbsättigung bei bunten RGB-Lampen.
 - etwas mehr / etwas weniger (farbe): Passt die Farbwerte von RGB-Lampen an.
 
+umzusetzende farben datei:
+documentation\colors.json
+
+folgende links nur zur Referenz, nicht zur umsetzung gedacht
 <https://xkcd.com/color/rgb.txt>
 <https://github.com/meodai/farbnamen>
 <https://github.com/meodai/color-name-lists>

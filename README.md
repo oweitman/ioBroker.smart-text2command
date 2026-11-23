@@ -72,6 +72,11 @@ Changes to a data point's target, type, read/write permissions, or value range
 can invalidate its approval. Check and renew the affected approval
 in the Devices tab.
 
+The two documents provide an overview of the possibilities of command sentences.
+
+- [English](documentation\ExampleSentences-en.md)
+- [Deutsch](documentation\Beispielsaetze-de.md)
+
 ## Manage devices and approvals
 
 In **Devices**, you can filter by name, room, ioBroker function, and capability.
@@ -259,6 +264,10 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
+
+### **WORK IN PROGRESS**
+
+- Implemented the option for relative values and color names
 
 ### 0.0.13 (2026-11-17)
 

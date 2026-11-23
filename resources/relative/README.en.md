@@ -1,0 +1,11 @@
+# Relative control and colors
+
+Default increments are defined in `profiles.json`. Percentage and Kelvin profile values use the full range from `common.min` to `common.max`; °C/°F temperature and target humidity use absolute units. Relative changes require valid limits and a fresh state value. Absolute endpoints such as “to maximum” require valid limits but no current value. Percentages and Kelvin are rounded to whole numbers, °C to half degrees. `common.step` defines the value grid, not a language intensity.
+
+Use **Settings → Relative control: global defaults** to change an intensity for a property and unit. In the device list, **Advanced relative control** opens a separate dialog for state overrides and direction reversal. Empty fields inherit global or built-in values. Existing approvals are retained, and new states are not approved automatically.
+
+Named colors come from `../colors/names.json`; multiple names for one hex value are listed there. Users can add colors under **Settings → Custom colors**. A custom name explicitly overrides the same built-in name. Unknown names trigger a clarification. Warm White and Cool White set a bounded Kelvin value on `level.color.temperature`.
+
+Direct colors support `level.color.rgb` (`#RRGGBB`) and `level.color.rgbw` (`#RRGGBB00`). Relative brightness and saturation of these strings use HSV; relative RGBW changes preserve the current white channel. Supported numeric roles include `level.color.saturation`, `level.brightness`, `value.brightness`, `level.color.temperature`, `value.temperature`, `level.temperature`, `level.blind`, `level.tilt`, `level.volume`, and `value.volume`, plus approved `%` states with role `level`. The adapter asks when several `level` states qualify. `value.humidity` can be used for an unambiguous humidity request with write approval. `button.next` and `button.previous` require existing write approval. CIE/XY, proprietary color formats, individual RGB channels, and automatic power-on for color changes are outside this version.
+
+For blinds, `level.blind` is 0% open and 100% closed; `level.tilt` is 0% horizontal/open and 100% vertical/dark. A fan with a continuous `%` state uses percentage increments; a state with ordered `common.states` uses declared stages. Direction can be reversed per state. Manufacturer-specific stage mapping remains user-defined.

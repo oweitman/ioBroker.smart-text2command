@@ -3,6 +3,7 @@ import { discoverDevices } from '../src/devices/DeviceDiscovery';
 import { DeviceRegistry } from '../src/devices/DeviceRegistry';
 import { DeviceResolver } from '../src/devices/DeviceResolver';
 import type { ObjectSnapshot } from '../src/devices/types';
+import { parseEntities } from '../src/nlp/EntityParser';
 
 const objects: ObjectSnapshot[] = [
     { id: 'plug.0.a', type: 'device', common: { name: 'Lampe' } },
@@ -13,6 +14,53 @@ const objects: ObjectSnapshot[] = [
 ];
 
 describe('device resolver', () => {
+    it('distinguishes the exact Lampe5 name from similar lamps in diagnostics', () => {
+        const source: ObjectSnapshot[] = [
+            { id: 'test.0.lampe', type: 'channel', common: { name: 'Lampe' } },
+            {
+                id: 'test.0.lampe.POWER',
+                type: 'state',
+                common: { role: 'switch', type: 'boolean', read: true, write: true },
+            },
+            { id: 'test.0.lampe5', type: 'channel', common: { name: 'lampe5 ' } },
+            {
+                id: 'test.0.lampe5.color',
+                type: 'state',
+                common: { name: 'Farbe', role: 'level.color.rgb', type: 'string', read: true, write: true },
+            },
+            { id: 'enum.rooms.wohnzimmer', type: 'enum', common: { name: 'Wohnzimmer', members: ['test.0.lampe'] } },
+            {
+                id: 'enum.rooms.lampenzimmer',
+                type: 'enum',
+                common: { name: 'Lampenzimmer', members: ['test.0.lampe5'] },
+            },
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(source));
+        const resolver = new DeviceResolver(registry);
+        const text = 'Stelle Lampe5 im Wohnzimmer auf Farbe blabla';
+        expect(resolver.roomMatches(text, 'de').map(room => room.label)).to.include('Wohnzimmer');
+        expect(parseEntities(text, 'de', ['Wohnzimmer', 'Lampenzimmer']).entities).to.deep.include({
+            type: 'room',
+            value: 'Wohnzimmer',
+            start: 17,
+            end: 27,
+        });
+        const diagnostics = resolver.diagnose(text, 'de', 'setValue');
+        const lamp = diagnostics.devices.find(item => item.deviceId === 'test.0.lampe')!;
+        const lamp5 = diagnostics.devices.find(item => item.deviceId === 'test.0.lampe5')!;
+        expect(lamp.nameMatched).to.equal(false);
+        expect(lamp.fuzzyNameMatched).to.equal(true);
+        expect(lamp.roomMatched).to.equal(true);
+        expect(lamp5.nameMatched).to.equal(true);
+        expect(lamp5.roomMatched).to.equal(false);
+        expect(diagnostics.dataPoints.find(item => item.stateId === 'test.0.lampe5.color')).to.include({
+            name: 'Farbe',
+            nameMatched: true,
+            actionAllowed: false,
+            roomMatched: false,
+        });
+    });
     it('uses configured device aliases with a room for a polite switch-off request', () => {
         const source: ObjectSnapshot[] = [
             { id: 'test.0.living', type: 'channel', common: { name: 'Lampe' } },
