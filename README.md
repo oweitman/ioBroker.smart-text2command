@@ -264,8 +264,7 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
-
-### **WORK IN PROGRESS**
+### 0.0.14 (2026-11-23)
 
 - Implemented the option for relative values and color names
 
@@ -293,10 +292,6 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
 - repair intent edit
 - add write strings to datapoint
 - add sendto with parameters as a intent capability
-
-### 0.0.8 (2026-11-13)
-
-- fix problem with missing crypto api
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

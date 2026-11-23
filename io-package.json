@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "news": {
+      "0.0.14": {
+        "en": "Implemented the option for relative values and color names",
+        "de": "Option für Relativwerte und Farbnamen eingeführt",
+        "ru": "Реализована опция относительных значений и названий цветов",
+        "pt": "Implementou a opção de valores relativos e nomes de cores",
+        "nl": "De optie voor relatieve waarden en kleurnamen geïmplementeerd",
+        "fr": "Ajout de l'option valeurs relatives et noms de couleurs",
+        "it": "Implementata l'opzione per valori e nomi di colori",
+        "es": "Implementó la opción de valores relativos y nombres de colores",
+        "pl": "Zaimplementowano opcję wartości względnych i nazw kolorów",
+        "uk": "Реалізовано опцію відносних значень і назв кольорів",
+        "zh-cn": "实现了相对值和颜色名称的选项"
+      },
       "0.0.13": {
         "en": "update advices of repochecker\nrework readme\nOwn intents can now also be maintained in just a single language.\nfix test",
         "de": "Repochecker Update Tipps\nRework Readme\nEigene Absichten können nun auch nur in einer Sprache gepflegt werden.\nFixtest",
@@ -80,19 +93,6 @@
         "pl": "dodaj historię sesji i przedłuż datę analizy w laboratorium testowym",
         "uk": "додати історію сеансів і продовжити дату аналізу в тестовій лабораторії",
         "zh-cn": "在测试实验室中添加会话历史记录并延长分析日期"
-      },
-      "0.0.6": {
-        "en": "fix tests and deployment",
-        "de": "Fixtests und Einsatz",
-        "ru": "исправления, тесты и развертывание",
-        "pt": "fixe testes e uso",
-        "nl": "tests en implementatie repareren",
-        "fr": "fix tests et déploiement",
-        "it": "fix test e uso",
-        "es": "arreglar pruebas y despliegue",
-        "pl": "naprawa testów i wdrażania",
-        "uk": "виправлення тестів і розгортання",
-        "zh-cn": "修复测试和部署"
       }
     },
     "titleLang": {
