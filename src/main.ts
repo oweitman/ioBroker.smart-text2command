@@ -47,22 +47,18 @@ function snapshot(id: string, object: ioBroker.Object): ObjectSnapshot | undefin
 }
 
 class SmartText2command extends utils.Adapter {
-    private readonly objects = new Map<string, ObjectSnapshot>();
     private catalog?: DeviceCatalog;
     private model?: NlpJsProvider;
     private modelVersion?: string;
     private userIntents: IntentDefinition[] = [];
     private router?: MessageRouter;
     private lastError?: string;
-    private discoveryTimer?: ioBroker.Timeout;
     private updateQueue: Promise<void> = Promise.resolve();
     private inputQueue: Promise<void> = Promise.resolve();
-    private started = false;
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: 'smart-text2command' });
         this.on('ready', this.onReady.bind(this));
-        this.on('objectChange', this.onObjectChange.bind(this));
         this.on('message', this.onMessage.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('unload', this.onUnload.bind(this));
@@ -78,9 +74,7 @@ class SmartText2command extends utils.Adapter {
         }
         try {
             await this.scanObjects();
-            this.subscribeForeignObjects('*');
             this.subscribeStates('input.text');
-            this.started = true;
             this.initializeRouter();
             void this.initializeModel().catch(error => this.log.error(`NLP status update failed: ${String(error)}`));
         } catch (error) {
@@ -266,36 +260,6 @@ class SmartText2command extends utils.Adapter {
         }
     }
 
-    private onObjectChange(id: string, object: ioBroker.Object | null | undefined): void {
-        if (!this.started || id.startsWith(`${this.namespace}.`)) {
-            return;
-        }
-        const value = object ? snapshot(id, object) : undefined;
-        if (value) {
-            this.objects.set(id, value);
-        } else {
-            this.objects.delete(id);
-        }
-        if (this.discoveryTimer !== undefined && this.discoveryTimer !== null) {
-            this.clearTimeout(this.discoveryTimer);
-        }
-        this.discoveryTimer = this.setTimeout(() => {
-            this.updateQueue = this.updateQueue
-                .then(() => this.reconcile())
-                .catch(error => {
-                    this.log.error(`Device discovery update failed: ${String(error)}`);
-                });
-        }, 300);
-    }
-
-    private async reconcile(): Promise<void> {
-        if (this.objects.size > MAX_DISCOVERY_OBJECTS) {
-            throw new Error('Discovery object limit exceeded');
-        }
-        await this.catalog!.reconcile(discoverDevices([...this.objects.values()]));
-        await this.setState('info.deviceCount', this.catalog!.list().filter(isVisibleDevice).length, true);
-    }
-
     private async scanObjects(): Promise<void> {
         const [states, channels, devices, enums] = await Promise.all([
             this.getForeignObjectsAsync('*', 'state'),
@@ -307,27 +271,21 @@ class SmartText2command extends utils.Adapter {
         if (entries.length > MAX_DISCOVERY_OBJECTS) {
             throw new Error('Discovery object limit exceeded');
         }
-        const current = new Map<string, ObjectSnapshot>();
+        const current: ObjectSnapshot[] = [];
         for (const [id, object] of entries) {
             if (id.startsWith(`${this.namespace}.`)) {
                 continue;
             }
             const value = snapshot(id, object);
             if (value) {
-                current.set(id, value);
+                current.push(value);
             }
         }
-        this.objects.clear();
-        for (const [id, value] of current) {
-            this.objects.set(id, value);
-        }
-        await this.reconcile();
+        await this.catalog!.reconcile(discoverDevices(current));
+        await this.setState('info.deviceCount', this.catalog!.list().filter(isVisibleDevice).length, true);
     }
 
     private onUnload(callback: () => void): void {
-        if (this.discoveryTimer !== undefined && this.discoveryTimer !== null) {
-            this.clearTimeout(this.discoveryTimer);
-        }
         void this.updateQueue.finally(callback);
     }
 }

@@ -36,7 +36,9 @@ explains how to create one step by step.
    operation to ioBroker.
 
 The Devices tab shows existing devices that have a supported capability and at
-least one room or function assignment. A rescan hides objects that no longer
+least one room or function assignment. Discovery runs when the adapter starts
+and when you select **Rescan devices**. Changes to ioBroker objects after startup
+appear after a rescan or adapter restart. A rescan hides objects that no longer
 exist; you do not need to delete data points.
 
 ## Supported commands
@@ -264,6 +266,11 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
+### 0.0.15 (2026-11-24)
+
+- Performance improved; external objects are no longer continuously
+  monitored for changes.
+
 ### 0.0.14 (2026-11-23)
 
 - Implemented the option for relative values and color names
@@ -286,12 +293,6 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
 - add intents to ask for rooms, devices amd functions
 - The "Devices" tab only displays devices that are assigned to at least
   one room or function
-
-### 0.0.9 (2026-11-13)
-
-- repair intent edit
-- add write strings to datapoint
-- add sendto with parameters as a intent capability
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 

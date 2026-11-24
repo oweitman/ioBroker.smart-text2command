@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.14",
+    "version": "0.0.15",
     "news": {
+      "0.0.15": {
+        "en": "- Performance improved; external objects are no longer continuously\n  monitored for changes.",
+        "de": "- Leistung verbessert; externe Objekte sind nicht mehr ständig\n  auf Änderungen überwacht.",
+        "ru": "- Улучшена производительность; внешние объекты больше не находятся постоянно\n  отслеживается на предмет изменений.",
+        "pt": "- Melhor desempenho; objetos externos não são mais contínuos\n  monitorou mudanças.",
+        "nl": "- Prestaties zijn verbeterd; externe objecten zijn niet langer continu\n  gecontroleerd op wijzigingen.",
+        "fr": "- Performances améliorées ; les objets externes ne sont plus actifs\n  surveillé les changements.",
+        "it": "- Prestazioni migliorate; gli oggetti esterni non sono più continui\n  monitorato i cambi.",
+        "es": "- El rendimiento mejoró; los objetos externos ya no están de forma continua\n  supervisó los cambios.",
+        "pl": "- Poprawiono wydajność; obiekty zewnętrzne nie są już nieprzerwane\n  monitorowane pod kątem zmian.",
+        "uk": "- Покращена продуктивність; зовнішні об'єкти більше не постійно\n  Спостерігається за змінами.",
+        "zh-cn": "-性能得到改善；外部物体不再持续存在\n  监控变化。"
+      },
       "0.0.14": {
         "en": "Implemented the option for relative values and color names",
         "de": "Option für Relativwerte und Farbnamen eingeführt",
@@ -80,19 +93,6 @@
         "pl": "naprawić problem z brakującym kryptograficznym API",
         "uk": "виправити проблему з відсутнім крипто-api",
         "zh-cn": "修复缺少加密 API 的问题"
-      },
-      "0.0.7": {
-        "en": "add session history and extend analyze date in test lab",
-        "de": "Sitzungsverlauf und Analysedatum im Testlabor verlängern",
-        "ru": "добавьте историю сеансов и увеличьте дату анализа в тестовой лаборатории",
-        "pt": "adicione o histórico da sessão e analise no Test Lab",
-        "nl": "sessiegeschiedenis toevoegen en analysedatum verlengen in het testlab",
-        "fr": "ajouter l'historique des sessions et les analyser au labo",
-        "it": "aggiungere cronologia e data di analisi in laboratorio",
-        "es": "añadir el historial de sesiones y ampliar la fecha de análisis",
-        "pl": "dodaj historię sesji i przedłuż datę analizy w laboratorium testowym",
-        "uk": "додати історію сеансів і продовжити дату аналізу в тестовій лабораторії",
-        "zh-cn": "在测试实验室中添加会话历史记录并延长分析日期"
       }
     },
     "titleLang": {

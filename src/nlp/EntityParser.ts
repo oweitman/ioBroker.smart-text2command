@@ -15,6 +15,25 @@ export interface ParsedText {
     unsupported: Array<'group' | 'exception' | 'time' | 'multipleActions' | 'unit'>;
 }
 
+export function withoutDeviceNameNumbers(parsed: ParsedText, text: string, names: string[]): ParsedText {
+    const spans = names.flatMap(name => {
+        const parts = name.trim().match(/\p{L}+|\p{N}+/gu);
+        if (!parts?.length) {
+            return [];
+        }
+        const pattern = parts.map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s_-]*');
+        const matches = text.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])${pattern}(?![\\p{L}\\p{N}])`, 'giu'));
+        return [...matches].map(match => ({ start: match.index, end: match.index + match[0].length }));
+    });
+    return {
+        ...parsed,
+        entities: parsed.entities.filter(
+            entity =>
+                !(entity.type === 'number' && spans.some(span => entity.start < span.end && entity.end > span.start)),
+        ),
+    };
+}
+
 export function parseEntities(text: string, language: Language, rooms: string[] = []): ParsedText {
     const rules = languageRules(language);
     const entities: ParsedEntity[] = [];

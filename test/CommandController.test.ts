@@ -93,6 +93,42 @@ describe('command pipeline', () => {
         },
     ];
 
+    it('uses the percentage after a numbered lamp name as the brightness value', async () => {
+        const id = '0_userdata.0.test_lampe5_rgb_lampenzimmer';
+        const level = `${id}.brightness`;
+        const objects: ObjectSnapshot[] = [
+            { id, type: 'channel', common: { name: 'Lampe5' } },
+            {
+                id: level,
+                type: 'state',
+                common: {
+                    name: 'Helligkeit',
+                    role: 'level.brightness',
+                    type: 'number',
+                    read: true,
+                    write: true,
+                    min: 0,
+                    max: 100,
+                    unit: '%',
+                },
+            },
+            { id: 'enum.rooms.lampenzimmer', type: 'enum', common: { name: 'Lampenzimmer', members: [id] } },
+        ];
+        const { registry, controller, writes } = fixture(objects, 'device.setValue');
+        registry.setEnabled(id, true);
+        registry.approve(id, level, 'setValue');
+        const text = 'Stelle die Helligkeit von Lampe 5 im Lampenzimmer auf 50%';
+        const result = await controller.process({ requestId: 'numbered-lamp', text, mode: 'execute' }, 'admin.0');
+        expect(result.status, JSON.stringify(result)).to.equal('success');
+        expect(writes).to.deep.equal([{ id: level, value: 50 }]);
+        const ambiguous = await controller.process(
+            { requestId: 'numbered-lamp-ambiguous', text: `${text} oder 60%`, mode: 'execute' },
+            'admin.0',
+        );
+        expect(ambiguous.errorCode).to.equal('INVALID_VALUE');
+        expect(writes).to.have.length(1);
+    });
+
     it('plans and executes an approved relative brightness change', async () => {
         const objects: ObjectSnapshot[] = [
             { id: 'plug.0.dimmer', type: 'channel', common: { name: 'Lampe' } },

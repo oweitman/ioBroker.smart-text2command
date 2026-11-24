@@ -89,14 +89,14 @@ function distance(a: string, b: string): number {
 }
 
 function matchScore(text: string, value: string): number {
-    const normalized = normalize(value);
+    const separateDigits = (name: string): string => name.replace(/(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})/gu, ' ');
+    text = separateDigits(text);
+    const normalized = separateDigits(normalize(value));
     if (!normalized) {
         return 0;
     }
-    if (
-        ` ${text} `.includes(` ${normalized} `) ||
-        (normalized.length >= 5 && ` ${text} `.includes(` ${normalized}s `))
-    ) {
+    const exact = (name: string): boolean => new RegExp(`(?:^| )${name}(?! \\p{N})(?: |$)`, 'u').test(text);
+    if (exact(normalized) || (normalized.length >= 5 && exact(`${normalized}s`))) {
         return 100;
     }
     if (normalized.length < 5) {

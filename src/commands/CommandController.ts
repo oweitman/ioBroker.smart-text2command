@@ -6,7 +6,7 @@ import { DeviceResolver, roomNames } from '../devices/DeviceResolver';
 import type { DeviceCatalogView } from '../devices/DeviceResolver';
 import { inferValueDomain, matchesValueDomain } from '../devices/ValueDomain';
 import type { ValueDomain } from '../devices/ValueDomain';
-import { parseEntities } from '../nlp/EntityParser';
+import { parseEntities, withoutDeviceNameNumbers } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
 import type { IntentDefinition, SendToIntentAction } from '../nlp/types';
 import { extractParameters, fillPayload, matchesSendToPattern, parseParameter } from '../nlp/SendToAction';
@@ -1533,11 +1533,18 @@ export class CommandController {
                 }
             }
         }
+        const selectedDevice = this.catalog.list().find(item => item.id === deviceId);
+        const valueParsed = selectedDevice
+            ? withoutDeviceNameNumbers(parsed, text, [
+                  selectedDevice.displayName,
+                  ...(selectedDevice.aliases[language] ?? []),
+              ])
+            : parsed;
         const outcome = planAction(
             this.catalog,
             deviceId,
             action,
-            parsed,
+            valueParsed,
             language,
             text,
             domain,
@@ -1632,7 +1639,7 @@ export class CommandController {
             device?.roomIds[0];
         const roomName = roomId && device ? roomNames(device, roomId, language).at(-1) : undefined;
         const deviceName = device?.displayName ?? deviceId;
-        const requestedEntity = parsed.entities.find(
+        const requestedEntity = valueParsed.entities.find(
             entity => entity.type === 'number' || entity.type === 'percent' || entity.type === 'temperature',
         );
         const requested =
