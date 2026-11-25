@@ -42,6 +42,9 @@
   "confirmed.getState.on": "Das Gerät {device} {context} ist eingeschaltet.",
   "confirmed.getState.off": "Das Gerät {device} {context} ist ausgeschaltet.",
   "confirmed.getState.other": "Der Schaltzustand von {device} {context} ist {value}.",
+  "boolean.on": "An",
+  "boolean.off": "Aus",
+  "confirmed.getValue.boolean": "Der Wert für {function} von {device} {context} ist {value}.",
   "confirmed.getValue": "Der Wert für {function} von {device} {context} beträgt {value} {unit}.",
   "confirmed.noValue": "Für {function} von {device} {context} liegt derzeit kein Wert vor.",
   "valueClarification": "Welchen Wert soll ich setzen?",
@@ -78,6 +81,5 @@
   "actionOnLabel": "ein",
   "actionOffLabel": "aus",
   "mediaPlanned": "Der Wechsel für {device} ist geplant.",
-  "mediaAccepted": "Der Wechsel für {device} wurde übergeben.",
-  "error.COLOR_FORMAT_UNSUPPORTED": "Dieses Farbformat wird vom Datenpunkt nicht unterstützt."
+  "mediaAccepted": "Der Wechsel für {device} wurde übergeben."
 }

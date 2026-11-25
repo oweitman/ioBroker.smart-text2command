@@ -1,8 +1,9 @@
-import type { ActionKind, Capability, DeviceRecord, DeviceStore } from './types';
+import type { ActionKind, BooleanWordOverrides, Capability, DeviceRecord, DeviceStore } from './types';
 import { capabilityFingerprint } from './CapabilityMapper';
 import { profiles as defaultProfiles, validateRelativeProfile } from '../commands/RelativeValue';
 import type { RelativeProfiles } from '../commands/RelativeValue';
 import { validateCustomColors } from '../commands/NamedColors';
+import { isSupportedLanguage } from '../i18n/LanguageConfig';
 
 function approvalKey(action: ActionKind, stateId: string): string {
     return `${action}:${stateId}`;
@@ -134,6 +135,7 @@ export class DeviceRegistry {
             this.devices.set(fresh.id, {
                 ...fresh,
                 aliases: old.aliases,
+                booleanWords: old.booleanWords,
                 relativeProfiles: old.relativeProfiles,
                 enabled: old.enabled,
                 approvedCapabilities,
@@ -166,6 +168,63 @@ export class DeviceRegistry {
             }
         }
         device.aliases = copy(aliases);
+    }
+    public setBooleanWords(deviceId: string, overrides: BooleanWordOverrides): void {
+        const device = this.requireDevice(deviceId);
+        if (
+            !overrides ||
+            typeof overrides !== 'object' ||
+            Array.isArray(overrides) ||
+            Object.keys(overrides).length > 100
+        ) {
+            throw new Error('Invalid boolean words');
+        }
+        const cleaned: BooleanWordOverrides = {};
+        for (const [stateId, translations] of Object.entries(overrides)) {
+            const capability = device.discoveredCapabilities.find(item => item.stateId === stateId);
+            if (
+                (!capability && !device.booleanWords?.[stateId]) ||
+                (capability &&
+                    (capability.kind !== 'genericValue' ||
+                        capability.valueKind !== 'boolean' ||
+                        !capability.readable)) ||
+                !translations ||
+                typeof translations !== 'object' ||
+                Array.isArray(translations)
+            ) {
+                throw new Error('Invalid boolean words');
+            }
+            const languages: BooleanWordOverrides[string] = {};
+            for (const [code, words] of Object.entries(translations)) {
+                if (
+                    !isSupportedLanguage(code) ||
+                    !words ||
+                    typeof words !== 'object' ||
+                    Array.isArray(words) ||
+                    Object.keys(words).some(key => key !== 'true' && key !== 'false')
+                ) {
+                    throw new Error('Invalid boolean words');
+                }
+                const pair: Partial<Record<'true' | 'false', string>> = {};
+                for (const key of ['true', 'false'] as const) {
+                    const value = words[key];
+                    if (value === undefined) {
+                        continue;
+                    }
+                    if (typeof value !== 'string' || !value.trim() || value.length > 100 || /[\r\n]/.test(value)) {
+                        throw new Error('Invalid boolean words');
+                    }
+                    pair[key] = value.trim();
+                }
+                if (Object.keys(pair).length) {
+                    languages[code] = pair;
+                }
+            }
+            if (Object.keys(languages).length) {
+                cleaned[stateId] = languages;
+            }
+        }
+        device.booleanWords = cleaned;
     }
     public approve(deviceId: string, stateId: string, action: ActionKind): void {
         const device = this.requireDevice(deviceId);

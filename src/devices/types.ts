@@ -4,6 +4,7 @@ import type { RelativeProfiles } from '../commands/RelativeValue';
 export type CapabilityKind = 'onOff' | 'genericValue' | 'button';
 export type ActionKind = 'turnOn' | 'turnOff' | 'setValue' | 'press' | 'getState' | 'getValue';
 export type ValueKind = 'boolean' | 'number' | 'string';
+export type BooleanWordOverrides = Record<string, Partial<Record<Language, Partial<Record<'true' | 'false', string>>>>>;
 
 export interface Capability {
     kind: CapabilityKind;
@@ -37,6 +38,7 @@ export interface DeviceRecord {
     functionIds: string[];
     enumNames?: Record<string, string | Record<string, string>>;
     aliases: Partial<Record<Language, string[]>>;
+    booleanWords?: BooleanWordOverrides;
     relativeProfiles?: Record<string, RelativeProfiles>;
     discoveredCapabilities: Capability[];
     approvedCapabilities: Record<string, string>; // action:state ID -> approved fingerprint

@@ -60,6 +60,13 @@ export function mapCapability(object: ObjectSnapshot): Capability | undefined {
         (common.read === true || common.write === true)
     ) {
         kind = 'genericValue';
+    } else if (
+        (role === 'sensor' || role.startsWith('sensor.') || role === 'indicator' || role.startsWith('indicator.')) &&
+        valueKind === 'boolean' &&
+        common.read === true &&
+        common.write !== true
+    ) {
+        kind = 'genericValue';
     }
     // Directional blind commands need separate semantics; numeric positions use generic values.
     if (!kind) {

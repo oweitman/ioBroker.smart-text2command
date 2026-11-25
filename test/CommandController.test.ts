@@ -93,6 +93,81 @@ describe('command pipeline', () => {
         },
     ];
 
+    it('reads approved boolean sensor and indicator subroles through the generic value path', async () => {
+        const cases: Array<{
+            role: string;
+            stateValue: boolean;
+            expected: string;
+            language: 'de' | 'en';
+            verb: string;
+        }> = [
+            { role: 'sensor.motion', stateValue: true, expected: 'An', language: 'de', verb: 'ist' },
+            { role: 'indicator.reachable', stateValue: false, expected: 'Aus', language: 'de', verb: 'ist' },
+            { role: 'sensor.motion', stateValue: true, expected: 'On', language: 'en', verb: 'is' },
+            { role: 'indicator.reachable', stateValue: false, expected: 'Off', language: 'en', verb: 'is' },
+        ];
+        for (const [index, { role, stateValue, expected, language, verb }] of cases.entries()) {
+            const deviceId = `test.0.status${index}`;
+            const stateId = `${deviceId}.STATUS`;
+            const { registry, controller, writes } = fixture(
+                [
+                    { id: deviceId, type: 'channel', common: { name: `Statusgerät ${index}` } },
+                    {
+                        id: stateId,
+                        type: 'state',
+                        common: { name: 'Statuswert', role, type: 'boolean', read: true, write: false },
+                    },
+                ],
+                'device.getValue',
+                stateValue,
+            );
+            registry.setEnabled(deviceId, true);
+            registry.approve(deviceId, stateId, 'getValue');
+            const result = await controller.process(
+                {
+                    requestId: `status-${index}`,
+                    text: `Lies den Statuswert von Statusgerät ${index}`,
+                    language,
+                    mode: 'execute',
+                },
+                'caller',
+            );
+            expect(result.status).to.equal('success');
+            expect(result.actions?.[0].stateId).to.equal(stateId);
+            expect(result.actions?.[0].value).to.equal(stateValue);
+            expect(result.response).to.include(`${verb} ${expected}.`);
+            expect(writes).to.be.empty;
+        }
+    });
+
+    it('uses configured words for a boolean data point and keeps the raw value boolean', async () => {
+        const deviceId = 'test.0.door';
+        const stateId = `${deviceId}.CONTACT`;
+        const objects: ObjectSnapshot[] = [
+            { id: deviceId, type: 'channel', common: { name: 'Türkontakt' } },
+            {
+                id: stateId,
+                type: 'state',
+                common: { name: 'Kontakt', role: 'sensor.door', type: 'boolean', read: true, write: false },
+            },
+        ];
+        for (const [index, stateValue] of [true, false].entries()) {
+            const { registry, controller } = fixture(objects, 'device.getValue', stateValue);
+            registry.setEnabled(deviceId, true);
+            registry.approve(deviceId, stateId, 'getValue');
+            registry.setBooleanWords(deviceId, {
+                [stateId]: { de: { true: 'Offen', false: 'Geschlossen' } },
+            });
+            const result = await controller.process(
+                { requestId: `door-${index}`, text: 'Lies den Kontakt von Türkontakt', mode: 'execute' },
+                'caller',
+            );
+            expect(result.status).to.equal('success');
+            expect(result.response).to.include(stateValue ? 'ist Offen.' : 'ist Geschlossen.');
+            expect(result.actions?.[0].value).to.equal(stateValue);
+        }
+    });
+
     it('uses the percentage after a numbered lamp name as the brightness value', async () => {
         const id = '0_userdata.0.test_lampe5_rgb_lampenzimmer';
         const level = `${id}.brightness`;

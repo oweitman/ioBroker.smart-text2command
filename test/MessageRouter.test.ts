@@ -280,6 +280,32 @@ describe('message API', () => {
         expect(catalog.list().filter(isVisibleDevice).length).to.equal(assigned.total);
         expect(assigned.devices).to.have.length(1);
         expect(await router.handle('listDevices', { capability: 'POWER' }, admin)).to.include({ total: 3 });
+        const statusId = 'plug.0.status.CONTACT';
+        await catalog.reconcile([
+            ...catalog.list(),
+            ...discoverDevices([
+                { id: 'plug.0.status', type: 'channel', common: { name: 'Türkontakt' } },
+                {
+                    id: statusId,
+                    type: 'state',
+                    common: { name: 'Kontakt', role: 'sensor.door', type: 'boolean', read: true, write: false },
+                },
+                { id: 'enum.rooms.entrance', type: 'enum', common: { members: ['plug.0.status'] } },
+            ]),
+        ]);
+        const words = { [statusId]: { de: { true: 'Offen', false: 'Geschlossen' } } };
+        expect(
+            await router.handle('updateDevice', { deviceId: 'plug.0.status', booleanWords: words }, untrusted),
+        ).to.deep.equal({ error: 'ADMIN_REQUIRED' });
+        await router.handle('updateDevice', { deviceId: 'plug.0.status', booleanWords: words }, admin);
+        expect(catalog.list().find(item => item.id === 'plug.0.status')?.booleanWords).to.deep.equal(words);
+        expect(
+            await router.handle(
+                'updateDevice',
+                { deviceId: 'plug.0.status', booleanWords: { [statusId]: { de: { true: ' ' } } } },
+                admin,
+            ),
+        ).to.have.property('error', 'Invalid boolean words');
         await catalog.reconcile([]);
         expect(catalog.list().every(item => item.status === 'missing')).to.equal(true);
         expect(await router.handle('listDevices', { limit: 1 }, admin)).to.deep.equal({

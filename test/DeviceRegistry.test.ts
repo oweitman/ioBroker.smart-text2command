@@ -152,6 +152,56 @@ describe('device discovery and approvals', () => {
         );
         expect(registry.isAllowed(id, registry.list()[0].discoveredCapabilities[0], 'setValue')).to.equal(false);
     });
+    it('discovers generic sensor and indicator roles, including subroles, as read-only values', () => {
+        const deviceId = 'test.0.status';
+        const roles = ['sensor', 'sensor.window', 'indicator', 'indicator.maintenance.lowbat'];
+        const objects: ObjectSnapshot[] = [
+            { id: deviceId, type: 'channel', common: { name: 'Statusgerät' } },
+            ...roles.map((role, index) => ({
+                id: `${deviceId}.STATE${index}`,
+                type: 'state' as const,
+                common: { name: `Status ${index}`, role, type: 'boolean', read: true, write: false },
+            })),
+        ];
+        const registry = new DeviceRegistry();
+        registry.reconcile(discoverDevices(objects));
+        registry.setEnabled(deviceId, true);
+
+        for (const [index, role] of roles.entries()) {
+            const stateId = `${deviceId}.STATE${index}`;
+            const capability = registry.list()[0].discoveredCapabilities.find(item => item.stateId === stateId);
+            expect(capability).to.include({ kind: 'genericValue', role, readable: true, writable: false });
+            registry.approve(deviceId, stateId, 'getValue');
+            expect(registry.isAllowed(deviceId, capability!, 'getValue')).to.equal(true);
+            expect(registry.isAllowed(deviceId, capability!, 'setValue')).to.equal(false);
+        }
+
+        const statusId = `${deviceId}.STATE1`;
+        registry.setBooleanWords(deviceId, {
+            [statusId]: { de: { true: 'Offen', false: 'Geschlossen' }, en: { true: 'Open' } },
+        });
+        const restored = new DeviceRegistry(registry.snapshot());
+        restored.reconcile(discoverDevices(objects));
+        expect(restored.list()[0].booleanWords?.[statusId]).to.deep.equal({
+            de: { true: 'Offen', false: 'Geschlossen' },
+            en: { true: 'Open' },
+        });
+        expect(restored.isAllowed(deviceId, restored.list()[0].discoveredCapabilities[1], 'getValue')).to.equal(true);
+        expect(() =>
+            registry.setBooleanWords(deviceId, { [`${deviceId}.UNKNOWN`]: { de: { true: 'Ja' } } }),
+        ).to.throw();
+        expect(() => registry.setBooleanWords(deviceId, { [statusId]: { de: { true: ' ' } } })).to.throw();
+        expect(() => registry.setBooleanWords(deviceId, { [statusId]: { fr: { true: 'Oui' } } })).to.throw();
+
+        for (const common of [
+            { role: 'sensor.window', type: 'number', read: true, write: false },
+            { role: 'indicator.error', type: 'boolean', read: false, write: false },
+            { role: 'indicator.error', type: 'boolean', read: true, write: true },
+            { role: 'sensoric', type: 'boolean', read: true, write: false },
+        ]) {
+            expect(mapCapability({ id: `${deviceId}.INVALID`, type: 'state', common })).to.equal(undefined);
+        }
+    });
     it('offers approved string value writes according to the ioBroker write flag', () => {
         const id = '0_userdata.0.test_musik_wohnzimmer';
         const stateId = `${id}.Favorit`;

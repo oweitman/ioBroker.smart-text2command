@@ -42,6 +42,9 @@
   "confirmed.getState.on": "{device} {context} is on.",
   "confirmed.getState.off": "{device} {context} is off.",
   "confirmed.getState.other": "The switch state of {device} {context} is {value}.",
+  "boolean.on": "On",
+  "boolean.off": "Off",
+  "confirmed.getValue.boolean": "The value for {function} on {device} {context} is {value}.",
   "confirmed.getValue": "The value for {function} on {device} {context} is {value} {unit}.",
   "confirmed.noValue": "No value is currently available for {function} on {device} {context}.",
   "valueClarification": "Which value should I set?",
@@ -78,6 +81,5 @@
   "actionOnLabel": "on",
   "actionOffLabel": "off",
   "mediaPlanned": "The change for {device} is planned.",
-  "mediaAccepted": "The change for {device} was submitted.",
-  "error.COLOR_FORMAT_UNSUPPORTED": "This state does not support the color format."
+  "mediaAccepted": "The change for {device} was submitted."
 }

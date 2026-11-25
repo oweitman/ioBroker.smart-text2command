@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { validateCommandRequest } from './RequestValidator';
 import type { CommandController } from '../commands/CommandController';
 import type { DeviceCatalog } from '../devices/DeviceCatalog';
-import type { ActionKind } from '../devices/types';
+import type { ActionKind, BooleanWordOverrides } from '../devices/types';
 import { capabilityName } from '../devices/CapabilityName';
 import { isVisibleDevice } from '../devices/DeviceVisibility';
 import { defaultLanguage, isSupportedLanguage } from '../i18n/LanguageConfig';
@@ -278,6 +278,7 @@ export class MessageRouter {
         if (
             payload.enabled === undefined &&
             payload.aliases === undefined &&
+            payload.booleanWords === undefined &&
             payload.approval === undefined &&
             payload.approvals === undefined &&
             payload.revocations === undefined &&
@@ -293,6 +294,12 @@ export class MessageRouter {
             (!payload.aliases || typeof payload.aliases !== 'object' || Array.isArray(payload.aliases))
         ) {
             throw new Error('Invalid aliases');
+        }
+        if (
+            payload.booleanWords !== undefined &&
+            (!payload.booleanWords || typeof payload.booleanWords !== 'object' || Array.isArray(payload.booleanWords))
+        ) {
+            throw new Error('Invalid boolean words');
         }
         let approval: Payload | undefined;
         if (payload.approval !== undefined) {
@@ -311,6 +318,7 @@ export class MessageRouter {
             if (
                 payload.enabled !== undefined ||
                 payload.aliases !== undefined ||
+                payload.booleanWords !== undefined ||
                 payload.approval !== undefined ||
                 payload.revocations !== undefined ||
                 !Array.isArray(payload.approvals) ||
@@ -335,6 +343,7 @@ export class MessageRouter {
             if (
                 payload.enabled !== undefined ||
                 payload.aliases !== undefined ||
+                payload.booleanWords !== undefined ||
                 payload.approval !== undefined ||
                 payload.approvals !== undefined ||
                 !Array.isArray(payload.revocations) ||
@@ -359,6 +368,9 @@ export class MessageRouter {
         }
         if (payload.aliases !== undefined) {
             await this.options.catalog.setAliases(deviceId, payload.aliases);
+        }
+        if (payload.booleanWords !== undefined) {
+            await this.options.catalog.setBooleanWords(deviceId, payload.booleanWords as BooleanWordOverrides);
         }
         if (payload.relativeProfiles !== undefined) {
             const stateId = this.string(payload.stateId);

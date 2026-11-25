@@ -245,6 +245,15 @@ function DeviceCard({
             language,
         ),
     );
+    const [aliasesOpen, setAliasesOpen] = useState(false);
+    const [booleanWordsOpen, setBooleanWordsOpen] = useState(false);
+    const [booleanLanguage, setBooleanLanguage] = useState<Language>(language);
+    const [booleanWords, setBooleanWords] = useState<NonNullable<DeviceRecord['booleanWords']>>(
+        () => device.booleanWords ?? {},
+    );
+    const booleanCapabilities = device.discoveredCapabilities.filter(
+        capability => capability.kind === 'genericValue' && capability.valueKind === 'boolean' && capability.readable,
+    );
     const [relativeStateId, setRelativeStateId] = useState<string>();
     const relativeCapability = device.discoveredCapabilities.find(item => item.stateId === relativeStateId);
     const relativeKeys =
@@ -272,6 +281,12 @@ function DeviceCard({
             ),
         );
     }, [device.aliases, language]);
+    useEffect(() => {
+        setBooleanWords(device.booleanWords ?? {});
+    }, [device.booleanWords]);
+    useEffect(() => {
+        setBooleanLanguage(language);
+    }, [language]);
     const saveAliases = (): void => {
         try {
             const aliases: DeviceRecord['aliases'] = { ...device.aliases };
@@ -283,6 +298,37 @@ function DeviceCard({
         } catch (error) {
             onError(displayError(error));
         }
+    };
+    const saveBooleanWords = (): void => {
+        const overrides: NonNullable<DeviceRecord['booleanWords']> = {};
+        const eligibleIds = new Set(booleanCapabilities.map(capability => capability.stateId));
+        const currentIds = new Set(device.discoveredCapabilities.map(capability => capability.stateId));
+        for (const [stateId, translations] of Object.entries(booleanWords)) {
+            if (currentIds.has(stateId) && !eligibleIds.has(stateId)) {
+                continue;
+            }
+            for (const [code, pair] of Object.entries(translations)) {
+                const trueWord = pair?.true?.trim();
+                const falseWord = pair?.false?.trim();
+                if (trueWord || falseWord) {
+                    overrides[stateId] ??= {};
+                    overrides[stateId][code as Language] = {
+                        ...(trueWord ? { true: trueWord } : {}),
+                        ...(falseWord ? { false: falseWord } : {}),
+                    };
+                }
+            }
+        }
+        void update({ deviceId: device.id, booleanWords: overrides });
+    };
+    const changeBooleanWord = (stateId: string, code: Language, key: 'true' | 'false', value: string): void => {
+        setBooleanWords(current => ({
+            ...current,
+            [stateId]: {
+                ...current[stateId],
+                [code]: { ...current[stateId]?.[code], [key]: value },
+            },
+        }));
     };
     const countBatch = (scope: 'read' | 'write' | 'all', operation: 'grant' | 'revoke'): number =>
         (operation === 'grant' ? availableApprovals : approvedActions).filter(item =>
@@ -474,34 +520,6 @@ function DeviceCard({
                             </Box>
                         </Alert>
                     )}
-                    <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="subtitle1">{t('ui.device_names_and_aliases')}</Typography>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 1 }}
-                        >
-                            {t('ui.for_example_add_light_as_an_alias_for_a_lamp_separate_aliases_wi')}
-                        </Typography>
-                        <Stack spacing={1}>
-                            <LanguageValueTable
-                                rows={aliasRows}
-                                onChange={setAliasRows}
-                                languageHeader={t('ui.language')}
-                                valueHeader={t('ui.aliases')}
-                                valueLabel={t('ui.alias_names')}
-                                addLabel={t('ui.add_language')}
-                                removeLabel={t('ui.remove_language')}
-                            />
-                            <Button
-                                variant="outlined"
-                                onClick={saveAliases}
-                                sx={{ alignSelf: 'flex-start' }}
-                            >
-                                {t('ui.save_aliases')}
-                            </Button>
-                        </Stack>
-                    </Box>
                     <Box sx={{ mt: 2 }}>
                         <Typography variant="subtitle1">{t('ui.action_approvals')}</Typography>
                         <Stack
@@ -650,6 +668,137 @@ function DeviceCard({
                             </Stack>
                         </Box>
                     ))}
+                    <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <Button
+                            onClick={() => setAliasesOpen(open => !open)}
+                            aria-expanded={aliasesOpen}
+                            endIcon={aliasesOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        >
+                            {t('ui.device_names_and_aliases')}
+                        </Button>
+                        <Collapse
+                            in={aliasesOpen}
+                            unmountOnExit
+                        >
+                            <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ my: 1 }}
+                            >
+                                {t('ui.for_example_add_light_as_an_alias_for_a_lamp_separate_aliases_wi')}
+                            </Typography>
+                            <Stack spacing={1}>
+                                <LanguageValueTable
+                                    rows={aliasRows}
+                                    onChange={setAliasRows}
+                                    languageHeader={t('ui.language')}
+                                    valueHeader={t('ui.aliases')}
+                                    valueLabel={t('ui.alias_names')}
+                                    addLabel={t('ui.add_language')}
+                                    removeLabel={t('ui.remove_language')}
+                                />
+                                <Button
+                                    variant="outlined"
+                                    onClick={saveAliases}
+                                    sx={{ alignSelf: 'flex-start' }}
+                                >
+                                    {t('ui.save_aliases')}
+                                </Button>
+                            </Stack>
+                        </Collapse>
+                    </Box>
+                    {booleanCapabilities.length > 0 && (
+                        <Box sx={{ mt: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                            <Button
+                                onClick={() => setBooleanWordsOpen(open => !open)}
+                                aria-expanded={booleanWordsOpen}
+                                endIcon={booleanWordsOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                            >
+                                {t('ui.boolean_output_words')}
+                            </Button>
+                            <Collapse
+                                in={booleanWordsOpen}
+                                unmountOnExit
+                            >
+                                <Stack
+                                    spacing={2}
+                                    sx={{ mt: 1 }}
+                                >
+                                    <Typography
+                                        variant="body2"
+                                        color="text.secondary"
+                                    >
+                                        {t('ui.boolean_output_words_help')}
+                                    </Typography>
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label={t('ui.language')}
+                                        value={booleanLanguage}
+                                        onChange={event => setBooleanLanguage(event.target.value as Language)}
+                                        sx={{ maxWidth: 200 }}
+                                    >
+                                        {languageOptions.map(item => (
+                                            <MenuItem
+                                                key={item.code}
+                                                value={item.code}
+                                            >
+                                                {item.name}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+                                    {booleanCapabilities.map(capability => (
+                                        <Box key={capability.stateId}>
+                                            <Typography variant="subtitle2">
+                                                {displayCapabilityName(capability, language)}
+                                            </Typography>
+                                            <Typography
+                                                variant="caption"
+                                                color="text.secondary"
+                                            >
+                                                {capability.stateId}
+                                            </Typography>
+                                            <Stack
+                                                direction={{ xs: 'column', sm: 'row' }}
+                                                spacing={1}
+                                                sx={{ mt: 1 }}
+                                            >
+                                                {(['true', 'false'] as const).map(key => (
+                                                    <TextField
+                                                        key={key}
+                                                        size="small"
+                                                        label={t(`ui.boolean_word_${key}`)}
+                                                        value={
+                                                            booleanWords[capability.stateId]?.[booleanLanguage]?.[
+                                                                key
+                                                            ] ?? ''
+                                                        }
+                                                        placeholder={t(`ui.boolean_default_${key}`)}
+                                                        onChange={event =>
+                                                            changeBooleanWord(
+                                                                capability.stateId,
+                                                                booleanLanguage,
+                                                                key,
+                                                                event.target.value,
+                                                            )
+                                                        }
+                                                        slotProps={{ htmlInput: { maxLength: 100 } }}
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        </Box>
+                                    ))}
+                                    <Button
+                                        variant="outlined"
+                                        onClick={saveBooleanWords}
+                                        sx={{ alignSelf: 'flex-start' }}
+                                    >
+                                        {t('ui.save_boolean_words')}
+                                    </Button>
+                                </Stack>
+                            </Collapse>
+                        </Box>
+                    )}
                 </Collapse>
                 <ProfileDialog
                     open={!!relativeStateId && !!relativeKeys?.length}

@@ -1,5 +1,5 @@
 import { DeviceRegistry } from './DeviceRegistry';
-import type { ActionKind, Capability, DeviceRecord, DeviceStore } from './types';
+import type { ActionKind, BooleanWordOverrides, Capability, DeviceRecord, DeviceStore } from './types';
 import type { DeviceRepository } from '../storage/DeviceRepository';
 import type { RelativeProfiles } from '../commands/RelativeValue';
 export class DeviceCatalog {
@@ -45,6 +45,9 @@ export class DeviceCatalog {
     }
     public async setAliases(deviceId: string, aliases: DeviceRecord['aliases']): Promise<void> {
         await this.update(registry => registry.setAliases(deviceId, aliases));
+    }
+    public async setBooleanWords(deviceId: string, overrides: BooleanWordOverrides): Promise<void> {
+        await this.update(registry => registry.setBooleanWords(deviceId, overrides));
     }
     public async approve(deviceId: string, stateId: string, action: ActionKind): Promise<void> {
         await this.update(registry => registry.approve(deviceId, stateId, action));

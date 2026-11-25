@@ -359,11 +359,17 @@ function planResponse(
     roomName: string | undefined,
     resultValue?: boolean | number | string | null,
     requested?: { value: number; type: string },
+    device?: DeviceRecord,
 ): string {
     const context = roomName ? responseText(language, 'roomContext', { room: roomName }) : '';
     const value = phase === 'confirmed' ? resultValue : (requested?.value ?? plan.value);
     const formattedValue =
-        typeof value === 'number' ? new Intl.NumberFormat(language).format(value) : String(value ?? '');
+        typeof value === 'boolean'
+            ? (device?.booleanWords?.[plan.capability.stateId]?.[language]?.[value ? 'true' : 'false'] ??
+              languageMessage(language, value ? 'boolean.on' : 'boolean.off'))
+            : typeof value === 'number'
+              ? new Intl.NumberFormat(language).format(value)
+              : String(value ?? '');
     const values = {
         device: deviceName,
         context,
@@ -383,6 +389,9 @@ function planResponse(
                 return responseText(language, 'confirmed.getState.off', values);
             }
             return responseText(language, 'confirmed.getState.other', values);
+        }
+        if (plan.action === 'getValue' && typeof value === 'boolean') {
+            return responseText(language, 'confirmed.getValue.boolean', values);
         }
     }
     return responseText(language, `${phase}.${plan.action}`, values);
@@ -1714,7 +1723,16 @@ export class CommandController {
                 executed.status === 'accepted'
                     ? planResponse(language, plan, 'accepted', deviceName, roomName, undefined, requested)
                     : executed.status === 'confirmed'
-                      ? planResponse(language, plan, 'confirmed', deviceName, roomName, executed.value)
+                      ? planResponse(
+                            language,
+                            plan,
+                            'confirmed',
+                            deviceName,
+                            roomName,
+                            executed.value,
+                            undefined,
+                            device,
+                        )
                       : languageMessage(language, `error.${executed.message ?? ''}`, 'executionFailed'),
             errorCode: executed.status === 'rejected' || executed.status === 'failed' ? executed.message : undefined,
             actions: [executed],

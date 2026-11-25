@@ -43,14 +43,14 @@ exist; you do not need to delete data points.
 
 ## Supported commands
 
-| Purpose                 | Example                                                                                                                       | Requirement                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Switch a device         | "Turn on the lamp in the living room" / "Turn it off"                                                                         | Writable boolean state with role `switch`; approve `turnOn`/`turnOff`               |
-| Read the switch state   | "Is the lamp in the living room on?"                                                                                          | The same state must be readable; approve `getState`                                 |
-| Set a numeric value     | "Set the brightness to 40 percent" or "Set the slats in the living room to 50 percent"                                        | Writable state with role `value`/`value.*` or `level`/`level.*`; approve `setValue` |
-| Read a value            | "How warm is it in the bedroom?" or "What is the value of the slats in the living room?"                                      | Readable value state; approve `getValue`                                            |
-| Press a button          | "Press the UP button on the shutter in the living room"                                                                       | Writable boolean state with role `button`/`button.*`; approve `press`               |
-| Ask about the inventory | "Which rooms do you know?", "Which devices are in the living room?", "Which functions does the lamp in the living room have?" | Available, enabled, and approved devices                                            |
+| Purpose                 | Example                                                                                                                       | Requirement                                                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Switch a device         | "Turn on the lamp in the living room" / "Turn it off"                                                                         | Writable boolean state with role `switch`; approve `turnOn`/`turnOff`                                                      |
+| Read the switch state   | "Is the lamp in the living room on?"                                                                                          | The same state must be readable; approve `getState`                                                                        |
+| Set a numeric value     | "Set the brightness to 40 percent" or "Set the slats in the living room to 50 percent"                                        | Writable state with role `value`/`value.*` or `level`/`level.*`; approve `setValue`                                        |
+| Read a value            | "How warm is it in the bedroom?" or "What is the value of the slats in the living room?"                                      | Readable `value`/`value.*`, `level`/`level.*`, `sensor`/`sensor.*`, or `indicator`/`indicator.*` state; approve `getValue` |
+| Press a button          | "Press the UP button on the shutter in the living room"                                                                       | Writable boolean state with role `button`/`button.*`; approve `press`                                                      |
+| Ask about the inventory | "Which rooms do you know?", "Which devices are in the living room?", "Which functions does the lamp in the living room have?" | Available, enabled, and approved devices                                                                                   |
 
 An ioBroker **function** from `enum.functions.*` groups a device,
 for example under "Lighting" or "Shading". A **data point** name identifies a
@@ -58,6 +58,11 @@ specific property, such as "Position" or "Slats". The adapter uses `common.name`
 first, then the last segment of the state ID. You can also define device aliases
 for each language. Add a new name for a device as an alias; this does not require
 retraining the model.
+
+Boolean `sensor` and `indicator` states, including their subroles, are available
+as generic read-only values. Responses say `On`/`Off` in English or `An`/`Aus`
+in German without inferring meanings such as open/closed or alarm/normal from
+the subrole.
 
 Numbers may arrive as words, such as "fifty percent", "twenty-one point five",
 or "einundzwanzig Komma fünf". If a write command has no value, the adapter asks
@@ -76,8 +81,8 @@ in the Devices tab.
 
 The two documents provide an overview of the possibilities of command sentences.
 
-- [English](documentation\ExampleSentences-en.md)
-- [Deutsch](documentation\Beispielsaetze-de.md)
+- [English](documentation/ExampleSentences-en.md)
+- [Deutsch](documentation/Beispielsaetze-de.md)
 
 ## Manage devices and approvals
 
@@ -87,6 +92,10 @@ device name. Each card shows room and function assignments, aliases, and the
 available read and write actions for each data point. Device-wide controls let
 you approve or revoke several read or write actions at once; individual controls
 remain available.
+
+Below the action approvals, you can expand the alias editor and, for readable
+boolean data points, the output-word editor. Output words are optional per data
+point and language; empty fields retain the default `An`/`Aus` or `On`/`Off`.
 
 New devices are disabled by default. Before approving an action, check its
 target state, data type, value range, and read/write permissions. Unknown or
@@ -266,6 +275,14 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
+
+### **WORK IN PROGRESS**
+
+- add roles sensor and indicator
+- By default, the system responds to Boolean values ​​with "An/Aus" or "On/Off."
+  It is also possible to define custom terms—for example, for a door, you could
+  use "geöffnet/geschlossen" or "opened/closed."
+
 ### 0.0.16 (2026-11-25)
 
 - add clarification functionality for sendto scripts
