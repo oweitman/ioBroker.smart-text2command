@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.15",
+    "version": "0.0.16",
     "news": {
+      "0.0.16": {
+        "en": "add clarification functionality for sendto scripts",
+        "de": "Klärfunktion für SendTo-Skripte hinzufügen",
+        "ru": "добавить функцию уточнения для скриптов sendto",
+        "pt": "adicionar funções de clarificação para scripts sendto",
+        "nl": "verduidelijkingsfunctionaliteit toevoegen voor sendto-scripts",
+        "fr": "ajouter une fonction de clarification pour Sendto",
+        "it": "aggiungere chiarimenti per gli script sendto",
+        "es": "añadir una función de aclaración a los guiones sendto",
+        "pl": "dodaj funkcję wyjaśnienia dla skryptów sendto",
+        "uk": "додати функціональність уточнення для сценаріїв sendto",
+        "zh-cn": "为 sendto 脚本添加澄清功能"
+      },
       "0.0.15": {
         "en": "- Performance improved; external objects are no longer continuously\n  monitored for changes.",
         "de": "- Leistung verbessert; externe Objekte sind nicht mehr ständig\n  auf Änderungen überwacht.",
@@ -80,19 +93,6 @@
         "pl": "zamiar naprawy edytuj\ndodaj ciągi zapisu do punktu danych\ndodaj sendto z parametrami jako możliwością intencji",
         "uk": "редагування наміру ремонту\nдодати рядки запису до точки даних\nдодати sendto з параметрами як можливість наміру",
         "zh-cn": "修复意图编辑\n向 dataPoint 添加写入字符串\n添加带有参数的 sendto 作为意图功能"
-      },
-      "0.0.8": {
-        "en": "fix problem with missing crypto api",
-        "de": "Problem mit fehlender Krypto-API lösen",
-        "ru": "исправить проблему с отсутствующим криптографическим API",
-        "pt": "corrija a falta de cripto api",
-        "nl": "probleem met ontbrekende crypto-api oplossen",
-        "fr": "corriger une API cryptée manquante",
-        "it": "risolvere la mancanza di crypto api",
-        "es": "corregir un problema con la API criptográfica",
-        "pl": "naprawić problem z brakującym kryptograficznym API",
-        "uk": "виправити проблему з відсутнім крипто-api",
-        "zh-cn": "修复缺少加密 API 的问题"
       }
     },
     "titleLang": {

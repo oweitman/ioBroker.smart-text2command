@@ -266,8 +266,7 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
-
-### **WORK IN PROGRESS**
+### 0.0.16 (2026-11-25)
 
 - add clarification functionality for sendto scripts
 
@@ -291,13 +290,6 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
 
 - extend session log for external sendtos (must be activated)
 - improve intents for commands without values with followup-question
-
-### 0.0.10 (2026-11-15)
-
-- add translate spoken numbers
-- add intents to ask for rooms, devices amd functions
-- The "Devices" tab only displays devices that are assigned to at least
-  one room or function
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
