@@ -2,6 +2,11 @@
 
 This file contains older changes of ioBroker.poolcontrol.  
 Recent changes can be found in the README.md.
+## 0.0.11 (2026-11-15)
+
+- extend session log for external sendtos (must be activated)
+- improve intents for commands without values with followup-question
+
 ## 0.0.10 (2026-11-15)
 
 - add translate spoken numbers

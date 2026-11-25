@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "smart-text2command",
-    "version": "0.0.16",
+    "version": "0.0.17",
     "news": {
+      "0.0.17": {
+        "en": "- add roles sensor and indicator\n- By default, the system responds to Boolean values ​​with \"An/Aus\" or \"On/Off.\"\n  It is also possible to define custom terms—for example, for a door, you could\n  use \"geöffnet/geschlossen\" or \"opened/closed.\"",
+        "de": "- Fügt Fühler und Blinker hinzu\n- Das System reagiert auf Boolesche Werte mit „An/Aus“ oder „On/Off“.\n  Es ist auch möglich, eigene Begriffe zu definieren — z. B. für eine Tür\n  Verwenden Sie „geöffnet/geschlossen“.",
+        "ru": "- добавить роли, датчик и индикатор\n- По умолчанию система реагирует на логические значения нажатием «An/Aus» или «On/Off».\n  Также можно определить собственные термины, например, для двери вы можете\n  используйте «geöffnet/geschlossen» или «открыто/закрыто».",
+        "pt": "- adicione sensor e indicador\n- Por padrão, o sistema responde aos booleanos com “An/Aus” ou “On/Off”.\n  Também é possível personalizar termos, por exemplo, para uma porta\n  use “geöffnet/fechado” ou “aberto/fechado”.",
+        "nl": "- rol, sensor en indicator toevoegen\n- Het systeem reageert standaard op Booleaanse waarden met „An/Aus” of „On/Off”.\n  Het is ook mogelijk om aangepaste termen te definiëren, bijvoorbeeld voor een deur kunt u\n  gebruik „geöffnet/geschlossen” of „geopend/gesloten”.",
+        "fr": "- ajout d'un capteur et d'un voyant\n- Par défaut, le système répond aux valeurs booléennes par « An/Aus » ou « On/Off ».\n  Il est également possible de définir des termes personnalisés. Par exemple, pour une porte\n  utilisez « geöffnet/geschlossen » ou « ouvert/fermé ».",
+        "it": "- aggiungere sensori e indicatori\n- Di default, il sistema risponde ai valori booleani con «An/Aus» o «On/Off».\n  È anche possibile definire termini personalizzati, ad esempio una porta\n  usi «geöffnet/geschlossen» o «aperto/chiuso».",
+        "es": "- añadir sensor e indicador de roles\n- Por defecto, el sistema responde a los valores booleanos con «An/Aus» o «On/Off».\n  También es posible definir términos personalizados, por ejemplo, para una puerta\n  use «geöffnet/geschlossen» o «abierto/cerrado».",
+        "pl": "- dodaj czujnik ról i wskaźnik\n- Domyślnie system odpowiada na wartości logiczne za pomocą „An/Aus” lub „On/Off”.\n  Możliwe jest również zdefiniowanie niestandardowych terminów — na przykład w przypadku drzwi można\n  użyj „geöffnet/geschlossen” lub „otwarta/zamknięta”.",
+        "uk": "- Додати ролей датчика і індикатор\n- За замовчуванням система реагує на булеві значення за допомогою «An/Aus» або «On/Off».\n  Також можна визначити власні терміни - наприклад, для дверей ви можете\n  використовуйте «geöffnet/geschlossen» або «відкрито/закрито».",
+        "zh-cn": "-添加角色传感器和指示器\n-默认情况下，系统以 “An/Aus” 或 “开/关” 来响应布尔值。\n  也可以定义自定义术语——例如，对于一扇门，你可以\n  使用 “geöffnet/geschlossen” 或 “打开/关闭”。"
+      },
       "0.0.16": {
         "en": "add clarification functionality for sendto scripts",
         "de": "Klärfunktion für SendTo-Skripte hinzufügen",
@@ -80,19 +93,6 @@
         "pl": "dodaj przetłumacz liczby mówione\ndodaj zamiary, aby zapytać o pokoje, urządzenia i funkcje\nZakładka „Urządzenia” wyświetla tylko urządzenia, które są przypisane do co najmniej jednego pomieszczenia lub funkcji",
         "uk": "додати переклад розмовних номерів\nдодати наміри запитати кімнати, пристрої та функції\nНа вкладці «Пристрої» відображаються лише пристрої, призначені принаймні для однієї кімнати або функції",
         "zh-cn": "添加翻译口语数字\n添加询问房间、设备和功能的意图\n“设备” 选项卡仅显示分配给至少一个房间或功能的设备"
-      },
-      "0.0.9": {
-        "en": "repair intent edit\nadd write strings to datapoint\nadd sendto with parameters as a intent capability",
-        "de": "Reparaturvorsatz\nWrite-Text zu Datapoint hinzufügen\nSendto mit Parametern als Absicht hinzufügen",
-        "ru": "изменение намерения ремонта\nдобавить строки записи в точку данных\nдобавьте функцию sendto с параметрами в качестве возможности намерения",
-        "pt": "intenção de reparo\nadicionar strings ao datapoint\nadicione sendto com parâmetros como intenção",
-        "nl": "intentie voor de reparatie, bewerken\nschrijfreeksen aan datapunt toevoegen\nsendto toevoegen met parameters als intentiemogelijkheid",
-        "fr": "repair intent edit\najouter des chaînes d'écriture\najouter sendto avec des paramètres comme intention",
-        "it": "intento di riparazione\naggiungere stringhe al datapoint\naggiungere sendto con parametri come intento",
-        "es": "reparar intento editar\nañadir cadenas al punto de datos\nañadir sendto con parámetros como capacidad de intención",
-        "pl": "zamiar naprawy edytuj\ndodaj ciągi zapisu do punktu danych\ndodaj sendto z parametrami jako możliwością intencji",
-        "uk": "редагування наміру ремонту\nдодати рядки запису до точки даних\nдодати sendto з параметрами як можливість наміру",
-        "zh-cn": "修复意图编辑\n向 dataPoint 添加写入字符串\n添加带有参数的 sendto 作为意图功能"
       }
     },
     "titleLang": {

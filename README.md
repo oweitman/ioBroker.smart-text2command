@@ -275,8 +275,7 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
-
-### **WORK IN PROGRESS**
+### 0.0.17 (2026-11-25)
 
 - add roles sensor and indicator
 - By default, the system responds to Boolean values ​​with "An/Aus" or "On/Off."
@@ -302,11 +301,6 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
 - rework readme
 - Own intents can now also be maintained in just a single language.
 - fix test
-
-### 0.0.11 (2026-11-15)
-
-- extend session log for external sendtos (must be activated)
-- improve intents for commands without values with followup-question
 
 [Older changelogs can be found there](CHANGELOG_OLD.md)
 
