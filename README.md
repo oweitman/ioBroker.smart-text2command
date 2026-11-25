@@ -266,6 +266,11 @@ More information: [test guide](documentation/TESTANLEITUNG.md),
    ### **WORK IN PROGRESS**
 
 -->
+
+### **WORK IN PROGRESS**
+
+- add clarification functionality for sendto scripts
+
 ### 0.0.15 (2026-11-24)
 
 - Performance improved; external objects are no longer continuously

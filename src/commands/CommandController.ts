@@ -9,7 +9,14 @@ import type { ValueDomain } from '../devices/ValueDomain';
 import { parseEntities, withoutDeviceNameNumbers } from '../nlp/EntityParser';
 import type { NlpEngine } from '../nlp/NlpEngine';
 import type { IntentDefinition, SendToIntentAction } from '../nlp/types';
-import { extractParameters, fillPayload, matchesSendToPattern, parseParameter } from '../nlp/SendToAction';
+import {
+    extractParameters,
+    fillPayload,
+    hasClarificationPlaceholder,
+    matchesSendToPattern,
+    parseParameter,
+} from '../nlp/SendToAction';
+import type { SendToSelection } from '../nlp/SendToAction';
 import { SessionStore } from '../dialog/SessionStore';
 import type { PendingClarification } from '../dialog/SessionStore';
 import type { AuditRepository } from '../storage/AuditRepository';
@@ -666,6 +673,44 @@ export class CommandController {
                     model.version,
                     { ...pending.parameterValues, [parameter.name]: value },
                     details,
+                );
+            }
+            if (pending.key === 'sendToOption') {
+                const configured = userIntents.find(item => item.id === pending.intent && item.enabled);
+                if (configured?.action?.kind !== 'sendTo') {
+                    return this.reject(request, language, 'UNSUPPORTED_ACTION');
+                }
+                const answer = request.selection ?? request.text;
+                let ids = matchingOptionIds(answer, pending.options ?? [], language);
+                if (!ids.length) {
+                    const spokenNumber = parseParameter(
+                        answer,
+                        'number',
+                        language,
+                        languageRules(language).spokenNumbers,
+                    );
+                    if (typeof spokenNumber === 'number' && Number.isInteger(spokenNumber)) {
+                        ids = matchingOptionIds(String(spokenNumber), pending.options ?? [], language);
+                    }
+                }
+                const selectedId = ids.length === 1 ? ids[0] : undefined;
+                const selectedValue = selectedId ? pending.optionValues?.[selectedId] : undefined;
+                const selectedOption = pending.options?.find(option => option.id === selectedId);
+                if (selectedValue === undefined || !selectedOption) {
+                    return this.repeatClarification(request, pending, model.version);
+                }
+                this.sessions.consume(pending.id, clientKey, request.sessionId);
+                return this.processSendTo(
+                    request,
+                    clientKey,
+                    language,
+                    configured.action,
+                    pending.intent,
+                    pending.confidence,
+                    model.version,
+                    pending.parameterValues ?? {},
+                    details,
+                    { id: selectedOption.id, label: selectedOption.label, value: selectedValue, answer: request.text },
                 );
             }
             if (pending.key === 'action') {
@@ -2602,6 +2647,7 @@ export class CommandController {
         modelVersion: string | undefined,
         values: Record<string, string | number>,
         details: NonNullable<CommandResult['analysis']>,
+        selection?: SendToSelection,
     ): Promise<CommandResult> {
         const missing = action.parameters.filter(item => values[item.name] === undefined);
         details.sendTo = {
@@ -2656,7 +2702,7 @@ export class CommandController {
             const rawCallback = await this.sendOutbound(
                 action.instance,
                 action.command,
-                fillPayload(action.payloadTemplate, values),
+                fillPayload(action.payloadTemplate, values, selection),
             );
             details.sendTo.rawCallback = diagnosticSnapshot(rawCallback);
             if (rawCallback instanceof Error) {
@@ -2676,12 +2722,71 @@ export class CommandController {
             const reply = result as Record<string, unknown>;
             if (
                 reply.version !== 1 ||
-                (reply.status !== 'success' && reply.status !== 'error') ||
+                (reply.status !== 'success' && reply.status !== 'error' && reply.status !== 'clarification') ||
                 typeof reply.text !== 'string' ||
                 !reply.text.trim() ||
                 reply.text.length > 2000
             ) {
                 return this.sendToError(request, language, intent, confidence, modelVersion, 'SENDTO_INVALID_RESPONSE');
+            }
+            if (reply.status === 'clarification') {
+                const options = reply.options;
+                if (
+                    !hasClarificationPlaceholder(action.payloadTemplate) ||
+                    !Array.isArray(options) ||
+                    options.length < 2 ||
+                    options.length > 10 ||
+                    options.some(
+                        option =>
+                            !option ||
+                            typeof option !== 'object' ||
+                            typeof option.id !== 'string' ||
+                            !option.id.trim() ||
+                            option.id.length > 100 ||
+                            typeof option.label !== 'string' ||
+                            !option.label.trim() ||
+                            option.label.length > 200 ||
+                            typeof option.value !== 'string' ||
+                            !option.value.trim() ||
+                            option.value.length > 2000,
+                    ) ||
+                    new Set(options.map(option => normalizeReply(option.id))).size !== options.length
+                ) {
+                    return this.sendToError(
+                        request,
+                        language,
+                        intent,
+                        confidence,
+                        modelVersion,
+                        'SENDTO_INVALID_RESPONSE',
+                    );
+                }
+                const choices = options.map(option => ({ id: option.id as string, label: option.label as string }));
+                const pending = this.sessions.create({
+                    key: 'sendToOption',
+                    clientKey,
+                    sessionId: request.sessionId,
+                    request,
+                    language,
+                    action: 'sendTo',
+                    intent,
+                    confidence,
+                    deviceIds: [],
+                    question: reply.text,
+                    options: choices,
+                    optionValues: Object.fromEntries(options.map(option => [option.id, option.value])),
+                    parameterValues: values,
+                });
+                return {
+                    requestId: request.requestId,
+                    status: 'clarification',
+                    language,
+                    intent,
+                    confidence,
+                    response: reply.text,
+                    clarification: { id: pending.id, key: 'sendToOption', options: choices },
+                    modelVersion,
+                };
             }
             return {
                 requestId: request.requestId,

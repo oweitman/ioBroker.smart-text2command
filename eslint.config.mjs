@@ -1,6 +1,10 @@
 import config from '@iobroker/eslint-config';
 
 export default [
+    {
+        // Dieses Objekt muss allein stehen, damit es global gilt!
+        ignores: ['documentation/examples/**'],
+    },
     ...config,
     {
         files: ['src/**/*.ts', 'src-admin/**/*.tsx', 'test/**/*.ts'],

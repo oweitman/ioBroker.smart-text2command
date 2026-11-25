@@ -10,6 +10,27 @@ const TARGET = /^[A-Za-z][A-Za-z0-9_-]*\.[0-9]+$/;
 const COMMAND = /^[A-Za-z][A-Za-z0-9_.-]{0,99}$/;
 const escape = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+export interface SendToSelection {
+    id: string;
+    label: string;
+    value: string;
+    answer: string;
+}
+
+export function hasClarificationPlaceholder(template: unknown): boolean {
+    if (Array.isArray(template)) {
+        return template.some(hasClarificationPlaceholder);
+    }
+    if (template && typeof template === 'object') {
+        const object = template as Record<string, unknown>;
+        return (
+            (Object.keys(object).length === 1 && object.$clarification === 'selection') ||
+            Object.values(object).some(hasClarificationPlaceholder)
+        );
+    }
+    return false;
+}
+
 export function validateSendToAction(
     action: SendToIntentAction,
     languages: Language[] = supportedLanguages.map(item => item.code),
@@ -48,7 +69,11 @@ export function validateSendToAction(
         }
         if (value && typeof value === 'object') {
             const object = value as Record<string, unknown>;
-            if ('$param' in object) {
+            if ('$clarification' in object) {
+                if (Object.keys(object).length !== 1 || object.$clarification !== 'selection') {
+                    throw new Error('Invalid clarification placeholder');
+                }
+            } else if ('$param' in object) {
                 if (
                     Object.keys(object).length !== 1 ||
                     typeof object.$param !== 'string' ||
@@ -185,16 +210,25 @@ export function matchesSendToPattern(action: SendToIntentAction, text: string, l
     return (action.extractionPatterns?.[language] ?? []).some(pattern => compilePattern(pattern).regex.test(text));
 }
 
-export function fillPayload(template: unknown, values: Record<string, string | number>): unknown {
+export function fillPayload(
+    template: unknown,
+    values: Record<string, string | number>,
+    selection?: SendToSelection,
+): unknown {
     if (Array.isArray(template)) {
-        return template.map(item => fillPayload(item, values));
+        return template.map(item => fillPayload(item, values, selection));
     }
     if (template && typeof template === 'object') {
         const object = template as Record<string, unknown>;
+        if (Object.keys(object).length === 1 && object.$clarification === 'selection') {
+            return selection ?? null;
+        }
         if (Object.keys(object).length === 1 && typeof object.$param === 'string') {
             return values[object.$param];
         }
-        return Object.fromEntries(Object.entries(object).map(([key, value]) => [key, fillPayload(value, values)]));
+        return Object.fromEntries(
+            Object.entries(object).map(([key, value]) => [key, fillPayload(value, values, selection)]),
+        );
     }
     return template;
 }

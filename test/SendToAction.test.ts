@@ -22,7 +22,11 @@ describe('configured sendTo intent', () => {
         payloadTemplate: {
             script: 'script.js.common.Target',
             message: 'run',
-            data: { value: { $param: 'wert' }, text: { $param: 'text' } },
+            data: {
+                value: { $param: 'wert' },
+                text: { $param: 'text' },
+                clarification: { $clarification: 'selection' },
+            },
         },
         parameters: [
             { name: 'wert', type: 'number', prompt: { de: 'Welcher Wert?', en: 'Which value?' } },
@@ -71,7 +75,27 @@ describe('configured sendTo intent', () => {
         expect(payload).to.deep.equal({
             script: 'script.js.common.Target',
             message: 'run',
-            data: { value: 42.5, text: 'Hello' },
+            data: { value: 42.5, text: 'Hello', clarification: null },
+        });
+        expect(
+            fillPayload(
+                action.payloadTemplate,
+                { wert: 42.5, text: 'Hello' },
+                {
+                    id: '2',
+                    label: 'Barazza',
+                    value: 'favorite-id-2',
+                    answer: 'zwei',
+                },
+            ),
+        ).to.deep.equal({
+            script: 'script.js.common.Target',
+            message: 'run',
+            data: {
+                value: 42.5,
+                text: 'Hello',
+                clarification: { id: '2', label: 'Barazza', value: 'favorite-id-2', answer: 'zwei' },
+            },
         });
         expect((action.payloadTemplate as { data: { value: unknown } }).data.value).to.deep.equal({ $param: 'wert' });
         expect(() => validateSendToAction({ ...action, payloadTemplate: { value: { $param: 'unknown' } } })).to.throw();
@@ -314,6 +338,11 @@ describe('configured sendTo intent', () => {
                 undefined,
                 (instance, command, payload) => {
                     sends.push({ instance, command, payload });
+                    const selection = (payload as { data?: { clarification?: { value?: string } } }).data
+                        ?.clarification;
+                    if (selection?.value) {
+                        return Promise.resolve({ version: 1, status: 'success', text: selection.value });
+                    }
                     return targetReply instanceof Error ? Promise.reject(targetReply) : Promise.resolve(targetReply);
                 },
             );
@@ -370,7 +399,7 @@ describe('configured sendTo intent', () => {
                 payload: {
                     script: 'script.js.common.Target',
                     message: 'run',
-                    data: { value: 21, text: 'Hallo Welt' },
+                    data: { value: 21, text: 'Hallo Welt', clarification: null },
                 },
             });
             const wrappedReply = {
@@ -387,6 +416,107 @@ describe('configured sendTo intent', () => {
             expect(wrapped).to.include({ status: 'success', response: 'Antwort aus JavaScript.' });
             expect(wrapped.analysis?.sendTo?.rawCallback).to.deep.equal(wrappedReply);
             expect(wrapped.analysis?.sendTo?.message).to.deep.equal(wrappedReply.message);
+            targetReply = {
+                version: 1,
+                status: 'clarification',
+                text: 'Welchen Favoriten meinst du? 1: Baraza, 2: Barazza.',
+                options: [
+                    { id: '1', label: 'Baraza', value: 'favorite-id-1' },
+                    { id: '2', label: 'Barazza', value: 'favorite-id-2' },
+                ],
+            };
+            const chooseNumber = await controller.process(
+                {
+                    requestId: 'choose-number',
+                    sessionId: 'favorite',
+                    text: 'Sende Wert 6 mit Text Test',
+                    mode: 'execute',
+                },
+                'user-a',
+            );
+            expect(chooseNumber).to.include({ status: 'clarification' });
+            expect(chooseNumber.clarification).to.include({ key: 'sendToOption' });
+            expect(chooseNumber.clarification?.options).to.deep.equal([
+                { id: '1', label: 'Baraza' },
+                { id: '2', label: 'Barazza' },
+            ]);
+            const sendsBeforeSelection = sends.length;
+            const numberResult = await controller.process(
+                {
+                    requestId: 'number-result',
+                    sessionId: 'favorite',
+                    text: '2',
+                    mode: 'execute',
+                    clarificationId: chooseNumber.clarification!.id,
+                },
+                'user-a',
+            );
+            expect(numberResult).to.include({ status: 'success', response: 'favorite-id-2' });
+            expect(sends).to.have.length(sendsBeforeSelection + 1);
+            expect(sends.at(-1)).to.deep.equal({
+                instance: 'javascript.0',
+                command: 'toScript',
+                payload: {
+                    script: 'script.js.common.Target',
+                    message: 'run',
+                    data: {
+                        value: 6,
+                        text: 'Test',
+                        clarification: { id: '2', label: 'Barazza', value: 'favorite-id-2', answer: '2' },
+                    },
+                },
+            });
+            const chooseName = await controller.process(
+                {
+                    requestId: 'choose-name',
+                    sessionId: 'favorite',
+                    text: 'Sende Wert 6 mit Text Test',
+                    mode: 'execute',
+                },
+                'user-a',
+            );
+            const invalidChoice = await controller.process(
+                {
+                    requestId: 'invalid-choice',
+                    sessionId: 'favorite',
+                    text: '3',
+                    mode: 'execute',
+                    clarificationId: chooseName.clarification!.id,
+                },
+                'user-a',
+            );
+            expect(invalidChoice).to.include({ status: 'clarification', errorCode: 'INVALID_SELECTION' });
+            const nameResult = await controller.process(
+                {
+                    requestId: 'name-result',
+                    sessionId: 'favorite',
+                    text: 'Baraza',
+                    mode: 'execute',
+                    clarificationId: chooseName.clarification!.id,
+                },
+                'user-a',
+            );
+            expect(nameResult).to.include({ status: 'success', response: 'favorite-id-1' });
+            const chooseSpokenNumber = await controller.process(
+                {
+                    requestId: 'choose-spoken-number',
+                    sessionId: 'favorite',
+                    text: 'Sende Wert 6 mit Text Test',
+                    mode: 'execute',
+                },
+                'user-a',
+            );
+            const spokenNumberResult = await controller.process(
+                {
+                    requestId: 'spoken-number-result',
+                    sessionId: 'favorite',
+                    text: 'zwei',
+                    mode: 'execute',
+                    clarificationId: chooseSpokenNumber.clarification!.id,
+                },
+                'user-a',
+            );
+            expect(spokenNumberResult).to.include({ status: 'success', response: 'favorite-id-2' });
             targetReply = { version: 1, status: 'error', text: 'Befehl abgelehnt.' };
             const failed = await controller.process(
                 { requestId: 'target-error', text: 'Sende Wert 7 mit Text Test', mode: 'execute' },

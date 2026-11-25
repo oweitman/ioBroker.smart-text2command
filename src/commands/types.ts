@@ -41,7 +41,8 @@ export interface CommandResult {
             | 'mediaDevice'
             | 'capability'
             | 'value'
-            | 'parameter';
+            | 'parameter'
+            | 'sendToOption';
         parameter?: string;
         options?: Array<{ id: string; label: string }>;
     };

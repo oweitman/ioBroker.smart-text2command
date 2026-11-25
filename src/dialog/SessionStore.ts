@@ -15,7 +15,8 @@ export interface PendingClarification {
         | 'mediaDevice'
         | 'capability'
         | 'value'
-        | 'parameter';
+        | 'parameter'
+        | 'sendToOption';
     clientKey: string;
     sessionId?: string;
     request: CommandRequest;
@@ -32,6 +33,7 @@ export interface PendingClarification {
     parameterName?: string;
     parameterValues?: Record<string, string | number>;
     options?: Array<{ id: string; label: string }>;
+    optionValues?: Record<string, string>;
     expiresAt: number;
 }
 
